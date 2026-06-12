@@ -35,7 +35,7 @@ export function AdminSidebar({
         }`}
         aria-hidden={!open}
       >
-        <div className="flex h-20 shrink-0 items-center justify-center border-b border-zinc-200 px-4 sm:h-24">
+        <div className="admin-header-bar flex items-center justify-center border-b border-zinc-200 px-4">
           <Link
             href="/admin"
             onClick={onClose}
@@ -45,7 +45,7 @@ export function AdminSidebar({
             <img
               src={BRAND_LOGO_URL}
               alt={`${BRAND_NAME} Logo`}
-              className="h-16 w-full object-contain object-center sm:h-20"
+              className="h-14 w-full object-contain object-center sm:h-16"
             />
           </Link>
         </div>

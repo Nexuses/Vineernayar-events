@@ -35,7 +35,7 @@ export function AdminShell({
         />
       )}
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
-        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-2 border-b border-zinc-200 bg-white px-3 sm:h-20 sm:justify-end sm:px-4">
+        <header className="admin-header-bar sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-zinc-200 bg-white px-3 sm:justify-end sm:px-4">
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
