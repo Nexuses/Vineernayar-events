@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getRegistrationByCode } from "@/lib/models/Registration";
-import { buildGoogleCalendarUrl, formatEventDateTime } from "@/lib/date-utils";
+import { buildGoogleCalendarUrl, formatEventDateTime, resolveEventEndDate } from "@/lib/date-utils";
 import { BRAND_LOGO_URL, BRAND_NAME } from "@/lib/constants";
 import { PassActions } from "./PassActions";
 
@@ -28,11 +28,12 @@ export default async function PassPage({
   const qrUrl = `/api/qr?code=${encodeURIComponent(reg.uniqueCode)}`;
   const firstName = capitalizeFirst(reg.firstName);
   const surname = capitalizeFirst(reg.surname);
+  const eventEndDate = resolveEventEndDate(reg.eventStartDate, reg.eventEndDate);
 
   const calendarUrl = buildGoogleCalendarUrl({
     title: reg.eventName,
     start: reg.eventStartDate,
-    end: reg.eventEndDate,
+    end: eventEndDate,
     details: `Venue: ${reg.venue}`,
     location: reg.venue,
   });
@@ -103,7 +104,7 @@ export default async function PassPage({
                 </div>
                 <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-6">
                   <dt className="min-w-0 shrink-0 font-medium">End Date</dt>
-                  <dd className="sm:flex-1 sm:text-center">{formatEventDateTime(reg.eventEndDate)}</dd>
+                  <dd className="sm:flex-1 sm:text-center">{formatEventDateTime(eventEndDate)}</dd>
                 </div>
                 <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-6">
                   <dt className="min-w-0 shrink-0 font-medium">Venue</dt>

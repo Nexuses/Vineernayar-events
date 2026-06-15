@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminFromCookie } from "@/lib/auth";
-import { parseEventDateTime } from "@/lib/date-utils";
+import { parseEventDateTime, assertEventEndAfterStart } from "@/lib/date-utils";
 import { createEvent, listEvents } from "@/lib/models/Event";
 import { saveBannerFile } from "@/lib/banner-upload";
 import {
@@ -129,6 +129,15 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+    if (eventStartDate && eventEndDate) {
+      const start = parseEventDateTime(eventStartDate);
+      const end = parseEventDateTime(eventEndDate);
+      const eventDateError = assertEventEndAfterStart(start, end);
+      if (eventDateError) {
+        return NextResponse.json({ error: eventDateError }, { status: 400 });
+      }
+    }
+
     if (registrationStartDate && registrationEndDate) {
       const start = parseEventDateTime(registrationStartDate);
       const end = parseEventDateTime(registrationEndDate);

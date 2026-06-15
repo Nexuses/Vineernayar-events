@@ -79,6 +79,84 @@ export function formatCalendarUtcCompact(d: Date | string): string {
   return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
 }
 
+type IstParts = {
+  year: string;
+  month: string;
+  day: string;
+  hour: string;
+  minute: string;
+  second: string;
+};
+
+function getIstParts(d: Date | string): IstParts | null {
+  const date = new Date(d);
+  if (Number.isNaN(date.getTime())) return null;
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: EVENT_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? "";
+  const hour = get("hour");
+  return {
+    year: get("year"),
+    month: get("month"),
+    day: get("day"),
+    hour: (hour === "24" ? "00" : hour).padStart(2, "0"),
+    minute: get("minute").padStart(2, "0"),
+    second: get("second").padStart(2, "0"),
+  };
+}
+
+function istPartsToDate(parts: IstParts): Date {
+  return new Date(
+    `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}+05:30`
+  );
+}
+
+/**
+ * Ensures calendar/ICS end time is after start. If stored end is invalid (e.g. wrong month),
+ * uses the end time on the start event day in India timezone.
+ */
+export function resolveEventEndDate(start: Date | string, end: Date | string): Date {
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (Number.isNaN(startDate.getTime())) return endDate;
+  if (Number.isNaN(endDate.getTime())) return startDate;
+  if (endDate.getTime() > startDate.getTime()) return endDate;
+
+  const startParts = getIstParts(startDate);
+  const endParts = getIstParts(endDate);
+  if (!startParts || !endParts) return endDate;
+
+  const sameDayEnd = istPartsToDate({
+    ...startParts,
+    hour: endParts.hour,
+    minute: endParts.minute,
+    second: endParts.second,
+  });
+  if (sameDayEnd.getTime() > startDate.getTime()) return sameDayEnd;
+
+  return endDate;
+}
+
+export function assertEventEndAfterStart(start: Date, end: Date): string | null {
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return "Event start and end dates are required";
+  }
+  if (end.getTime() <= start.getTime()) {
+    return "Event end date must be after the start date";
+  }
+  return null;
+}
+
 /** ICS local date/time in event timezone (no Z suffix). Example: 20260610T110000 */
 export function formatIcsEventLocal(d: Date | string): string {
   if (!d) return "";
@@ -105,7 +183,8 @@ export function formatIcsEventLocal(d: Date | string): string {
     const minute = get("minute");
     const second = get("second");
     if (!y || !m || !day || !hour || !minute || !second) return "";
-    return `${y}${m}${day}T${hour.padStart(2, "0")}${minute.padStart(2, "0")}${second.padStart(2, "0")}`;
+    const normalizedHour = (hour === "24" ? "00" : hour).padStart(2, "0");
+    return `${y}${m}${day}T${normalizedHour}${minute.padStart(2, "0")}${second.padStart(2, "0")}`;
   } catch {
     return "";
   }
@@ -119,7 +198,7 @@ export function buildGoogleCalendarUrl(params: {
   location?: string;
 }): string {
   const start = formatCalendarUtcCompact(params.start);
-  const end = formatCalendarUtcCompact(params.end);
+  const end = formatCalendarUtcCompact(resolveEventEndDate(params.start, params.end));
   if (!start || !end) return "https://calendar.google.com/calendar/render?action=TEMPLATE";
 
   const search = new URLSearchParams({

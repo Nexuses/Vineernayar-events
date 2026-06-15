@@ -2,24 +2,12 @@
  * Generate an .ics (iCalendar) file for the event so recipients can add it to their calendar.
  */
 
-import { EVENT_TIMEZONE, formatCalendarUtcCompact, formatIcsEventLocal } from "@/lib/date-utils";
+import { formatCalendarUtcCompact, resolveEventEndDate } from "@/lib/date-utils";
 import { BRAND_NAME } from "@/lib/constants";
 
 function escapeIcsText(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
 }
-
-const VTIMEZONE_KOLKATA = [
-  "BEGIN:VTIMEZONE",
-  `TZID:${EVENT_TIMEZONE}`,
-  "BEGIN:STANDARD",
-  "DTSTART:19700101T000000",
-  "TZOFFSETFROM:+0530",
-  "TZOFFSETTO:+0530",
-  "TZNAME:IST",
-  "END:STANDARD",
-  "END:VTIMEZONE",
-].join("\r\n");
 
 export type IcsEventData = {
   eventName: string;
@@ -38,8 +26,10 @@ export type IcsEventData = {
 export function generateIcs(data: IcsEventData, eventId: string): string {
   const uid = `${data.uniqueCode}-${eventId}@${BRAND_NAME.toLowerCase()}`;
   const dtstamp = formatCalendarUtcCompact(new Date());
-  const dtstartLocal = formatIcsEventLocal(data.eventStartDate);
-  const dtendLocal = formatIcsEventLocal(data.eventEndDate);
+  const dtstart = formatCalendarUtcCompact(data.eventStartDate);
+  const dtend = formatCalendarUtcCompact(
+    resolveEventEndDate(data.eventStartDate, data.eventEndDate)
+  );
   const summary = escapeIcsText(data.eventName);
   const location = escapeIcsText(data.venue || "");
   const descriptionParts = [
@@ -54,12 +44,11 @@ export function generateIcs(data: IcsEventData, eventId: string): string {
     `PRODID:-//${BRAND_NAME}//Event Pass//EN`,
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
-    VTIMEZONE_KOLKATA,
     "BEGIN:VEVENT",
     `UID:${uid}`,
     `DTSTAMP:${dtstamp}`,
-    `DTSTART;TZID=${EVENT_TIMEZONE}:${dtstartLocal}`,
-    `DTEND;TZID=${EVENT_TIMEZONE}:${dtendLocal}`,
+    `DTSTART:${dtstart}`,
+    `DTEND:${dtend}`,
     `SUMMARY:${summary}`,
     `DESCRIPTION:${description}`,
     `LOCATION:${location}`,

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { normalizeTransportLocationStrings } from "@/lib/admin-transport-locations";
 import { RichDescriptionEditor } from "@/app/admin/components/RichDescriptionEditor";
 
 export default function CreateEventPage() {
@@ -17,16 +16,6 @@ export default function CreateEventPage() {
   const [registrationStatus, setRegistrationStatus] = useState<"open" | "closed">("open");
   const [registrationType, setRegistrationType] = useState<"open_for_all" | "invitees_only">("invitees_only");
   const [published, setPublished] = useState(true);
-  const [collectApparelSize, setCollectApparelSize] = useState(false);
-  const [collectOvernightStay, setCollectOvernightStay] = useState(false);
-  const [collectPassportNic, setCollectPassportNic] = useState(false);
-  const [collectTransport, setCollectTransport] = useState(false);
-  const [requireWhatsAppNumber, setRequireWhatsAppNumber] = useState(false);
-  const [requireApparelSize, setRequireApparelSize] = useState(false);
-  const [requireOvernightStay, setRequireOvernightStay] = useState(false);
-  const [requirePassportNic, setRequirePassportNic] = useState(false);
-  const [requireTransport, setRequireTransport] = useState(false);
-  const [transportLocations, setTransportLocations] = useState<string[]>([""]);
   const [eventBannerUrl, setEventBannerUrl] = useState("");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -37,18 +26,8 @@ export default function CreateEventPage() {
     e.preventDefault();
     setError("");
     setSuccess("");
-    if (collectTransport) {
-      const locs = normalizeTransportLocationStrings(transportLocations);
-      if (locs.length === 0) {
-        setError("Add at least one transport location when Transport is enabled.");
-        return;
-      }
-    }
     setLoading(true);
     try {
-      const trimmedTransport = collectTransport
-        ? normalizeTransportLocationStrings(transportLocations)
-        : [];
       const bannerUrl = eventBannerUrl.trim();
       let res: Response;
       if (bannerFile) {
@@ -66,18 +45,6 @@ export default function CreateEventPage() {
         formData.set("registrationStatus", registrationStatus);
         formData.set("registrationType", registrationType);
         formData.set("published", published ? "true" : "false");
-        formData.set("collectApparelSize", collectApparelSize ? "true" : "false");
-        formData.set("collectOvernightStay", collectOvernightStay ? "true" : "false");
-        formData.set("collectPassportNic", collectPassportNic ? "true" : "false");
-        formData.set("collectTransport", collectTransport ? "true" : "false");
-        formData.set("requireWhatsAppNumber", requireWhatsAppNumber ? "true" : "false");
-        formData.set("requireApparelSize", requireApparelSize ? "true" : "false");
-        formData.set("requireOvernightStay", requireOvernightStay ? "true" : "false");
-        formData.set("requirePassportNic", requirePassportNic ? "true" : "false");
-        formData.set("requireTransport", requireTransport ? "true" : "false");
-        for (const loc of trimmedTransport) {
-          formData.append("transportLocations", loc);
-        }
         formData.set("bannerFile", bannerFile);
         res = await fetch("/api/admin/events", { method: "POST", body: formData });
       } else {
@@ -98,16 +65,6 @@ export default function CreateEventPage() {
             registrationStatus,
             registrationType,
             published,
-            collectApparelSize,
-            collectOvernightStay,
-            collectPassportNic,
-            collectTransport,
-            requireWhatsAppNumber,
-            requireApparelSize,
-            requireOvernightStay,
-            requirePassportNic,
-            requireTransport,
-            transportLocations: trimmedTransport,
           }),
         });
       }
@@ -130,16 +87,6 @@ export default function CreateEventPage() {
       setRegistrationStatus("open");
       setRegistrationType("invitees_only");
       setPublished(true);
-      setCollectApparelSize(false);
-      setCollectOvernightStay(false);
-      setCollectPassportNic(false);
-      setCollectTransport(false);
-      setRequireWhatsAppNumber(false);
-      setRequireApparelSize(false);
-      setRequireOvernightStay(false);
-      setRequirePassportNic(false);
-      setRequireTransport(false);
-      setTransportLocations([""]);
       setEventBannerUrl("");
       setBannerFile(null);
     } catch {
@@ -290,171 +237,6 @@ export default function CreateEventPage() {
               <option value="published">Publish</option>
               <option value="unpublished">Unpublish</option>
             </select>
-          </div>
-          <div className="sm:col-span-2 space-y-3">
-            <p className="text-sm font-medium text-zinc-700">Registration form fields (toggle to show in registration)</p>
-            <div className="space-y-4">
-              <div className="flex flex-wrap gap-6">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={collectApparelSize}
-                    onChange={(e) => {
-                      const next = e.target.checked;
-                      setCollectApparelSize(next);
-                      if (!next) setRequireApparelSize(false);
-                    }}
-                    className="h-4 w-4 rounded border-zinc-300 text-brand-500 focus:ring-brand-500"
-                  />
-                  <span className="text-sm text-zinc-900">Apparel - sizes</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={collectOvernightStay}
-                    onChange={(e) => {
-                      const next = e.target.checked;
-                      setCollectOvernightStay(next);
-                      if (!next) setRequireOvernightStay(false);
-                    }}
-                    className="h-4 w-4 rounded border-zinc-300 text-brand-500 focus:ring-brand-500"
-                  />
-                  <span className="text-sm text-zinc-900">Overnight Stay</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={collectPassportNic}
-                    onChange={(e) => {
-                      const next = e.target.checked;
-                      setCollectPassportNic(next);
-                      if (!next) setRequirePassportNic(false);
-                    }}
-                    className="h-4 w-4 rounded border-zinc-300 text-brand-500 focus:ring-brand-500"
-                  />
-                  <span className="text-sm text-zinc-900">Passport/NIC</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={collectTransport}
-                    onChange={(e) => {
-                      const next = e.target.checked;
-                      setCollectTransport(next);
-                      if (!next) setRequireTransport(false);
-                    }}
-                    className="h-4 w-4 rounded border-zinc-300 text-brand-500 focus:ring-brand-500"
-                  />
-                  <span className="text-sm text-zinc-900">Transport</span>
-                </label>
-              </div>
-
-              <div className="flex flex-wrap gap-6">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={requireApparelSize}
-                    disabled={!collectApparelSize}
-                    onChange={(e) => setRequireApparelSize(e.target.checked)}
-                    className="h-4 w-4 rounded border-zinc-300 text-brand-500 focus:ring-brand-500"
-                  />
-                  <span className="text-sm text-zinc-900">Size required</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={requireOvernightStay}
-                    disabled={!collectOvernightStay}
-                    onChange={(e) => setRequireOvernightStay(e.target.checked)}
-                    className="h-4 w-4 rounded border-zinc-300 text-brand-500 focus:ring-brand-500"
-                  />
-                  <span className="text-sm text-zinc-900">Stay required</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={requirePassportNic}
-                    disabled={!collectPassportNic}
-                    onChange={(e) => setRequirePassportNic(e.target.checked)}
-                    className="h-4 w-4 rounded border-zinc-300 text-brand-500 focus:ring-brand-500"
-                  />
-                  <span className="text-sm text-zinc-900">Passport required</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={requireTransport}
-                    disabled={!collectTransport}
-                    onChange={(e) => setRequireTransport(e.target.checked)}
-                    className="h-4 w-4 rounded border-zinc-300 text-brand-500 focus:ring-brand-500"
-                  />
-                  <span className="text-sm text-zinc-900">Transport required</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={requireWhatsAppNumber}
-                    onChange={(e) => setRequireWhatsAppNumber(e.target.checked)}
-                    className="h-4 w-4 rounded border-zinc-300 text-brand-500 focus:ring-brand-500"
-                  />
-                  <span className="text-sm text-zinc-900">
-                    WhatsApp number required
-                  </span>
-                </label>
-              </div>
-            </div>
-
-            {collectTransport && (
-              <div className="space-y-3">
-                <p className="text-sm font-medium text-zinc-700">
-                  Transport locations
-                </p>
-                <p className="text-xs text-zinc-500">
-                  Add one or more pickup points. Remove rows you do not need.
-                </p>
-                {transportLocations.map((value, index) => (
-                  <div key={index} className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                    <div className="min-w-0 flex-1">
-                      <label className="mb-1 block text-sm font-medium text-zinc-700">
-                        Location {index + 1}
-                      </label>
-                      <input
-                        type="text"
-                        value={value}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          setTransportLocations((rows) =>
-                            rows.map((row, i) => (i === index ? v : row))
-                          );
-                        }}
-                        className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="e.g. Central station pickup"
-                      />
-                    </div>
-                    {transportLocations.length > 1 ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setTransportLocations((rows) =>
-                            rows.length <= 1 ? rows : rows.filter((_, i) => i !== index)
-                          )
-                        }
-                        className="shrink-0 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-                      >
-                        Remove
-                      </button>
-                    ) : null}
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setTransportLocations((rows) => [...rows, ""])}
-                  className="rounded-md border border-dashed border-zinc-400 px-3 py-2 text-sm font-medium text-zinc-700 hover:border-zinc-500 hover:bg-zinc-50"
-                >
-                  + Add location
-                </button>
-              </div>
-            )}
           </div>
           <div className="flex items-end">
             <button type="submit" disabled={loading}

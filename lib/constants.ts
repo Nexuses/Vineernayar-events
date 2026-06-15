@@ -7,7 +7,7 @@ export const BRAND_NAME = "Vineetnayar";
 export const DB_NAME = BRAND_NAME.toLowerCase();
 
 export const BRAND_LOGO_URL =
-  "https://nexuseslink2024.s3.us-east-2.amazonaws.com/bgremoved_log_1781264871716_59nj.png";
+  "https://nexuseslink2024.s3.us-east-2.amazonaws.com/logo-no-underline__1__1781528681003_960e.png";
 
 /** Brand accent from logo (replaces former orange) */
 export const BRAND_COLOR = "#f8e828";

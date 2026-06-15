@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import QRCode from "qrcode";
-import { BRAND_COLOR } from "@/lib/constants";
+import { BRAND_COLOR, BRAND_LOGO_URL } from "@/lib/constants";
 
 type PassData = {
   firstName: string;
@@ -8,9 +8,6 @@ type PassData = {
   designation: string;
   uniqueCode: string;
 };
-
-const LOGO_URL =
-  "https://nexuseslink2024.s3.us-east-2.amazonaws.com/bgremoved_log_1781264871716_59nj.png";
 
 function escapeXml(s: string): string {
   return s
@@ -70,7 +67,7 @@ export async function generatePassPng(data: PassData): Promise<Buffer> {
 
   let logoBuffer: Buffer | null = null;
   try {
-    const res = await fetch(LOGO_URL);
+    const res = await fetch(BRAND_LOGO_URL);
     if (res.ok) {
       const arr = await res.arrayBuffer();
       logoBuffer = Buffer.from(arr);

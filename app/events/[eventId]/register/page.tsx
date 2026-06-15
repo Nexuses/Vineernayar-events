@@ -6,7 +6,7 @@ import {
 } from "@/lib/models/Event";
 import { getPublishedEventByEventId } from "@/lib/models/Event";
 import type { EventDoc } from "@/lib/models/Event";
-import { formatEventDateTime } from "@/lib/date-utils";
+import { formatEventDateTime, resolveEventEndDate } from "@/lib/date-utils";
 import { RegisterForm } from "./RegisterForm";
 import { RegistrationClosedPage } from "../RegistrationClosedMessage";
 import { EventPublicHeader } from "../EventPublicHeader";
@@ -53,6 +53,7 @@ export default async function RegisterPage({
   const event = await getPublishedEventByEventId(eventId);
   if (!event) notFound();
   const registrationStatus = getEffectiveRegistrationStatus(event);
+  const eventEndDate = resolveEventEndDate(event.eventStartDate, event.eventEndDate);
 
   const serializedEvent = toPlainEvent(event);
 
@@ -119,7 +120,7 @@ export default async function RegisterPage({
                   </svg>
                   <div>
                     <dt className="text-base font-medium uppercase tracking-wider text-zinc-500">End date</dt>
-                    <dd className="mt-1.5 text-lg font-medium text-zinc-900">{formatEventDateTime(event.eventEndDate)}</dd>
+                    <dd className="mt-1.5 text-lg font-medium text-zinc-900">{formatEventDateTime(eventEndDate)}</dd>
                   </div>
                 </div>
                 {event.venue ? (

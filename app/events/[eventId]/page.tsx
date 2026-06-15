@@ -5,7 +5,7 @@ import {
   getEffectiveRegistrationStatus,
 } from "@/lib/models/Event";
 import { getPublishedEventByEventId } from "@/lib/models/Event";
-import { formatEventDate, formatEventTime, formatEventDateTime } from "@/lib/date-utils";
+import { formatEventDate, formatEventTime, formatEventDateTime, resolveEventEndDate } from "@/lib/date-utils";
 import { CheckEligibleForm } from "./CheckEligibleForm";
 import { RegistrationClosedCard } from "./RegistrationClosedMessage";
 import { EventDescription } from "./EventDescription";
@@ -35,6 +35,7 @@ export default async function EventPage({
   const event = await getPublishedEventByEventId(eventId);
   if (!event) notFound();
   const registrationStatus = getEffectiveRegistrationStatus(event);
+  const eventEndDate = resolveEventEndDate(event.eventStartDate, event.eventEndDate);
 
   const path = `/events/${event.eventId}`;
   const title = event.eventName;
@@ -69,7 +70,7 @@ export default async function EventPage({
               </h1>
               <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-600 sm:mt-4 sm:gap-x-6">
                 <span>📅 {formatEventDate(event.eventStartDate)}</span>
-                <span>🕐 {formatEventTime(event.eventStartDate)} – {formatEventTime(event.eventEndDate)}</span>
+                <span>🕐 {formatEventTime(event.eventStartDate)} – {formatEventTime(eventEndDate)}</span>
                 {event.venue ? <span>📍 {event.venue}</span> : null}
               </div>
             </div>
@@ -175,7 +176,7 @@ export default async function EventPage({
                 </div>
                 <div>
                   <dt className="mb-1 text-xs font-medium uppercase tracking-wider text-zinc-500 sm:text-sm">End date</dt>
-                  <dd className="text-zinc-900">{formatEventDateTime(event.eventEndDate)}</dd>
+                  <dd className="text-zinc-900">{formatEventDateTime(eventEndDate)}</dd>
                 </div>
                 {event.venue ? (
                   <div>

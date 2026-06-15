@@ -157,10 +157,10 @@ export async function POST(
     try {
       const icsContent = generateIcs(
         {
-          eventName: reg.eventName,
-          eventStartDate: reg.eventStartDate,
-          eventEndDate: reg.eventEndDate,
-          venue: reg.venue,
+          eventName: event.eventName,
+          eventStartDate: event.eventStartDate,
+          eventEndDate: event.eventEndDate,
+          venue: event.venue,
           uniqueCode: reg.uniqueCode,
           passUrl,
           attendeeName: `${reg.firstName} ${reg.surname}`,

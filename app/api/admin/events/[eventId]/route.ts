@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminFromCookie } from "@/lib/auth";
-import { parseEventDateTime } from "@/lib/date-utils";
+import { parseEventDateTime, assertEventEndAfterStart } from "@/lib/date-utils";
 import { getEventById, updateEvent } from "@/lib/models/Event";
 import { saveBannerFile } from "@/lib/banner-upload";
 import {
@@ -141,6 +141,11 @@ export async function PUT(
       transportLocationsParsed = transportLocationsFromJsonBody(body);
     }
 
+    const existing = await getEventById(eventId);
+    if (!existing) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
+
     if (registrationStartDate && registrationEndDate) {
       const start = parseEventDateTime(registrationStartDate);
       const end = parseEventDateTime(registrationEndDate);
@@ -157,6 +162,18 @@ export async function PUT(
         { error: "Add at least one transport location when Transport is enabled" },
         { status: 400 }
       );
+    }
+
+    const nextEventStart =
+      eventStartDate !== undefined ? parseEventDateTime(eventStartDate) : existing.eventStartDate;
+    const nextEventEnd =
+      eventEndDate !== undefined ? parseEventDateTime(eventEndDate) : existing.eventEndDate;
+    const eventDateError = assertEventEndAfterStart(
+      new Date(nextEventStart),
+      new Date(nextEventEnd)
+    );
+    if (eventDateError) {
+      return NextResponse.json({ error: eventDateError }, { status: 400 });
     }
 
     const updated = await updateEvent(eventId, {

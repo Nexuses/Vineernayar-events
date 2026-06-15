@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { formatEventDateTime } from "@/lib/date-utils";
+import { formatEventDateTime, resolveEventEndDate } from "@/lib/date-utils";
 import { BRAND_COLOR, BRAND_LOGO_URL, BRAND_NAME } from "@/lib/constants";
 
 const SMTP_HOST = process.env.SMTP_HOST;
@@ -62,7 +62,9 @@ function getEmailHtml(data: PassEmailData): string {
   const safeEmail = escapeHtml(data.email);
   const safeVenue = escapeHtml(data.venue || "—");
   const startDate = formatEventDateTime(data.eventStartDate);
-  const endDate = formatEventDateTime(data.eventEndDate);
+  const endDate = formatEventDateTime(
+    resolveEventEndDate(data.eventStartDate, data.eventEndDate)
+  );
   const registeredDate = formatRegisteredDate(data.createdAt);
 
   return `
@@ -144,7 +146,9 @@ function getEmailHtml(data: PassEmailData): string {
 
 function getEmailText(data: PassEmailData): string {
   const startDate = formatEventDateTime(data.eventStartDate);
-  const endDate = formatEventDateTime(data.eventEndDate);
+  const endDate = formatEventDateTime(
+    resolveEventEndDate(data.eventStartDate, data.eventEndDate)
+  );
   const registeredDate = formatRegisteredDate(data.createdAt);
 
   return `${BRAND_NAME.toUpperCase()}
