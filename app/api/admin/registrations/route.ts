@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminFromCookie } from "@/lib/auth";
 import { listRegistrationsByEventId } from "@/lib/models/Registration";
+import { serializeEmailSequence } from "@/lib/email-sequence";
 
 export async function GET(request: Request) {
   const admin = await getAdminFromCookie();
@@ -36,6 +37,7 @@ export async function GET(request: Request) {
         r.participationTimestamp instanceof Date
           ? r.participationTimestamp.toISOString()
           : r.participationTimestamp,
+      emailSequence: serializeEmailSequence(r.emailSequence),
     }));
     return NextResponse.json(serialized);
   } catch (err) {

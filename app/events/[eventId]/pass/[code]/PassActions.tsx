@@ -1,15 +1,16 @@
 "use client";
 
-export function PassActions({ calendarUrl }: { calendarUrl: string }) {
+export function PassActions({ passCode }: { passCode: string }) {
+  const downloadUrl = `/api/pass/${encodeURIComponent(passCode)}`;
+
   return (
-    <div className="no-print mt-8 flex flex-wrap items-center gap-6">
+    <div className="no-print mt-8 flex flex-wrap items-center gap-4">
       <a
-        href={calendarUrl}
-        target="_blank"
-        rel="noopener noreferrer"
+        href={downloadUrl}
+        download={`event-pass-${passCode}.pdf`}
         className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-6 py-3 font-medium text-zinc-900 hover:bg-brand-600"
       >
-        Add to Calendar
+        Download Pass
       </a>
       <button
         type="button"

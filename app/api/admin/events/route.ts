@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getAdminFromCookie } from "@/lib/auth";
-import { parseEventDateTime, assertEventEndAfterStart } from "@/lib/date-utils";
+import { parseEventDateTime, resolveEventDatesFromAdminFields } from "@/lib/date-utils";
 import { createEvent, listEvents } from "@/lib/models/Event";
 import { saveBannerFile } from "@/lib/banner-upload";
+import { parseSeatLimit } from "@/lib/parse-seat-limit";
 import {
   transportLocationsFromFormData,
   transportLocationsFromJsonBody,
@@ -43,14 +44,13 @@ export async function POST(request: Request) {
     let eventName: string;
     let description: string;
     let eventBanner: string;
-    let eventStartDate: string;
-    let eventEndDate: string;
+    let eventDate: string;
+    let eventTime: string;
     let registrationStartDate: string;
     let registrationEndDate: string;
     let venue: string;
     let speaker: string;
     let phone: string;
-    let registrationStatus: "open" | "closed";
     let registrationType: "open_for_all" | "invitees_only";
     let collectApparelSize: boolean;
     let collectOvernightStay: boolean;
@@ -63,21 +63,20 @@ export async function POST(request: Request) {
     let requireTransport: boolean;
     let published: boolean;
     let transportLocationsParsed: string[];
+    let seatLimitRaw: unknown;
 
     if (contentType.includes("multipart/form-data")) {
       const formData = await request.formData();
       eventName = (formData.get("eventName") as string) || "";
       description = (formData.get("description") as string) || "";
       eventBanner = (formData.get("eventBanner") as string) || "";
-      eventStartDate = (formData.get("eventStartDate") as string) || "";
-      eventEndDate = (formData.get("eventEndDate") as string) || "";
+      eventDate = (formData.get("eventDate") as string) || "";
+      eventTime = (formData.get("eventTime") as string) || "";
       registrationStartDate = (formData.get("registrationStartDate") as string) || "";
       registrationEndDate = (formData.get("registrationEndDate") as string) || "";
       venue = (formData.get("venue") as string) || "";
       speaker = (formData.get("speaker") as string) || "";
       phone = (formData.get("phone") as string) || "";
-      registrationStatus =
-        (formData.get("registrationStatus") as "open" | "closed") || "open";
       registrationType =
         (formData.get("registrationType") as "open_for_all" | "invitees_only") || "invitees_only";
       collectApparelSize = formData.get("collectApparelSize") === "true" || formData.get("collectApparelSize") === "1";
@@ -90,6 +89,7 @@ export async function POST(request: Request) {
       requirePassportNic = formData.get("requirePassportNic") === "true" || formData.get("requirePassportNic") === "1";
       requireTransport = formData.get("requireTransport") === "true" || formData.get("requireTransport") === "1";
       published = formData.get("published") === "true" || formData.get("published") === "1";
+      seatLimitRaw = formData.get("seatLimit");
       transportLocationsParsed = transportLocationsFromFormData(formData);
 
       const file = formData.get("bannerFile") as File | null;
@@ -101,14 +101,13 @@ export async function POST(request: Request) {
       eventName = body.eventName ?? "";
       description = body.description ?? "";
       eventBanner = body.eventBanner ?? "";
-      eventStartDate = body.eventStartDate ?? "";
-      eventEndDate = body.eventEndDate ?? "";
+      eventDate = body.eventDate ?? "";
+      eventTime = body.eventTime ?? "";
       registrationStartDate = body.registrationStartDate ?? "";
       registrationEndDate = body.registrationEndDate ?? "";
       venue = body.venue ?? "";
       speaker = body.speaker ?? "";
       phone = body.phone ?? "";
-      registrationStatus = body.registrationStatus ?? "open";
       registrationType = body.registrationType ?? "invitees_only";
       collectApparelSize = !!body.collectApparelSize;
       collectOvernightStay = !!body.collectOvernightStay;
@@ -120,6 +119,7 @@ export async function POST(request: Request) {
       requirePassportNic = !!body.requirePassportNic;
       requireTransport = !!body.requireTransport;
       published = !!body.published;
+      seatLimitRaw = body.seatLimit;
       transportLocationsParsed = transportLocationsFromJsonBody(body);
     }
 
@@ -129,13 +129,19 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    if (eventStartDate && eventEndDate) {
-      const start = parseEventDateTime(eventStartDate);
-      const end = parseEventDateTime(eventEndDate);
-      const eventDateError = assertEventEndAfterStart(start, end);
-      if (eventDateError) {
-        return NextResponse.json({ error: eventDateError }, { status: 400 });
-      }
+    if (!eventDate.trim()) {
+      return NextResponse.json(
+        { error: "Event date is required" },
+        { status: 400 }
+      );
+    }
+
+    const resolvedEventDates = resolveEventDatesFromAdminFields(eventDate, eventTime);
+    if (Number.isNaN(resolvedEventDates.eventStartDate.getTime())) {
+      return NextResponse.json(
+        { error: "Invalid event date" },
+        { status: 400 }
+      );
     }
 
     if (registrationStartDate && registrationEndDate) {
@@ -156,18 +162,29 @@ export async function POST(request: Request) {
       );
     }
 
+    let seatLimit: number | undefined;
+    try {
+      seatLimit = parseSeatLimit(seatLimitRaw);
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Invalid seat limit" },
+        { status: 400 }
+      );
+    }
+
     const event = await createEvent({
       eventName,
       description: description.trim() || undefined,
       eventBanner,
-      eventStartDate: parseEventDateTime(eventStartDate),
-      eventEndDate: parseEventDateTime(eventEndDate),
+      eventStartDate: resolvedEventDates.eventStartDate,
+      eventEndDate: resolvedEventDates.eventEndDate,
+      eventTime: resolvedEventDates.eventTime || undefined,
       registrationStartDate: registrationStartDate ? parseEventDateTime(registrationStartDate) : undefined,
       registrationEndDate: registrationEndDate ? parseEventDateTime(registrationEndDate) : undefined,
       venue,
       speaker,
       phone,
-      registrationStatus: registrationStatus === "closed" ? "closed" : "open",
+      registrationStatus: "open",
       registrationType: registrationType === "open_for_all" ? "open_for_all" : "invitees_only",
       collectApparelSize: !!collectApparelSize,
       collectOvernightStay: !!collectOvernightStay,
@@ -180,6 +197,7 @@ export async function POST(request: Request) {
       requireTransport: !!requireTransport,
       published: !!published,
       transportLocations: collectTransport ? transportLocationsParsed : [],
+      seatLimit,
     });
 
     return NextResponse.json(event);

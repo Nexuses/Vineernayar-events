@@ -6,16 +6,16 @@ import { RichDescriptionEditor } from "@/app/admin/components/RichDescriptionEdi
 export default function CreateEventPage() {
   const [eventName, setEventName] = useState("");
   const [description, setDescription] = useState("");
-  const [eventStartDate, setEventStartDate] = useState("");
-  const [eventEndDate, setEventEndDate] = useState("");
+  const [eventDate, setEventDate] = useState("");
+  const [eventTime, setEventTime] = useState("");
   const [registrationStartDate, setRegistrationStartDate] = useState("");
   const [registrationEndDate, setRegistrationEndDate] = useState("");
   const [venue, setVenue] = useState("");
   const [speaker, setSpeaker] = useState("");
   const [phone, setPhone] = useState("");
-  const [registrationStatus, setRegistrationStatus] = useState<"open" | "closed">("open");
   const [registrationType, setRegistrationType] = useState<"open_for_all" | "invitees_only">("invitees_only");
   const [published, setPublished] = useState(true);
+  const [seatLimit, setSeatLimit] = useState("");
   const [eventBannerUrl, setEventBannerUrl] = useState("");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -35,16 +35,16 @@ export default function CreateEventPage() {
         formData.set("eventName", eventName);
         formData.set("eventBanner", bannerUrl);
         formData.set("description", description);
-        formData.set("eventStartDate", eventStartDate);
-        formData.set("eventEndDate", eventEndDate);
+        formData.set("eventDate", eventDate);
+        formData.set("eventTime", eventTime);
         formData.set("registrationStartDate", registrationStartDate);
         formData.set("registrationEndDate", registrationEndDate);
         formData.set("venue", venue);
         formData.set("speaker", speaker);
         formData.set("phone", phone);
-        formData.set("registrationStatus", registrationStatus);
         formData.set("registrationType", registrationType);
         formData.set("published", published ? "true" : "false");
+        if (seatLimit.trim()) formData.set("seatLimit", seatLimit.trim());
         formData.set("bannerFile", bannerFile);
         res = await fetch("/api/admin/events", { method: "POST", body: formData });
       } else {
@@ -55,16 +55,16 @@ export default function CreateEventPage() {
             eventName,
             description,
             eventBanner: bannerUrl,
-            eventStartDate,
-            eventEndDate,
+            eventDate,
+            eventTime,
             registrationStartDate,
             registrationEndDate,
             venue,
             speaker,
             phone,
-            registrationStatus,
             registrationType,
             published,
+            ...(seatLimit.trim() ? { seatLimit: Number.parseInt(seatLimit.trim(), 10) } : {}),
           }),
         });
       }
@@ -77,16 +77,16 @@ export default function CreateEventPage() {
       setSuccess(`Event created. Event ID: ${data.eventId}`);
       setEventName("");
       setDescription("");
-      setEventStartDate("");
-      setEventEndDate("");
+      setEventDate("");
+      setEventTime("");
       setRegistrationStartDate("");
       setRegistrationEndDate("");
       setVenue("");
       setSpeaker("");
       setPhone("");
-      setRegistrationStatus("open");
       setRegistrationType("invitees_only");
       setPublished(true);
+      setSeatLimit("");
       setEventBannerUrl("");
       setBannerFile(null);
     } catch {
@@ -146,14 +146,15 @@ export default function CreateEventPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-700">Start date</label>
-            <input type="datetime-local" value={eventStartDate} onChange={(e) => setEventStartDate(e.target.value)}
+            <label className="mb-1 block text-sm font-medium text-zinc-700">Date</label>
+            <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required
               className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-700">End date</label>
-            <input type="datetime-local" value={eventEndDate} onChange={(e) => setEventEndDate(e.target.value)}
-              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+            <label className="mb-1 block text-sm font-medium text-zinc-700">Time</label>
+            <input type="text" value={eventTime} onChange={(e) => setEventTime(e.target.value)}
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="e.g. 10:00 am - 4:00 pm" />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700">Start Registration Date</label>
@@ -164,6 +165,9 @@ export default function CreateEventPage() {
             <label className="mb-1 block text-sm font-medium text-zinc-700">End Registration Date</label>
             <input type="datetime-local" value={registrationEndDate} onChange={(e) => setRegistrationEndDate(e.target.value)}
               className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+            <p className="mt-1 text-xs text-zinc-500">
+              Opens Soon — before start date. Open — between start and end. Closed — after end date.
+            </p>
           </div>
 
           <div className="sm:col-span-2 space-y-4">
@@ -206,26 +210,27 @@ export default function CreateEventPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-700">Registration Status</label>
-            <select
-              value={registrationStatus}
-              onChange={(e) => setRegistrationStatus(e.target.value as "open" | "closed")}
-              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="open">Open</option>
-              <option value="closed">Closed</option>
-            </select>
-            <p className="mt-1 text-xs text-zinc-500">
-              Controlled here only — not from registration start/end dates.
-            </p>
-          </div>
-          <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700">Who can register</label>
             <select value={registrationType} onChange={(e) => setRegistrationType(e.target.value as "open_for_all" | "invitees_only")}
               className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
               <option value="open_for_all">Open for all</option>
               <option value="invitees_only">Only for invitees</option>
             </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-700">Seat limit</label>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={seatLimit}
+              onChange={(e) => setSeatLimit(e.target.value)}
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="e.g. 100"
+            />
+            <p className="mt-1 text-xs text-zinc-500">
+              Optional. Registration closes automatically when seats are full. Not shown on the public site.
+            </p>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700">Publish status</label>

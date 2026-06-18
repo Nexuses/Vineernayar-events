@@ -1,10 +1,22 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import {
+  EMAIL_SEQUENCE_LABELS,
+  EMAIL_SEQUENCE_ORDER,
+  EMAIL_SEQUENCE_SCHEDULE,
+  type EmailSequenceKey,
+} from "@/lib/email-sequence";
 
 type EventItem = { eventId: string; eventName: string };
 
 type ParticipationStatus = "registered" | "attended";
+
+type EmailSequenceEntryView = {
+  status: string;
+  sentAt: string | null;
+  error: string | null;
+};
 
 type RegistrationItem = {
   _id: string;
@@ -29,6 +41,7 @@ type RegistrationItem = {
   participationStatus: ParticipationStatus;
   createdAt: string;
   participationTimestamp?: string;
+  emailSequence?: Record<EmailSequenceKey, EmailSequenceEntryView>;
 };
 
 function formatDate(iso: string) {
@@ -41,6 +54,12 @@ function formatDate(iso: string) {
     minute: "2-digit",
     hour12: true,
   });
+}
+
+function sequenceStatusClass(status: string): string {
+  if (status === "sent") return "bg-green-100 text-green-800";
+  if (status === "failed") return "bg-red-100 text-red-800";
+  return "bg-amber-100 text-amber-800";
 }
 
 function TrashIcon({ className }: { className?: string }) {
@@ -75,6 +94,32 @@ function escapeCsvCell(value: string): string {
 }
 
 function buildRegistrationsCsv(rows: RegistrationItem[]): string {
+  const optionalColumns: {
+    header: string;
+    value: (r: RegistrationItem) => string;
+    hasData: (r: RegistrationItem) => boolean;
+  }[] = [
+    {
+      header: "Apparel Size",
+      value: (r) => r.apparelSize || "",
+      hasData: (r) => Boolean(r.apparelSize?.trim()),
+    },
+    {
+      header: "Overnight Stay",
+      value: (r) => (r.overnightStay == null ? "" : r.overnightStay ? "Yes" : "No"),
+      hasData: (r) => r.overnightStay != null,
+    },
+    {
+      header: "Passport/NIC",
+      value: (r) => r.passportNic || "",
+      hasData: (r) => Boolean(r.passportNic?.trim()),
+    },
+  ];
+
+  const activeOptional = optionalColumns.filter((col) =>
+    rows.some((r) => col.hasData(r))
+  );
+
   const headers = [
     "First Name",
     "Surname",
@@ -83,18 +128,14 @@ function buildRegistrationsCsv(rows: RegistrationItem[]): string {
     "Designation",
     "Mobile Number",
     "WhatsApp Number",
-    "Identity / Passport",
-    "Apparel Size",
-    "Overnight Stay",
-    "Passport/NIC",
-    "Transport Needed",
-    "Transport Location",
+    ...activeOptional.map((col) => col.header),
+    "Code",
     "Participation Status",
     "Registered",
     "Participation Time",
-    "Code",
     "Special Comment",
   ];
+
   const headerLine = headers.map(escapeCsvCell).join(",");
   const dataLines = rows.map((r) =>
     [
@@ -104,17 +145,12 @@ function buildRegistrationsCsv(rows: RegistrationItem[]): string {
       r.organization || "",
       r.designation || "",
       r.mobileNumber || "",
-      r.whatsappNumber || "",
-      r.identityCardOrPassport || "",
-      r.apparelSize || "",
-      r.overnightStay ? "Yes" : "",
-      r.passportNic || r.identityCardOrPassport || "",
-      r.transportNeeded == null ? "" : r.transportNeeded ? "Yes" : "No",
-      r.transportLocation || "",
+      r.addToWhatsapp ? r.whatsappNumber || "" : "",
+      ...activeOptional.map((col) => col.value(r)),
+      r.uniqueCode,
       r.participationStatus || "registered",
       formatDate(r.createdAt),
       r.participationTimestamp ? formatDate(r.participationTimestamp) : "",
-      r.uniqueCode,
       r.specialComment || "",
     ].map(escapeCsvCell).join(",")
   );
@@ -330,10 +366,6 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
                                     {r.addToWhatsapp ? (r.whatsappNumber || "—") : "—"}
                                   </dd>
                                 </div>
-                                <div>
-                                  <dt className="text-zinc-500">Identity / Passport</dt>
-                                  <dd className="text-zinc-900">{r.identityCardOrPassport || "—"}</dd>
-                                </div>
                                 {(r.apparelSize != null && r.apparelSize !== "") ? (
                                   <div>
                                     <dt className="text-zinc-500">Apparel size</dt>
@@ -371,6 +403,56 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
                                   </div>
                                 ) : null}
                               </dl>
+
+                              <div className="mt-6 border-t border-zinc-200 pt-4">
+                                <h4 className="mb-1 text-sm font-semibold text-zinc-700">
+                                  Email communications
+                                </h4>
+                                <p className="mb-3 text-xs text-zinc-500">
+                                  Sent automatically on schedule. Registration confirmation goes out immediately when someone registers.
+                                </p>
+                                <div className="overflow-x-auto">
+                                  <table className="min-w-full text-sm">
+                                    <thead>
+                                      <tr className="border-b border-zinc-200 text-left text-zinc-500">
+                                        <th className="pb-2 pr-4 font-medium">Email</th>
+                                        <th className="pb-2 pr-4 font-medium">Schedule</th>
+                                        <th className="pb-2 pr-4 font-medium">Status</th>
+                                        <th className="pb-2 font-medium">Sent at</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {EMAIL_SEQUENCE_ORDER.map((key) => {
+                                        const entry = r.emailSequence?.[key];
+                                        const status = entry?.status ?? "pending";
+                                        return (
+                                          <tr key={key} className="border-b border-zinc-100">
+                                            <td className="py-2 pr-4 font-medium text-zinc-800">
+                                              {EMAIL_SEQUENCE_LABELS[key]}
+                                            </td>
+                                            <td className="py-2 pr-4 text-zinc-600">
+                                              {EMAIL_SEQUENCE_SCHEDULE[key]}
+                                            </td>
+                                            <td className="py-2 pr-4">
+                                              <span
+                                                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize ${sequenceStatusClass(status)}`}
+                                              >
+                                                {status}
+                                              </span>
+                                              {entry?.error ? (
+                                                <p className="mt-1 text-xs text-red-600">{entry.error}</p>
+                                              ) : null}
+                                            </td>
+                                            <td className="py-2 text-zinc-600">
+                                              {entry?.sentAt ? formatDate(entry.sentAt) : "—"}
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
                             </div>
                           </td>
                         </tr>

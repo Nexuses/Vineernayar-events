@@ -67,6 +67,67 @@ export function RegistrationClosedCard({ onOpenModal }: { onOpenModal?: () => vo
   );
 }
 
+export function RegistrationOpensSoonCard() {
+  return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-6 text-center">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
+        <svg className="h-6 w-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
+      <p className="mt-4 text-sm font-medium text-zinc-700">
+        Registration opens soon for this event.
+      </p>
+    </div>
+  );
+}
+
+/** Full-page view when registration has not opened yet. */
+export function RegistrationOpensSoonPage() {
+  const [modalOpen, setModalOpen] = useState(true);
+
+  return (
+    <>
+      {modalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="registration-opens-soon-title"
+        >
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setModalOpen(false)}
+            aria-hidden
+          />
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="p-8 text-center sm:p-10">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
+                <svg className="h-8 w-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h2 id="registration-opens-soon-title" className="mt-6 text-xl font-semibold text-zinc-900 sm:text-2xl">
+                Registration opens soon
+              </h2>
+              <p className="mt-3 text-sm text-zinc-600">
+                Registration for this event is not open yet. Please check back when the registration period starts.
+              </p>
+              <button
+                type="button"
+                onClick={() => setModalOpen(false)}
+                className="mt-8 w-full rounded-xl bg-brand-500 px-4 py-3 font-medium text-zinc-900 transition hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+              >
+                Okay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 /** Full-page “registration closed” view with modal (e.g. on /events/[id]/register when closed). */
 export function RegistrationClosedPage() {
   const [modalOpen, setModalOpen] = useState(true);

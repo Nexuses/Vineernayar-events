@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getPublishedEventByEventId, getEffectiveRegistrationStatus } from "@/lib/models/Event";
+import { getPublishedEventByEventId, getPublicRegistrationStatus } from "@/lib/models/Event";
 import { isEligible } from "@/lib/models/EligibleEmail";
-import { createRegistration, findRegistrationByEventAndEmail } from "@/lib/models/Registration";
-import { sendPassEmail } from "@/lib/email";
+import { createRegistration, findRegistrationByEventAndEmail, countRegistrationsByEventId } from "@/lib/models/Registration";
+import { sendEmailSequenceForRegistration } from "@/lib/email-sequence-runner";
 import { generateIcs } from "@/lib/ics";
-import { generatePassPdf } from "@/lib/pass-pdf-direct";
+import { generateFullPassPdf } from "@/lib/pass-pdf";
 import QRCode from "qrcode";
 
 export async function POST(
@@ -16,7 +16,7 @@ export async function POST(
     const event = await getPublishedEventByEventId(eventId);
     if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
 
-    if (getEffectiveRegistrationStatus(event) === "closed") {
+    if ((await getPublicRegistrationStatus(event)) === "closed") {
       return NextResponse.json({ error: "Registration is closed for this event" }, { status: 403 });
     }
 
@@ -98,11 +98,19 @@ export async function POST(
     const addToWhatsappEffective = event.requireWhatsAppNumber ? true : !!addToWhatsapp;
     const whatsappNumberEffective = addToWhatsappEffective ? whatsappNumber?.trim() || undefined : undefined;
 
+    if (event.seatLimit && event.seatLimit > 0) {
+      const registrationCount = await countRegistrationsByEventId(eventId);
+      if (registrationCount >= event.seatLimit) {
+        return NextResponse.json({ error: "Registration is closed for this event" }, { status: 403 });
+      }
+    }
+
     const reg = await createRegistration({
       eventId,
       eventName: event.eventName,
       eventStartDate: event.eventStartDate,
       eventEndDate: event.eventEndDate,
+      eventTime: event.eventTime,
       venue: event.venue,
       firstName: firstName.trim(),
       surname: surname.trim(),
@@ -135,12 +143,18 @@ export async function POST(
     let passIcsBuffer: Buffer | undefined;
     let qrBuffer: Buffer | undefined;
     try {
-      passPdfBuffer = await generatePassPdf({
+      passPdfBuffer = await generateFullPassPdf({
         firstName: reg.firstName,
         surname: reg.surname,
-        organization: reg.organization,
-        designation: reg.designation,
+        email: reg.email,
+        mobileNumber: reg.mobileNumber,
+        eventName: reg.eventName,
+        eventStartDate: reg.eventStartDate,
+        eventEndDate: reg.eventEndDate,
+        eventTime: reg.eventTime,
+        venue: reg.venue,
         uniqueCode: reg.uniqueCode,
+        createdAt: reg.createdAt,
       });
     } catch (err) {
       console.error("Pass generation failed:", err);
@@ -160,6 +174,7 @@ export async function POST(
           eventName: event.eventName,
           eventStartDate: event.eventStartDate,
           eventEndDate: event.eventEndDate,
+          eventTime: event.eventTime,
           venue: event.venue,
           uniqueCode: reg.uniqueCode,
           passUrl,
@@ -173,19 +188,7 @@ export async function POST(
       console.error("ICS generation failed:", err);
     }
     try {
-      await sendPassEmail({
-        to: reg.email,
-        firstName: reg.firstName,
-        surname: reg.surname,
-        mobileNumber: reg.mobileNumber,
-        email: reg.email,
-        eventName: reg.eventName,
-        eventStartDate: reg.eventStartDate instanceof Date ? reg.eventStartDate.toISOString() : String(reg.eventStartDate),
-        eventEndDate: reg.eventEndDate instanceof Date ? reg.eventEndDate.toISOString() : String(reg.eventEndDate),
-        venue: reg.venue,
-        createdAt: reg.createdAt instanceof Date ? reg.createdAt.toISOString() : String(reg.createdAt),
-        passUrl,
-        uniqueCode: reg.uniqueCode,
+      await sendEmailSequenceForRegistration(reg, "seq1", {
         qrBuffer,
         passPdfBuffer,
         passIcsBuffer,

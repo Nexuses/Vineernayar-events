@@ -1,0 +1,41 @@
+import { NextResponse } from "next/server";
+import { getRegistrationByCode } from "@/lib/models/Registration";
+import { generateFullPassPdf } from "@/lib/pass-pdf";
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ code: string }> }
+) {
+  try {
+    const { code } = await params;
+    const reg = await getRegistrationByCode(code);
+    if (!reg) {
+      return NextResponse.json({ error: "Pass not found" }, { status: 404 });
+    }
+
+    const pdf = await generateFullPassPdf({
+      firstName: reg.firstName,
+      surname: reg.surname,
+      email: reg.email,
+      mobileNumber: reg.mobileNumber,
+      eventName: reg.eventName,
+      eventStartDate: reg.eventStartDate,
+      eventEndDate: reg.eventEndDate,
+      eventTime: reg.eventTime,
+      venue: reg.venue,
+      uniqueCode: reg.uniqueCode,
+      createdAt: reg.createdAt,
+    });
+
+    return new NextResponse(new Uint8Array(pdf), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="event-pass-${reg.uniqueCode}.pdf"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (err) {
+    console.error("Pass download error:", err);
+    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
+  }
+}

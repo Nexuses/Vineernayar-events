@@ -1,16 +1,22 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { headers } from "next/headers";
 import {
   getEventBannerUrl,
-  getEffectiveRegistrationStatus,
+  getPublicRegistrationWindowStatus,
+  getPublicRegistrationWindowLabel,
 } from "@/lib/models/Event";
 import { getPublishedEventByEventId } from "@/lib/models/Event";
-import { formatEventDate, formatEventTime, formatEventDateTime, resolveEventEndDate } from "@/lib/date-utils";
+import { getCountdownState } from "@/lib/countdown";
+import { formatEventDate, getEventTimeDisplay, getEventCountdownRange } from "@/lib/date-utils";
 import { CheckEligibleForm } from "./CheckEligibleForm";
-import { RegistrationClosedCard } from "./RegistrationClosedMessage";
+import { RegistrationClosedCard, RegistrationOpensSoonCard } from "./RegistrationClosedMessage";
 import { EventDescription } from "./EventDescription";
 import { hasDescriptionContent } from "@/lib/sanitize-description-html";
 import { EventPublicHeader } from "./EventPublicHeader";
+import { CalendarIcon, ClockIcon, MapPinIcon } from "@/app/events/EventIcons";
+import { getRegistrationWindowBadgeClass } from "@/lib/registration-window";
+import { EventCountdown } from "./register/EventCountdown";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -34,8 +40,8 @@ export default async function EventPage({
   const { eventId } = await params;
   const event = await getPublishedEventByEventId(eventId);
   if (!event) notFound();
-  const registrationStatus = getEffectiveRegistrationStatus(event);
-  const eventEndDate = resolveEventEndDate(event.eventStartDate, event.eventEndDate);
+  const registrationWindow = await getPublicRegistrationWindowStatus(event);
+  const registrationStatus = registrationWindow === "open" ? "open" : "closed";
 
   const path = `/events/${event.eventId}`;
   const title = event.eventName;
@@ -48,11 +54,21 @@ export default async function EventPage({
   const links = shareUrl(baseUrl, path, title);
   const descriptionText = event.description?.trim() ?? "";
   const showDescription = hasDescriptionContent(descriptionText);
+  const countdownRange = getEventCountdownRange(event);
 
   return (
     <div className="min-h-full bg-white">
       <EventPublicHeader />
-      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 py-4 sm:gap-8 sm:py-6 lg:grid-cols-3">
+      <div className="mx-auto max-w-6xl px-4 pt-2 sm:pt-3">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1 text-xs font-medium text-zinc-500 transition hover:text-zinc-900 sm:text-sm"
+        >
+          <span aria-hidden>←</span>
+          All events
+        </Link>
+      </div>
+      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 pb-4 pt-2 sm:gap-8 sm:pb-6 sm:pt-3 lg:grid-cols-3">
         {/* Left: Banner + share */}
         <div className="lg:col-span-2">
           <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
@@ -68,10 +84,21 @@ export default async function EventPage({
               <h1 className="text-xl font-bold text-zinc-900 sm:text-2xl">
                 {event.eventName}
               </h1>
-              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-600 sm:mt-4 sm:gap-x-6">
-                <span>📅 {formatEventDate(event.eventStartDate)}</span>
-                <span>🕐 {formatEventTime(event.eventStartDate)} – {formatEventTime(eventEndDate)}</span>
-                {event.venue ? <span>📍 {event.venue}</span> : null}
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-zinc-600 sm:mt-4 sm:gap-x-6">
+                <span className="inline-flex items-center gap-1.5">
+                  <CalendarIcon className="h-4 w-4 shrink-0 text-zinc-400" />
+                  {formatEventDate(event.eventStartDate)}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <ClockIcon className="h-4 w-4 shrink-0 text-zinc-400" />
+                  {getEventTimeDisplay(event)}
+                </span>
+                {event.venue ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <MapPinIcon className="h-4 w-4 shrink-0 text-zinc-400" />
+                    {event.venue}
+                  </span>
+                ) : null}
               </div>
             </div>
           </div>
@@ -147,7 +174,9 @@ export default async function EventPage({
               <h2 className="mb-4 text-lg font-semibold text-zinc-900">
                 Register to get your ticket
               </h2>
-              {registrationStatus === "closed" ? (
+              {registrationWindow === "open_soon" ? (
+                <RegistrationOpensSoonCard />
+              ) : registrationStatus === "closed" ? (
                 <RegistrationClosedCard />
               ) : (
                 <CheckEligibleForm eventId={event.eventId} />
@@ -160,23 +189,29 @@ export default async function EventPage({
                   Event Details
                 </h2>
                 <span
-                  className={`rounded-full px-3 py-1 text-xs font-medium sm:text-sm ${
-                    registrationStatus === "open"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-zinc-100 text-zinc-600"
-                  }`}
+                  className={`rounded-full px-3 py-1 text-xs font-medium sm:text-sm ${getRegistrationWindowBadgeClass(registrationWindow)}`}
                 >
-                  {registrationStatus === "open" ? "Registration Open" : "Registration Closed"}
+                  {getPublicRegistrationWindowLabel(registrationWindow)}
                 </span>
               </div>
-              <dl className="space-y-5 text-base">
+              {countdownRange ? (
+                <EventCountdown
+                  startIso={countdownRange.start.toISOString()}
+                  endIso={countdownRange.end.toISOString()}
+                  initialState={getCountdownState(
+                    countdownRange.start.getTime(),
+                    countdownRange.end.getTime()
+                  )}
+                />
+              ) : null}
+              <dl className="mt-5 space-y-5 text-base">
                 <div>
-                  <dt className="mb-1 text-xs font-medium uppercase tracking-wider text-zinc-500 sm:text-sm">Start date</dt>
-                  <dd className="text-zinc-900">{formatEventDateTime(event.eventStartDate)}</dd>
+                  <dt className="mb-1 text-xs font-medium uppercase tracking-wider text-zinc-500 sm:text-sm">Date</dt>
+                  <dd className="text-zinc-900">{formatEventDate(event.eventStartDate)}</dd>
                 </div>
                 <div>
-                  <dt className="mb-1 text-xs font-medium uppercase tracking-wider text-zinc-500 sm:text-sm">End date</dt>
-                  <dd className="text-zinc-900">{formatEventDateTime(eventEndDate)}</dd>
+                  <dt className="mb-1 text-xs font-medium uppercase tracking-wider text-zinc-500 sm:text-sm">Time</dt>
+                  <dd className="text-zinc-900">{getEventTimeDisplay(event)}</dd>
                 </div>
                 {event.venue ? (
                   <div>

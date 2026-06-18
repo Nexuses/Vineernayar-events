@@ -128,4 +128,34 @@ body {
   .no-print {
     display: none !important;
   }
+
+  @page {
+    margin: 8mm;
+    size: auto;
+  }
+
+  body {
+    background: #ffffff !important;
+  }
+
+  .pass-page-wrap {
+    max-width: none !important;
+    width: 100% !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  #event-pass {
+    display: block !important;
+    width: 100% !important;
+    max-width: 36rem !important;
+    margin: 0 auto;
+    page-break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  #event-pass img {
+    max-width: 100%;
+  }
 }

@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { formatEventDateTime } from "@/lib/date-utils";
+import { formatEventDate, getEventTimeDisplay } from "@/lib/date-utils";
 import { DEFAULT_EVENT_BANNER_URL } from "@/lib/constants";
+import { getRegistrationWindowStatus, getRegistrationWindowLabel, getRegistrationWindowBadgeClass } from "@/lib/registration-window";
 
 type EventItem = {
   _id: string;
@@ -12,6 +13,7 @@ type EventItem = {
   eventBanner: string;
   eventStartDate: string;
   eventEndDate: string;
+  eventTime?: string;
   registrationStartDate?: string;
   registrationEndDate?: string;
   venue: string;
@@ -32,16 +34,8 @@ type EventItem = {
   createdAt: string;
 };
 
-function effectiveRegistrationStatus(ev: EventItem): "open" | "closed" {
-  const now = new Date();
-  const start = ev.registrationStartDate ? new Date(ev.registrationStartDate) : null;
-  const end = ev.registrationEndDate ? new Date(ev.registrationEndDate) : null;
-  const startValid = start && !Number.isNaN(start.getTime()) ? start : null;
-  const endValid = end && !Number.isNaN(end.getTime()) ? end : null;
-  if (startValid && endValid) return now >= startValid && now <= endValid ? "open" : "closed";
-  if (startValid) return now >= startValid ? "open" : "closed";
-  if (endValid) return now <= endValid ? "open" : "closed";
-  return ev.registrationStatus === "open" ? "open" : "closed";
+function effectiveRegistrationStatus(ev: EventItem): ReturnType<typeof getRegistrationWindowStatus> {
+  return getRegistrationWindowStatus(ev);
 }
 
 export default function AllEventsPage() {
@@ -106,13 +100,9 @@ export default function AllEventsPage() {
                     </h3>
                     <div className="flex items-center gap-2">
                       <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-                          status === "open"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-zinc-100 text-zinc-600"
-                        }`}
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${getRegistrationWindowBadgeClass(status)}`}
                       >
-                        {status === "open" ? "Open" : "Closed"}
+                        {getRegistrationWindowLabel(status)}
                       </span>
                       <span
                         className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -128,12 +118,12 @@ export default function AllEventsPage() {
                   <p className="mb-1 text-xs font-mono text-zinc-500">{ev.eventId}</p>
                   <dl className="mt-2 space-y-1.5 text-sm">
                     <div>
-                      <dt className="sr-only">Start</dt>
-                      <dd className="text-zinc-600">{formatEventDateTime(ev.eventStartDate)}</dd>
+                      <dt className="sr-only">Date</dt>
+                      <dd className="text-zinc-600">{formatEventDate(ev.eventStartDate)}</dd>
                     </div>
                     <div>
-                      <dt className="sr-only">End</dt>
-                      <dd className="text-zinc-600">{formatEventDateTime(ev.eventEndDate)}</dd>
+                      <dt className="sr-only">Time</dt>
+                      <dd className="text-zinc-600">{getEventTimeDisplay(ev)}</dd>
                     </div>
                     {ev.venue ? (
                       <div>

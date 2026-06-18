@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { listPublishedEvents, getEventBannerUrl, getEffectiveRegistrationStatus } from "@/lib/models/Event";
+import { listPublishedEvents, getEventBannerUrl, getPublicRegistrationWindowStatusByEventIds, getRegistrationWindowLabel } from "@/lib/models/Event";
+import { getRegistrationWindowBadgeClass } from "@/lib/registration-window";
 import { formatEventDate } from "@/lib/date-utils";
+import { CalendarIcon } from "@/app/events/EventIcons";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -13,6 +15,8 @@ export default async function Home() {
     events = [];
   }
 
+  const registrationStatuses = await getPublicRegistrationWindowStatusByEventIds(events);
+
   return (
     <div className="public-light min-h-screen bg-white px-4 pt-[35px] pb-[35px]">
       <div className="mx-auto max-w-6xl">
@@ -23,7 +27,7 @@ export default async function Home() {
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {events.map((ev) => {
-              const status = getEffectiveRegistrationStatus(ev);
+              const status = registrationStatuses.get(ev.eventId) ?? "open";
               return (
                 <Link
                   key={ev._id?.toString() ?? ev.eventId}
@@ -45,17 +49,13 @@ export default async function Home() {
                         {ev.eventName}
                       </h2>
                       <span
-                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          status === "open"
-                            ? "bg-brand-100 text-brand-800"
-                            : "bg-zinc-100 text-zinc-600"
-                        }`}
+                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${getRegistrationWindowBadgeClass(status)}`}
                       >
-                        {status === "open" ? "Open" : "Closed"}
+                        {getRegistrationWindowLabel(status)}
                       </span>
                     </div>
                     <p className="flex items-center gap-1.5 text-sm text-zinc-600">
-                      <span aria-hidden className="text-zinc-400">📅</span>
+                      <CalendarIcon className="h-4 w-4 shrink-0 text-zinc-400" />
                       {formatEventDate(ev.eventStartDate)}
                     </p>
                   </div>

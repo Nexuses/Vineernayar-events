@@ -1,6 +1,22 @@
 import { getDb } from "../mongodb";
 import { ObjectId } from "mongodb";
 import { DEFAULT_EVENT_BANNER_URL } from "../constants";
+import { countRegistrationsByEventId, getRegistrationCountsByEventIds } from "./Registration";
+import {
+  getRegistrationWindowStatus,
+  getPublicRegistrationWindowLabel,
+  getRegistrationWindowLabel,
+  getRegistrationWindowBadgeClass,
+  type RegistrationWindowStatus,
+} from "../registration-window";
+
+export type { RegistrationWindowStatus };
+export {
+  getRegistrationWindowStatus,
+  getPublicRegistrationWindowLabel,
+  getRegistrationWindowLabel,
+  getRegistrationWindowBadgeClass,
+};
 
 export type RegistrationStatus = "open" | "closed";
 
@@ -16,6 +32,8 @@ export interface EventDoc {
   eventBanner: string; // URL or path like /events/xxx.jpg
   eventStartDate: Date;
   eventEndDate: Date;
+  /** Display time range, e.g. "10:00 am - 4:00 pm" */
+  eventTime?: string;
   /** If true, event is visible on the public frontend */
   published?: boolean;
   registrationStartDate?: Date;
@@ -46,6 +64,8 @@ export interface EventDoc {
   requirePassportNic?: boolean;
   /** If true, when attendee enables "Add to WhatsApp", whatsapp number becomes required */
   requireWhatsAppNumber?: boolean;
+  /** Max registrations allowed; when reached, public registration closes automatically */
+  seatLimit?: number;
   createdAt: Date;
 }
 
@@ -59,11 +79,66 @@ export function getEventBannerUrl(doc: { eventBanner?: string | null }): string 
   return url || DEFAULT_EVENT_BANNER_URL;
 }
 
-/** Uses the admin-set registrationStatus only (not registration start/end dates). */
+/** Uses registration start/end dates (not the legacy registrationStatus field). */
 export function getEffectiveRegistrationStatus(
-  event: Pick<EventDoc, "registrationStatus">
+  event: Pick<EventDoc, "registrationStartDate" | "registrationEndDate">
 ): RegistrationStatus {
-  return event.registrationStatus === "closed" ? "closed" : "open";
+  return getRegistrationWindowStatus(event) === "open" ? "open" : "closed";
+}
+
+function isSeatsFull(
+  event: Pick<EventDoc, "seatLimit">,
+  registrationCount: number
+): boolean {
+  const limit = event.seatLimit;
+  return typeof limit === "number" && limit > 0 && registrationCount >= limit;
+}
+
+/** Public registration window: dates, then seat limit. */
+export async function getPublicRegistrationWindowStatus(
+  event: Pick<EventDoc, "eventId" | "registrationStartDate" | "registrationEndDate" | "seatLimit">
+): Promise<RegistrationWindowStatus> {
+  const window = getRegistrationWindowStatus(event);
+  if (window !== "open") return window;
+  if (!event.seatLimit || event.seatLimit <= 0) return "open";
+  const count = await countRegistrationsByEventId(event.eventId);
+  return isSeatsFull(event, count) ? "closed" : "open";
+}
+
+/** Whether the public registration form accepts submissions. */
+export async function getPublicRegistrationStatus(
+  event: Pick<EventDoc, "eventId" | "registrationStartDate" | "registrationEndDate" | "seatLimit">
+): Promise<RegistrationStatus> {
+  const window = await getPublicRegistrationWindowStatus(event);
+  return window === "open" ? "open" : "closed";
+}
+
+export async function getPublicRegistrationWindowStatusByEventIds(
+  events: Pick<EventDoc, "eventId" | "registrationStartDate" | "registrationEndDate" | "seatLimit">[]
+): Promise<Map<string, RegistrationWindowStatus>> {
+  const counts = await getRegistrationCountsByEventIds(events.map((e) => e.eventId));
+  const statuses = new Map<string, RegistrationWindowStatus>();
+  for (const event of events) {
+    const window = getRegistrationWindowStatus(event);
+    if (window !== "open") {
+      statuses.set(event.eventId, window);
+      continue;
+    }
+    const count = counts.get(event.eventId) ?? 0;
+    statuses.set(event.eventId, isSeatsFull(event, count) ? "closed" : "open");
+  }
+  return statuses;
+}
+
+export async function getPublicRegistrationStatusByEventIds(
+  events: Pick<EventDoc, "eventId" | "registrationStartDate" | "registrationEndDate" | "seatLimit">[]
+): Promise<Map<string, RegistrationStatus>> {
+  const windows = await getPublicRegistrationWindowStatusByEventIds(events);
+  const statuses = new Map<string, RegistrationStatus>();
+  for (const [eventId, window] of windows) {
+    statuses.set(eventId, window === "open" ? "open" : "closed");
+  }
+  return statuses;
 }
 
 export async function getEventsCollection() {
@@ -81,6 +156,7 @@ export async function createEvent(data: Omit<EventDoc, "_id" | "eventId" | "crea
     eventBanner: data.eventBanner.trim() || "",
     eventStartDate: new Date(data.eventStartDate),
     eventEndDate: new Date(data.eventEndDate),
+    eventTime: data.eventTime?.trim() || undefined,
     published: data.published ?? false,
     registrationStartDate: data.registrationStartDate ? new Date(data.registrationStartDate) : undefined,
     registrationEndDate: data.registrationEndDate ? new Date(data.registrationEndDate) : undefined,
@@ -99,6 +175,7 @@ export async function createEvent(data: Omit<EventDoc, "_id" | "eventId" | "crea
     collectPassportNic: data.collectPassportNic ?? false,
     requirePassportNic: data.requirePassportNic ?? false,
     requireWhatsAppNumber: data.requireWhatsAppNumber ?? false,
+    seatLimit: data.seatLimit,
     createdAt: new Date(),
   };
   const result = await col.insertOne(doc);
@@ -111,13 +188,38 @@ export async function listEvents(): Promise<EventDoc[]> {
   return cursor.toArray();
 }
 
+/** Upcoming events first (nearest date), then past events (most recent first). */
+export function sortEventsByDate(events: EventDoc[]): EventDoc[] {
+  const now = Date.now();
+  const upcoming: EventDoc[] = [];
+  const past: EventDoc[] = [];
+
+  for (const event of events) {
+    const endMs = new Date(event.eventEndDate).getTime();
+    if (!Number.isNaN(endMs) && endMs >= now) {
+      upcoming.push(event);
+    } else {
+      past.push(event);
+    }
+  }
+
+  const byStartAsc = (a: EventDoc, b: EventDoc) =>
+    new Date(a.eventStartDate).getTime() - new Date(b.eventStartDate).getTime();
+  const byStartDesc = (a: EventDoc, b: EventDoc) =>
+    new Date(b.eventStartDate).getTime() - new Date(a.eventStartDate).getTime();
+
+  upcoming.sort(byStartAsc);
+  past.sort(byStartDesc);
+  return [...upcoming, ...past];
+}
+
 export async function listPublishedEvents(): Promise<EventDoc[]> {
   const col = await getEventsCollection();
   // Backward compatibility: if `published` is missing, treat it as published.
-  const cursor = col
+  const events = await col
     .find({ $or: [{ published: true }, { published: { $exists: false } }] })
-    .sort({ createdAt: -1 });
-  return cursor.toArray();
+    .toArray();
+  return sortEventsByDate(events);
 }
 
 export async function getEventById(id: string): Promise<EventDoc | null> {
@@ -139,11 +241,14 @@ export async function getPublishedEventByEventId(eventId: string): Promise<Event
 
 export async function updateEvent(
   id: string,
-  data: Partial<Omit<EventDoc, "_id" | "eventId" | "createdAt">>
+  data: Partial<Omit<EventDoc, "_id" | "eventId" | "createdAt" | "seatLimit">> & {
+    seatLimit?: number | null;
+  }
 ): Promise<EventDoc | null> {
   const col = await getEventsCollection();
   if (!ObjectId.isValid(id)) return null;
   const update: Record<string, unknown> = {};
+  const unset: Record<string, ""> = {};
   if (data.eventName !== undefined) update.eventName = data.eventName.trim();
   if (data.description !== undefined) {
     const trimmed = data.description.trim();
@@ -152,6 +257,11 @@ export async function updateEvent(
   if (data.eventBanner !== undefined) update.eventBanner = data.eventBanner.trim();
   if (data.eventStartDate !== undefined) update.eventStartDate = new Date(data.eventStartDate);
   if (data.eventEndDate !== undefined) update.eventEndDate = new Date(data.eventEndDate);
+  if (data.eventTime !== undefined) {
+    const trimmed = data.eventTime.trim();
+    if (trimmed) update.eventTime = trimmed;
+    else unset.eventTime = "";
+  }
   if (data.registrationStartDate !== undefined) {
     update.registrationStartDate = data.registrationStartDate ? new Date(data.registrationStartDate) : null;
   }
@@ -173,10 +283,20 @@ export async function updateEvent(
   if (data.collectPassportNic !== undefined) update.collectPassportNic = data.collectPassportNic;
   if (data.requirePassportNic !== undefined) update.requirePassportNic = data.requirePassportNic;
   if (data.requireWhatsAppNumber !== undefined) update.requireWhatsAppNumber = data.requireWhatsAppNumber;
+  if (data.seatLimit !== undefined) {
+    if (data.seatLimit === null) {
+      unset.seatLimit = "";
+    } else {
+      update.seatLimit = data.seatLimit;
+    }
+  }
   if (data.published !== undefined) update.published = data.published;
+  const updateOps: Record<string, unknown> = {};
+  if (Object.keys(update).length > 0) updateOps.$set = update;
+  if (Object.keys(unset).length > 0) updateOps.$unset = unset;
   const result = await col.findOneAndUpdate(
     { _id: new ObjectId(id) },
-    { $set: update },
+    updateOps,
     { returnDocument: "after" }
   );
   return result ?? null;

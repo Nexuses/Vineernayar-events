@@ -1,5 +1,6 @@
 import { getDb } from "../mongodb";
 import { ObjectId } from "mongodb";
+import { createInitialEmailSequence, type EmailSequenceStatus } from "../email-sequence";
 
 export type ParticipationStatus = "registered" | "attended";
 
@@ -10,6 +11,7 @@ export interface RegistrationDoc {
   eventName: string;
   eventStartDate: Date;
   eventEndDate: Date;
+  eventTime?: string;
   venue: string;
   firstName: string;
   surname: string;
@@ -35,6 +37,8 @@ export interface RegistrationDoc {
   participationStatus?: ParticipationStatus;
   /** When the attendee was marked as attended (via scan or admin) */
   participationTimestamp?: Date;
+  /** Automated email communication sequence status */
+  emailSequence?: EmailSequenceStatus;
   createdAt: Date;
 }
 
@@ -69,6 +73,7 @@ export async function createRegistration(data: Omit<RegistrationDoc, "_id" | "un
     ...data,
     uniqueCode,
     participationStatus: "registered",
+    emailSequence: createInitialEmailSequence(),
     createdAt: new Date(),
   };
   const result = await col.insertOne(doc);
@@ -112,7 +117,37 @@ export async function getRegistrationByCode(code: string): Promise<RegistrationD
   return col.findOne({ uniqueCode: code.toUpperCase() });
 }
 
+export async function getRegistrationById(id: string): Promise<RegistrationDoc | null> {
+  const col = await getRegistrationsCollection();
+  if (!ObjectId.isValid(id)) return null;
+  return col.findOne({ _id: new ObjectId(id) });
+}
+
 export async function listRegistrationsByEventId(eventId: string): Promise<RegistrationDoc[]> {
   const col = await getRegistrationsCollection();
   return col.find({ eventId }).sort({ createdAt: -1 }).toArray();
+}
+
+export async function countRegistrationsByEventId(eventId: string): Promise<number> {
+  const col = await getRegistrationsCollection();
+  return col.countDocuments({ eventId });
+}
+
+export async function getRegistrationCountsByEventIds(
+  eventIds: string[]
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (eventIds.length === 0) return counts;
+
+  const col = await getRegistrationsCollection();
+  const rows = await col
+    .aggregate<{ _id: string; count: number }>([
+      { $match: { eventId: { $in: eventIds } } },
+      { $group: { _id: "$eventId", count: { $sum: 1 } } },
+    ])
+    .toArray();
+
+  for (const id of eventIds) counts.set(id, 0);
+  for (const row of rows) counts.set(row._id, row.count);
+  return counts;
 }
