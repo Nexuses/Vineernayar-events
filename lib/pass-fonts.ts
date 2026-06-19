@@ -1,29 +1,40 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
+import { PASS_FONT_BOLD_BASE64, PASS_FONT_REGULAR_BASE64 } from "./pass-font-data";
 
 const FONT_FILES = {
   regular: "inter-latin-400-normal.woff",
   bold: "inter-latin-700-normal.woff",
 } as const;
 
-let cachedFontFiles: string[] | null = null;
+let cachedFontDir: string | null = null;
 
-function resolveFontPath(filename: string): string {
-  const candidates = [
-    path.join(process.cwd(), "lib/fonts", filename),
-    path.join(process.cwd(), "node_modules/@fontsource/inter/files", filename),
-  ];
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) return candidate;
+/** Write embedded fonts to a temp dir so resvg can load them on Vercel/Linux. */
+function ensurePassFontDir(): string {
+  if (cachedFontDir) return cachedFontDir;
+
+  const dir = path.join(os.tmpdir(), "vn-pass-fonts");
+  const regularPath = path.join(dir, FONT_FILES.regular);
+  const boldPath = path.join(dir, FONT_FILES.bold);
+
+  if (!fs.existsSync(regularPath) || !fs.existsSync(boldPath)) {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(regularPath, Buffer.from(PASS_FONT_REGULAR_BASE64, "base64"));
+    fs.writeFileSync(boldPath, Buffer.from(PASS_FONT_BOLD_BASE64, "base64"));
   }
-  throw new Error(`Pass font not found: ${filename}`);
+
+  cachedFontDir = dir;
+  return dir;
 }
 
-/** Absolute paths to Inter font files for @resvg/resvg-js. */
+export function getPassFontDir(): string {
+  return ensurePassFontDir();
+}
+
 export function getPassFontFiles(): string[] {
-  if (cachedFontFiles) return cachedFontFiles;
-  cachedFontFiles = [resolveFontPath(FONT_FILES.regular), resolveFontPath(FONT_FILES.bold)];
-  return cachedFontFiles;
+  const dir = ensurePassFontDir();
+  return [path.join(dir, FONT_FILES.regular), path.join(dir, FONT_FILES.bold)];
 }
 
-export const PASS_FONT_FAMILY = "Inter, sans-serif";
+export const PASS_FONT_FAMILY = "Inter";

@@ -123,7 +123,7 @@ function svgText(
     baseline?: "hanging" | "central";
   } = {}
 ): string {
-  const weight = opts.bold ? ' font-weight="bold"' : "";
+  const weight = opts.bold ? ' font-weight="700"' : "";
   const family = opts.mono ? FONT_MONO : FONT_SANS;
   const anchor = opts.anchor ? ` text-anchor="${opts.anchor}"` : "";
   const ls = opts.letterSpacing ? ` letter-spacing="${opts.letterSpacing}"` : "";
