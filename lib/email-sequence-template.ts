@@ -155,17 +155,30 @@ function buildEventDetailsHtml(ctx: SequenceRenderContext): string {
 function buildPreOrderHtml(
   ctx: SequenceRenderContext,
   variant: "default" | "tomorrow",
-  highlighted = false
+  asCard = false
 ): string {
   const lead =
     variant === "tomorrow"
       ? "If you have not already, get your copy of Humans First, Machines Second and have it signed by Vineet Nayar tomorrow evening."
       : "Get your copy of Humans First, Machines Second and have it signed by Vineet Nayar on the evening.";
-  const inner = `${escapeHtml(lead)} Pre-order here: <a href="${escapeHtml(ctx.preOrderUrl)}" style="color:${CTA_BLUE};text-decoration:underline;">${escapeHtml(ctx.preOrderUrl)}</a>`;
-  const html = highlighted
-    ? `<span style="background-color:#f5ea30;padding:3px 6px;-webkit-box-decoration-break:clone;box-decoration-break:clone;">${inner}</span>`
-    : inner;
-  return buildRichParagraphHtml(html);
+
+  const link = `<a href="${escapeHtml(ctx.preOrderUrl)}" style="color:${CTA_BLUE};text-decoration:underline;word-break:break-all;">${escapeHtml(ctx.preOrderUrl)}</a>`;
+
+  if (!asCard) {
+    return buildRichParagraphHtml(`${escapeHtml(lead)} Pre-order here: ${link}`);
+  }
+
+  return `
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px;">
+      <tr>
+        <td style="background-color:#fef9a8;border:1px solid #f5ea30;border-radius:12px;padding:18px 20px;">
+          <p style="margin:0;padding:0;font-size:15px;line-height:1.65;color:#111111;">${escapeHtml(lead)}</p>
+          <p style="margin:12px 0 0;padding:0;font-size:15px;line-height:1.65;color:#111111;">
+            Pre-order here: ${link}
+          </p>
+        </td>
+      </tr>
+    </table>`;
 }
 
 function buildCtaHtml(label: string, href: string): string {
@@ -203,11 +216,12 @@ export function buildSequenceEmailHtml(
     : "";
 
   const eventDetails = content.showEventDetails ? buildEventDetailsHtml(ctx) : "";
+  const usePreOrderCard = key === "seq1" || key === "seq2" || key === "seq3";
   const preOrder =
     content.preOrderVariant === "default"
-      ? buildPreOrderHtml(ctx, "default", key === "seq1" || key === "seq2")
+      ? buildPreOrderHtml(ctx, "default", usePreOrderCard)
       : content.preOrderVariant === "tomorrow"
-        ? buildPreOrderHtml(ctx, "tomorrow")
+        ? buildPreOrderHtml(ctx, "tomorrow", usePreOrderCard)
         : "";
 
   const cta = content.cta ? buildCtaHtml(content.cta.label, content.cta.href) : "";
@@ -282,8 +296,9 @@ export function buildSequenceEmailText(
   if (content.preOrderVariant) {
     lines.push(
       content.preOrderVariant === "tomorrow"
-        ? `If you have not already, get your copy of Humans First, Machines Second and have it signed by Vineet Nayar tomorrow evening. Pre-order here: ${ctx.preOrderUrl}`
-        : `Get your copy of Humans First, Machines Second and have it signed by Vineet Nayar on the evening. Pre-order here: ${ctx.preOrderUrl}`,
+        ? "If you have not already, get your copy of Humans First, Machines Second and have it signed by Vineet Nayar tomorrow evening."
+        : "Get your copy of Humans First, Machines Second and have it signed by Vineet Nayar on the evening.",
+      `Pre-order here: ${ctx.preOrderUrl}`,
       ""
     );
   }
