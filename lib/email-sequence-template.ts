@@ -171,7 +171,7 @@ function buildPreOrderHtml(
   return `
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px;">
       <tr>
-        <td style="background-color:#fef9a8;border:1px solid #f5ea30;border-radius:12px;padding:18px 20px;">
+        <td style="background-color:#F4EA30;border:1px solid #e0d52b;border-radius:12px;padding:18px 20px;">
           <p style="margin:0;padding:0;font-size:15px;line-height:1.65;color:#111111;">${escapeHtml(lead)}</p>
           <p style="margin:12px 0 0;padding:0;font-size:15px;line-height:1.65;color:#111111;">
             Pre-order here: ${link}
