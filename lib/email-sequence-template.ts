@@ -152,14 +152,20 @@ function buildEventDetailsHtml(ctx: SequenceRenderContext): string {
     </p>`;
 }
 
-function buildPreOrderHtml(ctx: SequenceRenderContext, variant: "default" | "tomorrow"): string {
+function buildPreOrderHtml(
+  ctx: SequenceRenderContext,
+  variant: "default" | "tomorrow",
+  highlighted = false
+): string {
   const lead =
     variant === "tomorrow"
       ? "If you have not already, get your copy of Humans First, Machines Second and have it signed by Vineet Nayar tomorrow evening."
       : "Get your copy of Humans First, Machines Second and have it signed by Vineet Nayar on the evening.";
-  return buildRichParagraphHtml(
-    `${escapeHtml(lead)} Pre-order here: <a href="${escapeHtml(ctx.preOrderUrl)}" style="color:${CTA_BLUE};text-decoration:underline;">${escapeHtml(ctx.preOrderUrl)}</a>`
-  );
+  const inner = `${escapeHtml(lead)} Pre-order here: <a href="${escapeHtml(ctx.preOrderUrl)}" style="color:${CTA_BLUE};text-decoration:underline;">${escapeHtml(ctx.preOrderUrl)}</a>`;
+  const html = highlighted
+    ? `<span style="background-color:#f5ea30;padding:3px 6px;-webkit-box-decoration-break:clone;box-decoration-break:clone;">${inner}</span>`
+    : inner;
+  return buildRichParagraphHtml(html);
 }
 
 function buildCtaHtml(label: string, href: string): string {
@@ -199,7 +205,7 @@ export function buildSequenceEmailHtml(
   const eventDetails = content.showEventDetails ? buildEventDetailsHtml(ctx) : "";
   const preOrder =
     content.preOrderVariant === "default"
-      ? buildPreOrderHtml(ctx, "default")
+      ? buildPreOrderHtml(ctx, "default", key === "seq1" || key === "seq2")
       : content.preOrderVariant === "tomorrow"
         ? buildPreOrderHtml(ctx, "tomorrow")
         : "";

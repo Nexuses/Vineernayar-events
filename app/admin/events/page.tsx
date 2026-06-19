@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatEventDate, getEventTimeDisplay } from "@/lib/date-utils";
 import { DEFAULT_EVENT_BANNER_URL } from "@/lib/constants";
 import { getRegistrationWindowStatus, getRegistrationWindowLabel, getRegistrationWindowBadgeClass } from "@/lib/registration-window";
+import { BannerImageWithHighlight } from "@/app/components/BannerImageWithHighlight";
 
 type EventItem = {
   _id: string;
@@ -86,11 +87,12 @@ export default function AllEventsPage() {
                 className="flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition-shadow hover:shadow-md"
               >
                 <div className="aspect-[3/2] w-full shrink-0 overflow-hidden bg-zinc-100">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <BannerImageWithHighlight
                     src={ev.eventBanner?.trim() || DEFAULT_EVENT_BANNER_URL}
                     alt={ev.eventName}
-                    className="h-full w-full object-cover object-top"
+                    venue={ev.venue}
+                    eventName={ev.eventName}
+                    className="h-full"
                   />
                 </div>
                 <div className="flex flex-1 flex-col p-4">

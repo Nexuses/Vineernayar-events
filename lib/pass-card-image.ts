@@ -2,7 +2,8 @@ import sharp from "sharp";
 import QRCode from "qrcode";
 import { formatEventDate, formatRegisteredDate, getEventTimeDisplay } from "./date-utils";
 import { BRAND_COLOR, BRAND_LOGO_URL, BRAND_NAME } from "./constants";
-import { getPassSvgFontDefs, PASS_FONT_FAMILY } from "./pass-fonts";
+import { PASS_FONT_FAMILY } from "./pass-fonts";
+import { renderPassSvgToPng } from "./pass-svg-render";
 
 export type FullPassData = {
   firstName: string;
@@ -264,7 +265,7 @@ export async function generatePassCardImage(data: FullPassData): Promise<Buffer>
 
   const svgParts: string[] = [];
 
-  svgParts.push(`<defs>${getPassSvgFontDefs()}<clipPath id="card"><rect width="${W}" height="${cardH}" rx="${R_CARD}" ry="${R_CARD}"/></clipPath></defs>`);
+  svgParts.push(`<defs><clipPath id="card"><rect width="${W}" height="${cardH}" rx="${R_CARD}" ry="${R_CARD}"/></clipPath></defs>`);
   svgParts.push(`<g clip-path="url(#card)">`);
 
   svgParts.push(`<rect width="${W}" height="${cardH}" fill="${C.white}"/>`);
@@ -355,7 +356,7 @@ ${svgParts.join("\n")}
   const qrBuffer = await QRCode.toBuffer(data.uniqueCode, { width: QR_SIZE, margin: 1, type: "png" });
   const qrResized = await sharp(qrBuffer).resize(QR_SIZE, QR_SIZE).toBuffer();
 
-  let base = await sharp(Buffer.from(svg)).png().toBuffer();
+  let base = renderPassSvgToPng(svg);
   const composites: sharp.OverlayOptions[] = [{ input: qrResized, left: qrImgX, top: qrImgY }];
 
   if (logoBuffer?.length) {

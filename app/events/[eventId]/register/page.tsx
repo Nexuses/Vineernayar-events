@@ -11,6 +11,7 @@ import { formatEventDate, getEventTimeDisplay, getEventCountdownRange } from "@/
 import { RegisterForm } from "./RegisterForm";
 import { RegistrationClosedPage, RegistrationOpensSoonPage } from "../RegistrationClosedMessage";
 import { EventCountdown } from "./EventCountdown";
+import { BannerImageWithHighlight } from "@/app/components/BannerImageWithHighlight";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -97,11 +98,13 @@ export default async function RegisterPage({
         <div className="order-2 lg:order-none lg:sticky lg:top-6 lg:self-start">
           <div className="flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
             <div className="aspect-[3/2] w-full flex-shrink-0 overflow-hidden bg-zinc-100">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <BannerImageWithHighlight
                 src={getEventBannerUrl(event)}
                 alt={event.eventName}
-                className="h-full w-full object-cover object-top"
+                venue={event.venue}
+                eventName={event.eventName}
+                size="medium"
+                className="h-full"
               />
             </div>
             <div className="flex min-h-0 flex-1 flex-col justify-between border-t border-zinc-200 p-4 sm:p-6">

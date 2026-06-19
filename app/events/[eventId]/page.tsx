@@ -16,6 +16,7 @@ import { hasDescriptionContent } from "@/lib/sanitize-description-html";
 import { CalendarIcon, ClockIcon, MapPinIcon } from "@/app/events/EventIcons";
 import { getRegistrationWindowBadgeClass } from "@/lib/registration-window";
 import { EventCountdown } from "./register/EventCountdown";
+import { BannerImageWithHighlight } from "@/app/components/BannerImageWithHighlight";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -71,11 +72,13 @@ export default async function EventPage({
         <div className="order-2 lg:order-none lg:col-span-2">
           <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
             <div className="aspect-[3/2] w-full overflow-hidden bg-zinc-100">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <BannerImageWithHighlight
                 src={getEventBannerUrl(event)}
                 alt={event.eventName}
-                className="h-full w-full object-cover object-top"
+                venue={event.venue}
+                eventName={event.eventName}
+                size="medium"
+                className="h-full"
               />
             </div>
             <div className="border-t border-zinc-200 p-4 sm:p-6">

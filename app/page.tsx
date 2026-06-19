@@ -5,6 +5,7 @@ import { formatEventDate } from "@/lib/date-utils";
 import { CalendarIcon } from "@/app/events/EventIcons";
 import { Footer } from "@/app/components/Footer";
 import { HeaderBar } from "@/app/components/HeaderBar";
+import { BannerImageWithHighlight } from "@/app/components/BannerImageWithHighlight";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -40,11 +41,13 @@ export default async function Home() {
                     className="group flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition-shadow hover:shadow-md"
                   >
                     <div className="aspect-[3/2] w-full shrink-0 overflow-hidden bg-zinc-100">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+                      <BannerImageWithHighlight
                         src={getEventBannerUrl(ev)}
                         alt={ev.eventName}
-                        className="h-full w-full object-cover object-top transition-transform group-hover:scale-[1.02]"
+                        venue={ev.venue}
+                        eventName={ev.eventName}
+                        className="h-full"
+                        imgClassName="transition-transform group-hover:scale-[1.02]"
                       />
                     </div>
                     <div className="flex flex-1 flex-col p-4">
