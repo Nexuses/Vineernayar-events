@@ -23,6 +23,7 @@ const QR_PAD = PT(4);
 const QR_BOX = QR_SIZE + (QR_PAD + QR_BORDER) * 2;
 const COL_GAP = PT(12);
 const LEFT_COL_W = W - PAD * 2 - COL_GAP - QR_BOX;
+const R_CARD = PT(16);
 
 const C = {
   black: rgb(0.09, 0.09, 0.11),
@@ -103,6 +104,48 @@ function drawWrappedText(
   return yTop - lines.length * lineHeight;
 }
 
+function roundedRectSvg(x: number, y: number, w: number, h: number, r: number): string {
+  const radius = Math.min(r, w / 2, h / 2);
+  return [
+    `M ${x + radius} ${y}`,
+    `L ${x + w - radius} ${y}`,
+    `Q ${x + w} ${y} ${x + w} ${y + radius}`,
+    `L ${x + w} ${y + h - radius}`,
+    `Q ${x + w} ${y + h} ${x + w - radius} ${y + h}`,
+    `L ${x + radius} ${y + h}`,
+    `Q ${x} ${y + h} ${x} ${y + h - radius}`,
+    `L ${x} ${y + radius}`,
+    `Q ${x} ${y} ${x + radius} ${y}`,
+    "Z",
+  ].join(" ");
+}
+
+function topRoundedBarSvg(x: number, y: number, w: number, h: number, r: number): string {
+  const radius = Math.min(r, w / 2, h);
+  return [
+    `M ${x} ${y + h}`,
+    `L ${x} ${y + radius}`,
+    `Q ${x} ${y} ${x + radius} ${y}`,
+    `L ${x + w - radius} ${y}`,
+    `Q ${x + w} ${y} ${x + w} ${y + radius}`,
+    `L ${x + w} ${y + h}`,
+    "Z",
+  ].join(" ");
+}
+
+function bottomRoundedBarSvg(x: number, y: number, w: number, h: number, r: number): string {
+  const radius = Math.min(r, w / 2, h);
+  return [
+    `M ${x} ${y + h - radius}`,
+    `Q ${x} ${y + h} ${x + radius} ${y + h}`,
+    `L ${x + w - radius} ${y + h}`,
+    `Q ${x + w} ${y + h} ${x + w} ${y + h - radius}`,
+    `L ${x + w} ${y}`,
+    `L ${x} ${y}`,
+    "Z",
+  ].join(" ");
+}
+
 /** Draw pass card with pdf-lib + embedded fonts (reliable on Vercel; no SVG rasterization). */
 export async function generateVectorPassPdf(data: FullPassData): Promise<Buffer> {
   const firstName = capitalizeFirst(data.firstName);
@@ -172,8 +215,8 @@ export async function generateVectorPassPdf(data: FullPassData): Promise<Buffer>
   const cardBottom = A4_HEIGHT_PT - PAGE_MARGIN_PT - cardH;
   const cardTop = cardBottom + cardH;
 
-  page.drawRectangle({ x: cardX, y: cardBottom, width: W, height: cardH, color: C.white, borderColor: C.zinc200, borderWidth: PT(1) });
-  page.drawRectangle({ x: cardX, y: cardTop - HEADER_H, width: W, height: HEADER_H, color: C.brand });
+  page.drawSvgPath(roundedRectSvg(cardX, cardBottom, W, cardH, R_CARD), { color: C.white });
+  page.drawSvgPath(topRoundedBarSvg(cardX, cardTop - HEADER_H, W, HEADER_H, R_CARD), { color: C.brand });
 
   const headerTextY = cardTop - HEADER_H + (HEADER_H - fsHeader) / 2;
   page.drawText("Event Pass", {
@@ -297,7 +340,7 @@ export async function generateVectorPassPdf(data: FullPassData): Promise<Buffer>
     if (i < rowSets.length - 1) ey -= eventRowGap;
   }
 
-  page.drawRectangle({ x: cardX, y: cardBottom, width: W, height: FOOTER_H, color: C.zinc100 });
+  page.drawSvgPath(bottomRoundedBarSvg(cardX, cardBottom, W, FOOTER_H, R_CARD), { color: C.zinc100 });
   page.drawLine({
     start: { x: cardX, y: cardBottom + FOOTER_H },
     end: { x: cardX + W, y: cardBottom + FOOTER_H },
@@ -310,6 +353,11 @@ export async function generateVectorPassPdf(data: FullPassData): Promise<Buffer>
     size: fsFooter,
     font: regular,
     color: C.zinc500,
+  });
+
+  page.drawSvgPath(roundedRectSvg(cardX, cardBottom, W, cardH, R_CARD), {
+    borderColor: C.zinc200,
+    borderWidth: PT(1),
   });
 
   return Buffer.from(await doc.save());

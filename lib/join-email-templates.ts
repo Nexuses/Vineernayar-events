@@ -51,26 +51,35 @@ export const JOIN_THANK_YOU_HTML = `<!DOCTYPE html>
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f3f1ea;">
     <tr>
       <td align="center" style="padding:32px 16px;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background-color:#ffffff;border:1px solid #e7e5dd;border-radius:16px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background-color:#ffffff;border:1px solid #e7e5dd;border-radius:16px;overflow:hidden;">
 
 ${JOIN_EMAIL_NAV_HTML}
 
           <tr>
-            <td style="padding:28px 32px 8px;">
-              <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:0.24em;text-transform:uppercase;color:#6b6b6b;line-height:1.2;">
-                Humans First
-              </p>
-              <h1 style="margin:0;font-size:26px;line-height:1.08;font-weight:900;text-transform:uppercase;color:#111111;">
-                Thank you
-              </h1>
-              <p style="margin:10px 0 0;font-size:14px;line-height:1.5;color:#6b6b6b;">
-                Your seat is reserved — we are glad you are joining us.
-              </p>
+            <td style="padding:26px 28px 24px;background-color:#111111;color:#ffffff;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td valign="middle" style="vertical-align:middle;padding-right:12px;">
+                    <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:0.24em;text-transform:uppercase;color:#ecd225;line-height:1.2;">
+                      Humans First
+                    </p>
+                    <h1 style="margin:0;font-size:26px;line-height:1.08;font-weight:900;text-transform:uppercase;color:#ffffff;">
+                      Thank you
+                    </h1>
+                    <p style="margin:10px 0 0;font-size:14px;line-height:1.5;color:#bdbdbd;">
+                      Your seat is reserved — we are glad you are joining us.
+                    </p>
+                  </td>
+                  <td align="right" valign="middle" width="152" style="width:152px;padding-left:20px;vertical-align:middle;text-align:right;">
+                    <img src="{{logoUrl}}" alt="Humans First" width="132" style="display:block;width:132px;max-width:132px;height:auto;border:0;outline:none;text-decoration:none;margin:0 0 0 auto;" />
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
 
           <tr>
-            <td style="padding:8px 32px 28px;">
+            <td style="padding:28px 32px;">
               <p style="margin:0 0 16px;font-size:17px;line-height:1.6;color:#111111;">
                 Hi {{name}},
               </p>
