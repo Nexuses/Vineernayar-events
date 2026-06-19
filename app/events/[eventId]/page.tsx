@@ -13,7 +13,6 @@ import { CheckEligibleForm } from "./CheckEligibleForm";
 import { RegistrationClosedCard, RegistrationOpensSoonCard } from "./RegistrationClosedMessage";
 import { EventDescription } from "./EventDescription";
 import { hasDescriptionContent } from "@/lib/sanitize-description-html";
-import { EventPublicHeader } from "./EventPublicHeader";
 import { CalendarIcon, ClockIcon, MapPinIcon } from "@/app/events/EventIcons";
 import { getRegistrationWindowBadgeClass } from "@/lib/registration-window";
 import { EventCountdown } from "./register/EventCountdown";
@@ -58,7 +57,6 @@ export default async function EventPage({
 
   return (
     <div className="min-h-full bg-white">
-      <EventPublicHeader />
       <div className="mx-auto max-w-6xl px-4 pt-2 sm:pt-3">
         <Link
           href="/"
@@ -68,9 +66,9 @@ export default async function EventPage({
           All events
         </Link>
       </div>
-      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 pb-4 pt-2 sm:gap-8 sm:pb-6 sm:pt-3 lg:grid-cols-3">
-        {/* Left: Banner + share */}
-        <div className="lg:col-span-2">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 pb-4 pt-2 sm:gap-8 sm:pb-6 sm:pt-3 lg:grid lg:grid-cols-3">
+        {/* Left: Banner + share — after registration on mobile */}
+        <div className="order-2 lg:order-none lg:col-span-2">
           <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
             <div className="aspect-[3/2] w-full overflow-hidden bg-zinc-100">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -167,8 +165,8 @@ export default async function EventPage({
           </div>
         </div>
 
-        {/* Right: Register + Event details */}
-        <div className="lg:col-span-1">
+        {/* Right: Register + Event details — first on mobile */}
+        <div className="order-1 lg:order-none lg:col-span-1">
           <div className="sticky top-4 space-y-4 sm:top-6 sm:space-y-6">
             <div className="rounded-xl border border-zinc-200 bg-white p-4 sm:p-6">
               <h2 className="mb-4 text-lg font-semibold text-zinc-900">

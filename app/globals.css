@@ -38,6 +38,10 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
 /* Public pages: always light / white, never system dark mode */
 .public-light {
   color-scheme: light;

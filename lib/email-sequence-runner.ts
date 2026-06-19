@@ -1,11 +1,15 @@
-import { sendPassEmail, sendSequenceEmail, type PassEmailData } from "./email";
+import { sendSequenceEmail, type PassEmailData, type SequenceEmailAttachments } from "./email";
 import { type EmailSequenceKey, isSequenceDue } from "./email-sequence";
+import { generateIcs } from "./ics";
+import { generateFullPassPdf } from "./pass-pdf";
 import {
   getRegistrationsCollection,
   listAllRegistrations,
   type RegistrationDoc,
 } from "./models/Registration";
 import { ObjectId } from "mongodb";
+
+const SEQUENCES_WITH_PASS_ATTACHMENTS = new Set<EmailSequenceKey>(["seq1", "seq2", "seq3"]);
 
 function buildPassUrl(eventId: string, uniqueCode: string): string {
   const base =
@@ -40,6 +44,54 @@ function toPassEmailData(reg: RegistrationDoc, passUrl: string): PassEmailData {
   };
 }
 
+async function buildPassEmailAttachments(
+  reg: RegistrationDoc,
+  passUrl: string
+): Promise<SequenceEmailAttachments> {
+  let passPdfBuffer: Buffer | undefined;
+  let passIcsBuffer: Buffer | undefined;
+
+  try {
+    passPdfBuffer = await generateFullPassPdf({
+      firstName: reg.firstName,
+      surname: reg.surname,
+      email: reg.email,
+      mobileNumber: reg.mobileNumber,
+      eventName: reg.eventName,
+      eventStartDate: reg.eventStartDate,
+      eventEndDate: reg.eventEndDate,
+      eventTime: reg.eventTime,
+      venue: reg.venue,
+      uniqueCode: reg.uniqueCode,
+      createdAt: reg.createdAt,
+    });
+  } catch (err) {
+    console.error("Pass PDF generation for email failed:", err);
+  }
+
+  try {
+    const icsContent = generateIcs(
+      {
+        eventName: reg.eventName,
+        eventStartDate: reg.eventStartDate,
+        eventEndDate: reg.eventEndDate,
+        eventTime: reg.eventTime,
+        venue: reg.venue,
+        uniqueCode: reg.uniqueCode,
+        passUrl,
+        attendeeName: `${reg.firstName} ${reg.surname}`,
+        attendeeEmail: reg.email,
+      },
+      reg.eventId
+    );
+    passIcsBuffer = Buffer.from(icsContent, "utf-8");
+  } catch (err) {
+    console.error("ICS generation for email failed:", err);
+  }
+
+  return { passPdfBuffer, passIcsBuffer };
+}
+
 export async function updateEmailSequenceStatus(
   registrationId: string,
   key: EmailSequenceKey,
@@ -68,7 +120,6 @@ export async function sendEmailSequenceForRegistration(
   opts?: {
     passPdfBuffer?: Buffer;
     passIcsBuffer?: Buffer;
-    qrBuffer?: Buffer;
   }
 ): Promise<boolean> {
   const passUrl = buildPassUrl(reg.eventId, reg.uniqueCode);
@@ -77,18 +128,19 @@ export async function sendEmailSequenceForRegistration(
   if (!id) return false;
 
   try {
-    let ok = false;
-    if (key === "seq1") {
-      ok = await sendPassEmail({
-        ...data,
-        sequenceKey: "seq1",
-        passPdfBuffer: opts?.passPdfBuffer,
-        passIcsBuffer: opts?.passIcsBuffer,
-        qrBuffer: opts?.qrBuffer,
-      });
-    } else {
-      ok = await sendSequenceEmail(data, key);
+    let emailAttachments: SequenceEmailAttachments | undefined;
+
+    if (SEQUENCES_WITH_PASS_ATTACHMENTS.has(key)) {
+      emailAttachments =
+        opts?.passPdfBuffer || opts?.passIcsBuffer
+          ? {
+              passPdfBuffer: opts.passPdfBuffer,
+              passIcsBuffer: opts.passIcsBuffer,
+            }
+          : await buildPassEmailAttachments(reg, passUrl);
     }
+
+    const ok = await sendSequenceEmail(data, key, emailAttachments);
 
     await updateEmailSequenceStatus(
       id,

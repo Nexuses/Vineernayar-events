@@ -1,6 +1,12 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import { BRAND_LOGO_URL, BRAND_NAME } from "@/lib/constants";
 import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: `${BRAND_NAME} Events`,
@@ -23,7 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased min-h-screen">
+      <body className={`${inter.className} antialiased min-h-screen`}>
         {children}
       </body>
     </html>

@@ -2,6 +2,7 @@ import sharp from "sharp";
 import QRCode from "qrcode";
 import { formatEventDate, formatRegisteredDate, getEventTimeDisplay } from "./date-utils";
 import { BRAND_COLOR, BRAND_LOGO_URL, BRAND_NAME } from "./constants";
+import { getPassSvgFontDefs, PASS_FONT_FAMILY } from "./pass-fonts";
 
 export type FullPassData = {
   firstName: string;
@@ -48,8 +49,8 @@ const ICON_MAP_PIN = [
   "M15 11a3 3 0 11-6 0 3 3 0 016 0z",
 ];
 
-const FONT_SANS = "Liberation Sans, DejaVu Sans, Helvetica, Arial, sans-serif";
-const FONT_MONO = "Liberation Mono, DejaVu Sans Mono, Courier New, monospace";
+const FONT_SANS = PASS_FONT_FAMILY;
+const FONT_MONO = PASS_FONT_FAMILY;
 
 const C = {
   black: "#18181b",
@@ -263,7 +264,7 @@ export async function generatePassCardImage(data: FullPassData): Promise<Buffer>
 
   const svgParts: string[] = [];
 
-  svgParts.push(`<defs><clipPath id="card"><rect width="${W}" height="${cardH}" rx="${R_CARD}" ry="${R_CARD}"/></clipPath></defs>`);
+  svgParts.push(`<defs>${getPassSvgFontDefs()}<clipPath id="card"><rect width="${W}" height="${cardH}" rx="${R_CARD}" ry="${R_CARD}"/></clipPath></defs>`);
   svgParts.push(`<g clip-path="url(#card)">`);
 
   svgParts.push(`<rect width="${W}" height="${cardH}" fill="${C.white}"/>`);

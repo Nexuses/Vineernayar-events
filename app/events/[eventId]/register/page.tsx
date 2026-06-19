@@ -10,7 +10,6 @@ import { getCountdownState } from "@/lib/countdown";
 import { formatEventDate, getEventTimeDisplay, getEventCountdownRange } from "@/lib/date-utils";
 import { RegisterForm } from "./RegisterForm";
 import { RegistrationClosedPage, RegistrationOpensSoonPage } from "../RegistrationClosedMessage";
-import { EventPublicHeader } from "../EventPublicHeader";
 import { EventCountdown } from "./EventCountdown";
 
 export const dynamic = "force-dynamic";
@@ -61,7 +60,6 @@ export default async function RegisterPage({
 
   return (
     <div className="min-h-full bg-white">
-      <EventPublicHeader />
 
       <div className="mx-auto max-w-6xl px-4 pt-2 sm:pt-3">
         <Link
@@ -74,8 +72,8 @@ export default async function RegisterPage({
       </div>
 
       <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 pb-8 pt-2 sm:gap-8 sm:pb-12 sm:pt-3 lg:grid-cols-[60%_40%] lg:items-start">
-        {/* Left: Registration form (60%) */}
-        <div className="order-2 min-h-0 lg:order-1">
+        {/* Registration form — first on mobile, left column on desktop */}
+        <div className="order-1 min-h-0 lg:order-none">
           <div className="rounded-xl border border-zinc-200 bg-white p-4 sm:p-6">
             {registrationWindow === "open_soon" ? (
               <RegistrationOpensSoonPage />
@@ -95,8 +93,8 @@ export default async function RegisterPage({
           </div>
         </div>
 
-        {/* Right: Event details (40%) — fixed while scrolling the form */}
-        <div className="order-1 lg:order-2 lg:sticky lg:top-6 lg:self-start">
+        {/* Event banner + details — after form on mobile, right column on desktop */}
+        <div className="order-2 lg:order-none lg:sticky lg:top-6 lg:self-start">
           <div className="flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
             <div className="aspect-[3/2] w-full flex-shrink-0 overflow-hidden bg-zinc-100">
               {/* eslint-disable-next-line @next/next/no-img-element */}

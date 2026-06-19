@@ -5,7 +5,6 @@ import { createRegistration, findRegistrationByEventAndEmail, countRegistrations
 import { sendEmailSequenceForRegistration } from "@/lib/email-sequence-runner";
 import { generateIcs } from "@/lib/ics";
 import { generateFullPassPdf } from "@/lib/pass-pdf";
-import QRCode from "qrcode";
 
 export async function POST(
   request: Request,
@@ -141,7 +140,6 @@ export async function POST(
 
     let passPdfBuffer: Buffer | undefined;
     let passIcsBuffer: Buffer | undefined;
-    let qrBuffer: Buffer | undefined;
     try {
       passPdfBuffer = await generateFullPassPdf({
         firstName: reg.firstName,
@@ -158,15 +156,6 @@ export async function POST(
       });
     } catch (err) {
       console.error("Pass generation failed:", err);
-    }
-    try {
-      qrBuffer = await QRCode.toBuffer(reg.uniqueCode, {
-        errorCorrectionLevel: "M",
-        width: 280,
-        margin: 1,
-      });
-    } catch (err) {
-      console.error("QR code generation failed:", err);
     }
     try {
       const icsContent = generateIcs(
@@ -189,7 +178,6 @@ export async function POST(
     }
     try {
       await sendEmailSequenceForRegistration(reg, "seq1", {
-        qrBuffer,
         passPdfBuffer,
         passIcsBuffer,
       });

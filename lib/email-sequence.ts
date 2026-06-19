@@ -35,19 +35,41 @@ export const EMAIL_SEQUENCE_SCHEDULE: Record<EmailSequenceKey, string> = {
   seq5: "30 days after event",
 };
 
-const HUMAN_QUESTION =
-  "What part of being human will you never give up?";
+export const SERIES_TITLE = "The Humans First Series with Vineet Nayar";
+
+const HUMAN_QUESTION = "What part of being human will you never give up?";
+
+export type SequenceRenderContext = {
+  firstName: string;
+  eventName: string;
+  eventDateDetail: string;
+  eventDateLong: string;
+  eventTime: string;
+  venue: string;
+  eventPageUrl: string;
+  preOrderUrl: string;
+  websiteUrl: string;
+  calendar: { month: string; day: string; weekday: string };
+};
+
+export type SequenceContent = {
+  greeting: string;
+  headerSubtitle?: string;
+  headerTitle: string;
+  showEventSummary: boolean;
+  paragraphs: string[];
+  humanQuestion?: string;
+  showEventDetails: boolean;
+  preOrderVariant?: "default" | "tomorrow";
+  signOffLine: string;
+  signOffTeam: string;
+  cta?: { label: string; href: string };
+};
 
 export type SequenceTemplateContext = {
   firstName: string;
   eventName: string;
 };
-
-function capitalizeFirst(s: string): string {
-  const text = String(s || "").trim();
-  if (!text) return "";
-  return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
-}
 
 export function createInitialEmailSequence(): EmailSequenceStatus {
   return {
@@ -59,74 +81,146 @@ export function createInitialEmailSequence(): EmailSequenceStatus {
   };
 }
 
-export function getSequenceSubject(key: EmailSequenceKey, ctx: SequenceTemplateContext): string {
-  const name = ctx.eventName.trim();
+export function getSequenceSubject(key: EmailSequenceKey, _ctx: SequenceTemplateContext): string {
   switch (key) {
     case "seq1":
-      return `You are registered for ${name}`;
+      return "Registration confirmed: The Humans First Series";
     case "seq2":
-      return `One week to go: ${name}`;
+      return "One week to go: The Humans First Series";
     case "seq3":
       return "Tomorrow: Stay Curious. Stay Inspired.";
     case "seq4":
-      return `Thank you for being part of ${name}`;
+      return "Thank you for being part of The Humans First Series";
     case "seq5":
       return "A small Humans First reminder";
     default:
-      return name;
+      return "The Humans First Series";
   }
 }
 
+export function getSequenceContent(
+  key: EmailSequenceKey,
+  ctx: SequenceRenderContext
+): SequenceContent {
+  const signOffLine = key === "seq5" ? "Warm regards," : "Best regards,";
+  const signOffTeam = "Team Vineet Nayar";
+
+  switch (key) {
+    case "seq1":
+      return {
+        greeting: "Greetings,",
+        headerSubtitle: "You have registered for",
+        headerTitle: SERIES_TITLE,
+        showEventSummary: true,
+        paragraphs: [
+          `Your registration for ${SERIES_TITLE} is confirmed. We are glad you will be with us.`,
+          "This is a conversation about winning in the age of AI without losing what makes us human. Before we meet, we would like to leave you with one question to carry with you. You will see it again when you arrive:",
+        ],
+        humanQuestion: HUMAN_QUESTION,
+        showEventDetails: true,
+        preOrderVariant: "default",
+        signOffLine,
+        signOffTeam,
+      };
+    case "seq2":
+      return {
+        greeting: "Greetings,",
+        headerSubtitle: "One week to go",
+        headerTitle: SERIES_TITLE,
+        showEventSummary: true,
+        paragraphs: [
+          `In one week, we gather for ${SERIES_TITLE}, a conversation about winning in the age of AI without losing what makes us human.`,
+          "Please plan to arrive 30 minutes early to take part in the Humans First Wall. A question to carry with you until then:",
+        ],
+        humanQuestion: HUMAN_QUESTION,
+        showEventDetails: true,
+        preOrderVariant: "default",
+        signOffLine,
+        signOffTeam,
+        cta: { label: "Event Page", href: ctx.eventPageUrl },
+      };
+    case "seq3":
+      return {
+        greeting: "Greetings,",
+        headerSubtitle: "Tomorrow",
+        headerTitle: SERIES_TITLE,
+        showEventSummary: true,
+        paragraphs: [
+          `We look forward to seeing you tomorrow at ${SERIES_TITLE}.`,
+          "Please bring your confirmation and arrive early. The Humans First Wall opens 30 minutes before we begin, and the evening will start on time.",
+          "One question will guide the evening:",
+        ],
+        humanQuestion: HUMAN_QUESTION,
+        showEventDetails: true,
+        preOrderVariant: "tomorrow",
+        signOffLine,
+        signOffTeam,
+        cta: { label: "Event Page", href: ctx.eventPageUrl },
+      };
+    case "seq4":
+      return {
+        greeting: "Greetings,",
+        headerTitle: "Thank you for being part of The Humans First Series",
+        showEventSummary: false,
+        paragraphs: [
+          `Thank you for joining ${SERIES_TITLE}.`,
+          "Your answer on the Humans First Wall is now part of a growing national conversation about what we refuse to lose in the age of AI. We hope you left with one thought worth holding on to: humans matter more than ever.",
+          "In the year ahead, we invite you to carry the promise forward and help at least two people discover what they are capable of becoming.",
+        ],
+        showEventDetails: false,
+        signOffLine,
+        signOffTeam,
+        cta: { label: "Visit Website", href: ctx.websiteUrl },
+      };
+    case "seq5":
+      return {
+        greeting: `Dear ${ctx.firstName},`,
+        headerTitle: "A small Humans First reminder",
+        showEventSummary: false,
+        paragraphs: [
+          `It has been a month since we met at ${SERIES_TITLE}. That evening, we asked one question:`,
+          HUMAN_QUESTION,
+          "We also made a simple promise:",
+          "To help at least two people discover what they are capable of becoming.",
+          "This is a gentle reminder to act on that promise.",
+          "It could be a student, a colleague, a friend, a young professional, a family member or someone who simply needs belief at the right moment.",
+          "You do not need to tell them about the event. You do not need to mention the book.",
+          "Just help them believe in themselves a little more than they did before. That is how the Humans First movement grows.",
+        ],
+        showEventDetails: false,
+        signOffLine,
+        signOffTeam,
+      };
+    default:
+      return {
+        greeting: "Greetings,",
+        headerTitle: ctx.eventName,
+        showEventSummary: false,
+        paragraphs: [],
+        showEventDetails: false,
+        signOffLine,
+        signOffTeam,
+      };
+  }
+}
+
+/** @deprecated Use buildSequenceEmailText from email-sequence-template.ts */
 export function getSequenceTextParagraphs(
   key: EmailSequenceKey,
   ctx: SequenceTemplateContext
 ): string[] {
-  const first = capitalizeFirst(ctx.firstName);
-  const event = ctx.eventName.trim();
-
-  switch (key) {
-    case "seq1":
-      return [
-        `Thank you for registering for ${event}. Before we meet, we invite you to think about one question:`,
-        HUMAN_QUESTION,
-        "You will see this question again when you arrive. We look forward to welcoming you.",
-      ];
-    case "seq2":
-      return [
-        "In one week, we gather for a conversation on winning in the age of AI without losing what makes us human.",
-        "Please arrive 30 minutes early to participate in the Humans First Wall.",
-        `Question to think about: ${HUMAN_QUESTION}`,
-      ];
-    case "seq3":
-      return [
-        `We look forward to seeing you tomorrow at ${event}.`,
-        "Please bring your confirmation and arrive early. The event will begin on time.",
-        `One question will guide the evening: ${HUMAN_QUESTION}`,
-      ];
-    case "seq4":
-      return [
-        `Thank you for joining ${event}.`,
-        "Your answer on the Humans First Wall is now part of a growing national conversation about what we refuse to lose in the age of AI.",
-        "We hope you left with one thought: humans matter more than ever.",
-        "In the coming year, we invite you to help at least two people discover what they are capable of becoming.",
-      ];
-    case "seq5":
-      return [
-        `It has been a month since we met at ${event}. That evening, we asked one question:`,
-        HUMAN_QUESTION,
-        "We also made a simple promise:",
-        "To help at least two people discover what they are capable of becoming.",
-        "This is a gentle reminder to act on that promise.",
-        "It could be a student, a colleague, a friend, a young professional, a family member or someone who simply needs belief at the right moment.",
-        "You do not need to tell them about the event. You do not need to mention the book.",
-        "Just help them believe in themselves a little more than they did before. That is how the Humans First movement grows.",
-        "Stay curious. Stay inspired.",
-        "Warm regards,",
-        "Team Vineet Nayar",
-      ];
-    default:
-      return [];
-  }
+  return getSequenceContent(key, {
+    firstName: ctx.firstName,
+    eventName: ctx.eventName,
+    eventDateDetail: "",
+    eventDateLong: "",
+    eventTime: "",
+    venue: "",
+    eventPageUrl: "",
+    preOrderUrl: "",
+    websiteUrl: "",
+    calendar: { month: "", day: "", weekday: "" },
+  }).paragraphs;
 }
 
 export function isSequenceDue(
