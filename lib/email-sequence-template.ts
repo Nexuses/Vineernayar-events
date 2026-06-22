@@ -159,8 +159,8 @@ function buildPreOrderHtml(
 ): string {
   const lead =
     variant === "tomorrow"
-      ? "If you have not already, get your copy of Humans First, Machines Second and have it signed by Vineet Nayar tomorrow evening."
-      : "Get your copy of Humans First, Machines Second and have it signed by Vineet Nayar on the evening.";
+      ? "If you have not already, get your copy of Humans First, Machines Second and have it signed by Vineet Nayar tomorrow at the event."
+      : "Get your copy of Humans First, Machines Second and have it signed by Vineet Nayar at the event.";
 
   const link = `<a href="${escapeHtml(ctx.preOrderUrl)}" style="color:${CTA_BLUE};text-decoration:underline;word-break:break-all;">${escapeHtml(ctx.preOrderUrl)}</a>`;
 
@@ -296,8 +296,8 @@ export function buildSequenceEmailText(
   if (content.preOrderVariant) {
     lines.push(
       content.preOrderVariant === "tomorrow"
-        ? "If you have not already, get your copy of Humans First, Machines Second and have it signed by Vineet Nayar tomorrow evening."
-        : "Get your copy of Humans First, Machines Second and have it signed by Vineet Nayar on the evening.",
+        ? "If you have not already, get your copy of Humans First, Machines Second and have it signed by Vineet Nayar tomorrow at the event."
+        : "Get your copy of Humans First, Machines Second and have it signed by Vineet Nayar at the event.",
       `Pre-order here: ${ctx.preOrderUrl}`,
       ""
     );
