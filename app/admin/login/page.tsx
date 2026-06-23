@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { BRAND_LOGO_URL, BRAND_NAME } from "@/lib/constants";
 
 export default function AdminLoginPage() {
@@ -94,6 +95,13 @@ export default function AdminLoginPage() {
             {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
+
+        <p className="mt-6 text-center text-sm text-zinc-600">
+          Don&apos;t have an account?{" "}
+          <Link href="/admin/signup" className="font-medium text-zinc-900 hover:underline">
+            Sign up
+          </Link>
+        </p>
       </div>
     </div>
   );
