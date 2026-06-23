@@ -73,6 +73,7 @@ export async function PUT(
     let requirePassportNic: boolean | undefined;
     let requireTransport: boolean | undefined;
     let published: boolean | undefined;
+    let showPassQr: boolean | undefined;
     let transportLocationsParsed: string[] = [];
     let seatLimitRaw: unknown | undefined;
     let seatLimitProvided = false;
@@ -110,6 +111,8 @@ export async function PUT(
       requireTransport = rt === "true" || rt === "1" ? true : rt === "false" || rt === "0" ? false : undefined;
       const pub = formData.get("published");
       published = pub === "true" || pub === "1" ? true : pub === "false" || pub === "0" ? false : undefined;
+      const spq = formData.get("showPassQr");
+      showPassQr = spq === "true" || spq === "1" ? true : spq === "false" || spq === "0" ? false : undefined;
       if (formData.has("seatLimit")) {
         seatLimitProvided = true;
         seatLimitRaw = formData.get("seatLimit");
@@ -142,6 +145,7 @@ export async function PUT(
       requirePassportNic = body.requirePassportNic;
       requireTransport = body.requireTransport;
       published = body.published === undefined ? undefined : !!body.published;
+      showPassQr = body.showPassQr === undefined ? undefined : !!body.showPassQr;
       if ("seatLimit" in body) {
         seatLimitProvided = true;
         seatLimitRaw = body.seatLimit;
@@ -232,6 +236,7 @@ export async function PUT(
       ...(collectPassportNic !== undefined && { collectPassportNic }),
       ...(collectTransport !== undefined && { collectTransport }),
       ...(published !== undefined && { published }),
+      ...(showPassQr !== undefined && { showPassQr }),
       ...(requireWhatsAppNumber !== undefined && { requireWhatsAppNumber }),
       ...(requireApparelSize !== undefined && { requireApparelSize }),
       ...(requireOvernightStay !== undefined && { requireOvernightStay }),

@@ -15,6 +15,7 @@ export default function CreateEventPage() {
   const [phone, setPhone] = useState("");
   const [registrationType, setRegistrationType] = useState<"open_for_all" | "invitees_only">("invitees_only");
   const [published, setPublished] = useState(true);
+  const [showPassQr, setShowPassQr] = useState(true);
   const [seatLimit, setSeatLimit] = useState("");
   const [eventBannerUrl, setEventBannerUrl] = useState("");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -44,6 +45,7 @@ export default function CreateEventPage() {
         formData.set("phone", phone);
         formData.set("registrationType", registrationType);
         formData.set("published", published ? "true" : "false");
+        formData.set("showPassQr", showPassQr ? "true" : "false");
         if (seatLimit.trim()) formData.set("seatLimit", seatLimit.trim());
         formData.set("bannerFile", bannerFile);
         res = await fetch("/api/admin/events", { method: "POST", body: formData });
@@ -64,6 +66,7 @@ export default function CreateEventPage() {
             phone,
             registrationType,
             published,
+            showPassQr,
             ...(seatLimit.trim() ? { seatLimit: Number.parseInt(seatLimit.trim(), 10) } : {}),
           }),
         });
@@ -86,6 +89,7 @@ export default function CreateEventPage() {
       setPhone("");
       setRegistrationType("invitees_only");
       setPublished(true);
+      setShowPassQr(true);
       setSeatLimit("");
       setEventBannerUrl("");
       setBannerFile(null);
@@ -242,6 +246,20 @@ export default function CreateEventPage() {
               <option value="published">Publish</option>
               <option value="unpublished">Unpublish</option>
             </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-700">QR on event pass</label>
+            <select
+              value={showPassQr ? "show" : "hide"}
+              onChange={(e) => setShowPassQr(e.target.value === "show")}
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="show">Show QR code</option>
+              <option value="hide">Hide QR code</option>
+            </select>
+            <p className="mt-1 text-xs text-zinc-500">
+              The unique pass ID always stays in the header. This only controls the QR box on passes and PDFs.
+            </p>
           </div>
           <div className="flex items-end">
             <button type="submit" disabled={loading}

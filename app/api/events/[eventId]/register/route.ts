@@ -153,6 +153,7 @@ export async function POST(
         venue: reg.venue,
         uniqueCode: reg.uniqueCode,
         createdAt: reg.createdAt,
+        showPassQr: event.showPassQr !== false,
       });
     } catch (err) {
       console.error("Pass generation failed:", err);

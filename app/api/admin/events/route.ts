@@ -62,6 +62,7 @@ export async function POST(request: Request) {
     let requirePassportNic: boolean;
     let requireTransport: boolean;
     let published: boolean;
+    let showPassQr: boolean;
     let transportLocationsParsed: string[];
     let seatLimitRaw: unknown;
 
@@ -89,6 +90,7 @@ export async function POST(request: Request) {
       requirePassportNic = formData.get("requirePassportNic") === "true" || formData.get("requirePassportNic") === "1";
       requireTransport = formData.get("requireTransport") === "true" || formData.get("requireTransport") === "1";
       published = formData.get("published") === "true" || formData.get("published") === "1";
+      showPassQr = formData.get("showPassQr") !== "false" && formData.get("showPassQr") !== "0";
       seatLimitRaw = formData.get("seatLimit");
       transportLocationsParsed = transportLocationsFromFormData(formData);
 
@@ -119,6 +121,7 @@ export async function POST(request: Request) {
       requirePassportNic = !!body.requirePassportNic;
       requireTransport = !!body.requireTransport;
       published = !!body.published;
+      showPassQr = body.showPassQr === undefined ? true : !!body.showPassQr;
       seatLimitRaw = body.seatLimit;
       transportLocationsParsed = transportLocationsFromJsonBody(body);
     }
@@ -196,6 +199,7 @@ export async function POST(request: Request) {
       requirePassportNic: !!requirePassportNic,
       requireTransport: !!requireTransport,
       published: !!published,
+      showPassQr: !!showPassQr,
       transportLocations: collectTransport ? transportLocationsParsed : [],
       seatLimit,
     });

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRegistrationByCode } from "@/lib/models/Registration";
+import { getEventByEventId } from "@/lib/models/Event";
 import { generateFullPassPdf } from "@/lib/pass-pdf";
 
 export async function GET(
@@ -13,6 +14,8 @@ export async function GET(
       return NextResponse.json({ error: "Pass not found" }, { status: 404 });
     }
 
+    const event = await getEventByEventId(reg.eventId);
+
     const pdf = await generateFullPassPdf({
       firstName: reg.firstName,
       surname: reg.surname,
@@ -25,6 +28,7 @@ export async function GET(
       venue: reg.venue,
       uniqueCode: reg.uniqueCode,
       createdAt: reg.createdAt,
+      showPassQr: event?.showPassQr !== false,
     });
 
     return new NextResponse(new Uint8Array(pdf), {

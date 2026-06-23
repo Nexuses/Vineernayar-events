@@ -2,6 +2,7 @@ import { sendSequenceEmail, type PassEmailData, type SequenceEmailAttachments } 
 import { type EmailSequenceKey, isSequenceDue } from "./email-sequence";
 import { generateIcs } from "./ics";
 import { generateFullPassPdf } from "./pass-pdf";
+import { getEventByEventId } from "./models/Event";
 import {
   getRegistrationsCollection,
   listAllRegistrations,
@@ -51,6 +52,8 @@ async function buildPassEmailAttachments(
   let passPdfBuffer: Buffer | undefined;
   let passIcsBuffer: Buffer | undefined;
 
+  const event = await getEventByEventId(reg.eventId);
+
   try {
     passPdfBuffer = await generateFullPassPdf({
       firstName: reg.firstName,
@@ -64,6 +67,7 @@ async function buildPassEmailAttachments(
       venue: reg.venue,
       uniqueCode: reg.uniqueCode,
       createdAt: reg.createdAt,
+      showPassQr: event?.showPassQr !== false,
     });
   } catch (err) {
     console.error("Pass PDF generation for email failed:", err);

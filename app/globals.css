@@ -136,32 +136,66 @@ body.modal-open {
 }
 
 @media print {
-  .no-print {
+  .no-print,
+  .topbar,
+  .mobile-menu,
+  .footer {
     display: none !important;
   }
 
   @page {
-    margin: 8mm;
+    margin: 10mm;
     size: auto;
   }
 
+  html,
   body {
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
     background: #ffffff !important;
   }
 
+  body * {
+    visibility: hidden;
+  }
+
+  #event-pass,
+  #event-pass * {
+    visibility: visible;
+  }
+
+  .public-light {
+    min-height: 0 !important;
+    display: block !important;
+    background: #ffffff !important;
+  }
+
+  .public-light > .flex-1,
   .pass-page-wrap {
+    padding: 0 !important;
+    margin: 0 !important;
     max-width: none !important;
     width: 100% !important;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
+  }
+
+  .min-h-screen {
+    min-height: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
   }
 
   #event-pass {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
     display: block !important;
     width: 100% !important;
     max-width: 36rem !important;
-    margin: 0 auto;
+    margin: 0 auto !important;
     page-break-inside: avoid;
+    break-inside: avoid;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }

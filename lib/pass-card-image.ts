@@ -17,6 +17,8 @@ export type FullPassData = {
   venue: string;
   uniqueCode: string;
   createdAt: Date | string;
+  /** Defaults to true when omitted */
+  showPassQr?: boolean;
 };
 
 /** Matches on-screen pass: max-w-xl = 576px */

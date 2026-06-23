@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getRegistrationByCode } from "@/lib/models/Registration";
+import { getPublishedEventByEventId } from "@/lib/models/Event";
 import { formatEventDate, formatRegisteredDate, getEventTimeDisplay } from "@/lib/date-utils";
 import { BRAND_LOGO_URL, BRAND_NAME } from "@/lib/constants";
 import { CalendarIcon, ClockIcon, MapPinIcon } from "@/app/events/EventIcons";
@@ -20,6 +21,9 @@ export default async function PassPage({
   const { eventId, code } = await params;
   const reg = await getRegistrationByCode(code);
   if (!reg) notFound();
+
+  const event = await getPublishedEventByEventId(eventId);
+  const showPassQr = event?.showPassQr !== false;
 
   const qrUrl = `/api/qr?code=${encodeURIComponent(reg.uniqueCode)}`;
   const firstName = capitalizeFirst(reg.firstName);
@@ -51,7 +55,7 @@ export default async function PassPage({
           </div>
 
           <div className="p-4">
-            <div className="grid grid-cols-[1fr_auto] items-start gap-3">
+            <div className={showPassQr ? "grid grid-cols-[1fr_auto] items-start gap-3" : ""}>
               <div className="min-w-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -69,16 +73,18 @@ export default async function PassPage({
                 <p className="truncate text-sm text-zinc-600">{reg.email}</p>
               </div>
 
-              <div className="shrink-0 rounded-lg border-2 border-brand-500 bg-white p-1">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={qrUrl}
-                  alt={`QR code ${reg.uniqueCode}`}
-                  width={112}
-                  height={112}
-                  className="block h-28 w-28"
-                />
-              </div>
+              {showPassQr ? (
+                <div className="shrink-0 rounded-lg border-2 border-brand-500 bg-white p-1">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={qrUrl}
+                    alt={`QR code ${reg.uniqueCode}`}
+                    width={112}
+                    height={112}
+                    className="block h-28 w-28"
+                  />
+                </div>
+              ) : null}
             </div>
 
             <div className="mt-3 rounded-xl border border-brand-200 bg-brand-50/70 p-3">

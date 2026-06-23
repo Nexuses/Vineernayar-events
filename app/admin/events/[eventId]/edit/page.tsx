@@ -24,6 +24,7 @@ type EventItem = {
   registrationType?: "open_for_all" | "invitees_only";
   eventTime?: string;
   seatLimit?: number;
+  showPassQr?: boolean;
 };
 
 export default function EditEventPage() {
@@ -41,6 +42,7 @@ export default function EditEventPage() {
   const [phone, setPhone] = useState("");
   const [registrationType, setRegistrationType] = useState<"open_for_all" | "invitees_only">("invitees_only");
   const [published, setPublished] = useState(true);
+  const [showPassQr, setShowPassQr] = useState(true);
   const [seatLimit, setSeatLimit] = useState("");
   const [eventBannerUrl, setEventBannerUrl] = useState("");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -77,6 +79,7 @@ export default function EditEventPage() {
         setPhone(data.phone ?? "");
         setRegistrationType(data.registrationType === "open_for_all" ? "open_for_all" : "invitees_only");
         setPublished(!!data.published);
+        setShowPassQr(data.showPassQr !== false);
         setSeatLimit(
           typeof data.seatLimit === "number" && data.seatLimit > 0
             ? String(data.seatLimit)
@@ -117,6 +120,7 @@ export default function EditEventPage() {
         formData.set("phone", phone);
         formData.set("registrationType", registrationType);
         formData.set("published", published ? "true" : "false");
+        formData.set("showPassQr", showPassQr ? "true" : "false");
         formData.set("seatLimit", seatLimit.trim());
         formData.set("bannerFile", bannerFile);
         res = await fetch(`/api/admin/events/${eventId}`, { method: "PUT", body: formData });
@@ -137,6 +141,7 @@ export default function EditEventPage() {
             phone,
             registrationType,
             published,
+            showPassQr,
             seatLimit: seatLimitValue,
           }),
         });
@@ -156,6 +161,7 @@ export default function EditEventPage() {
           ? String(data.seatLimit)
           : ""
       );
+      setShowPassQr(data.showPassQr !== false);
       setBannerFile(null);
     } catch {
       setError("Something went wrong");
@@ -341,6 +347,20 @@ export default function EditEventPage() {
               <option value="published">Publish</option>
               <option value="unpublished">Unpublish</option>
             </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-700">QR on event pass</label>
+            <select
+              value={showPassQr ? "show" : "hide"}
+              onChange={(e) => setShowPassQr(e.target.value === "show")}
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="show">Show QR code</option>
+              <option value="hide">Hide QR code</option>
+            </select>
+            <p className="mt-1 text-xs text-zinc-500">
+              The unique pass ID always stays in the header. This only controls the QR box on passes and PDFs.
+            </p>
           </div>
           <div className="flex items-end gap-3">
             <button type="submit" disabled={loading}

@@ -66,6 +66,8 @@ export interface EventDoc {
   requireWhatsAppNumber?: boolean;
   /** Max registrations allowed; when reached, public registration closes automatically */
   seatLimit?: number;
+  /** When false, event pass hides the QR box but keeps the unique ID in the header */
+  showPassQr?: boolean;
   createdAt: Date;
 }
 
@@ -176,6 +178,7 @@ export async function createEvent(data: Omit<EventDoc, "_id" | "eventId" | "crea
     requirePassportNic: data.requirePassportNic ?? false,
     requireWhatsAppNumber: data.requireWhatsAppNumber ?? false,
     seatLimit: data.seatLimit,
+    showPassQr: data.showPassQr ?? true,
     createdAt: new Date(),
   };
   const result = await col.insertOne(doc);
@@ -283,6 +286,7 @@ export async function updateEvent(
   if (data.collectPassportNic !== undefined) update.collectPassportNic = data.collectPassportNic;
   if (data.requirePassportNic !== undefined) update.requirePassportNic = data.requirePassportNic;
   if (data.requireWhatsAppNumber !== undefined) update.requireWhatsAppNumber = data.requireWhatsAppNumber;
+  if (data.showPassQr !== undefined) update.showPassQr = data.showPassQr;
   if (data.seatLimit !== undefined) {
     if (data.seatLimit === null) {
       unset.seatLimit = "";
