@@ -4,6 +4,7 @@
  * Humans First — complete Header (single file)
  */
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -98,10 +99,10 @@ export function Header({ onToggleMenu, menuOpen, onJoinClick }: HeaderProps) {
         <span className="nav-orb" aria-hidden="true" />
         <div className="nav-group nav-left">{leftLinks.map(renderNavLink)}</div>
 
-        <a href={MARKETING_SITE_URL} className="brand" aria-label="The Humans First Series home">
+        <Link href="/" className="brand" aria-label="Humans First events home">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img className="brand-logo" src={HEADER_CONFIG.logo} alt="Humans First Series" />
-        </a>
+        </Link>
 
         <div className="nav-group nav-right">
           {rightLinks.map(renderNavLink)}
