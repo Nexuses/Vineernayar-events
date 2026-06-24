@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 import { BRAND_LOGO_URL } from "@/lib/constants";
 import { EVENT_TIMEZONE } from "@/lib/date-utils";
 import { JOIN_NOTIFY_HTML, JOIN_THANK_YOU_HTML } from "@/lib/join-email-templates";
+import { getEmailTemplateOverride } from "@/lib/models/EmailTemplate";
 import { MARKETING_SITE_URL } from "@/lib/marketing-site";
 
 const SMTP_HOST = process.env.SMTP_HOST;
@@ -118,8 +119,14 @@ export async function sendJoinEmails(
     submittedAt,
   };
 
-  const thankYouHtml = renderTemplate(JOIN_THANK_YOU_HTML, templateVars);
-  const notifyHtml = renderTemplate(JOIN_NOTIFY_HTML, templateVars);
+  const thankYouHtml = renderTemplate(
+    (await getEmailTemplateOverride("join_thank_you")) || JOIN_THANK_YOU_HTML,
+    templateVars
+  );
+  const notifyHtml = renderTemplate(
+    (await getEmailTemplateOverride("join_notify")) || JOIN_NOTIFY_HTML,
+    templateVars
+  );
 
   const thankYouText = `Hi ${payload.name},
 

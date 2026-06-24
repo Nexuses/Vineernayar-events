@@ -47,10 +47,10 @@ export default async function RegisterPage({
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ email?: string }>;
+  searchParams: Promise<{ email?: string; success?: string }>;
 }) {
   const { eventId } = await params;
-  const { email } = await searchParams;
+  const { email, success } = await searchParams;
   const event = await getPublishedEventByEventId(eventId);
   if (!event) notFound();
   const registrationWindow = await getPublicRegistrationWindowStatus(event);
@@ -58,6 +58,35 @@ export default async function RegisterPage({
   const countdownRange = getEventCountdownRange(event);
 
   const serializedEvent = toPlainEvent(event, registrationStatus);
+  const showSuccessCard = success === "1";
+
+  if (showSuccessCard) {
+    return (
+      <div className="min-h-full bg-white">
+        <div className="mx-auto max-w-6xl px-4 pb-12 pt-8 sm:pb-16 sm:pt-12">
+          <div className="mx-auto flex min-h-[55vh] items-center justify-center">
+            <div className="w-full max-w-xl rounded-2xl border-2 border-brand-500 bg-white p-6 shadow-[0_12px_40px_rgba(248,232,40,0.22)] ring-1 ring-brand-200 sm:p-8">
+              <div className="mx-auto flex max-w-xl flex-col items-center text-center">
+                <div className="relative mb-5 flex h-24 w-24 items-center justify-center">
+                  <span className="absolute inline-flex h-24 w-24 animate-ping rounded-full bg-emerald-200/70" />
+                  <span className="absolute inline-flex h-20 w-20 rounded-full bg-emerald-100" />
+                  <span className="relative inline-flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 shadow-lg shadow-emerald-200/70">
+                    <svg className="h-9 w-9 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </span>
+                </div>
+                <h3 className="text-2xl font-bold tracking-tight text-zinc-900">Registration Complete</h3>
+                <p className="mt-3 text-sm leading-relaxed text-zinc-600 sm:text-base">
+                  You will receive a confirmation mail with the event pass on your registered email address.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-full bg-white">

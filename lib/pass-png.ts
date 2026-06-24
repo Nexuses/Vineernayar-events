@@ -88,8 +88,8 @@ export async function generatePassPng(data: PassData): Promise<Buffer> {
   const yCode = QR_TOP + QR_BOX_W + CODE_GAP + FONT_CODE;
 
   // Font stack that exists on Linux/serverless (Vercel); Arial/Courier often missing and cause □ glyphs
-  const fontSans = "Liberation Sans, DejaVu Sans, Helvetica, Arial, sans-serif";
-  const fontMono = "Liberation Mono, DejaVu Sans Mono, Courier New, Courier, monospace";
+  const fontSans = "Roboto, sans-serif";
+  const fontMono = "Roboto, sans-serif";
   const firstNameText = escapeXml(safePassText(capitalizeFirst(data.firstName)));
   const lastNameText = escapeXml(safePassText(capitalizeFirst(data.surname)));
   const companyText = escapeXml(safePassText(data.designation || "-").toUpperCase());

@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, type PDFFont, type PDFPage, rgb } from "pdf-lib";
+import { PDFDocument, type PDFFont, type PDFPage, rgb } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import QRCode from "qrcode";
 import { BRAND_COLOR, BRAND_LOGO_URL, BRAND_NAME } from "./constants";
@@ -84,7 +84,7 @@ async function fetchLogo(): Promise<Uint8Array | null> {
   }
 }
 
-type PassFonts = { regular: PDFFont; bold: PDFFont; mono: PDFFont; monoBold: PDFFont };
+type PassFonts = { regular: PDFFont; bold: PDFFont };
 
 function drawWrappedText(
   page: PDFPage,
@@ -181,8 +181,6 @@ export async function generateVectorPassPdf(data: FullPassData): Promise<Buffer>
   doc.registerFontkit(fontkit);
   const regular = await doc.embedFont(Buffer.from(PASS_FONT_REGULAR_BASE64, "base64"));
   const bold = await doc.embedFont(Buffer.from(PASS_FONT_BOLD_BASE64, "base64"));
-  const mono = await doc.embedFont(StandardFonts.Helvetica);
-  const monoBold = await doc.embedFont(StandardFonts.HelveticaBold);
 
   const fsHeader = PT(11);
   const fsWelcome = PT(12);
@@ -204,11 +202,11 @@ export async function generateVectorPassPdf(data: FullPassData): Promise<Buffer>
   const eventBoxPad = PT(12);
   const detailLabelTexts = ["Date:", "Time:", "Venue:"];
   const labelColW =
-    Math.max(...detailLabelTexts.map((t) => monoBold.widthOfTextAtSize(t, fsEventRow))) + PT(10);
+    Math.max(...detailLabelTexts.map((t) => bold.widthOfTextAtSize(t, fsEventRow))) + PT(10);
   const valueMaxW = W - PAD * 2 - eventBoxPad * 2 - labelColW;
-  const dateLines = wrapLines(eventDate, mono, fsEventRow, valueMaxW);
-  const timeLines = wrapLines(eventTime, mono, fsEventRow, valueMaxW);
-  const venueLines = wrapLines(venue, mono, fsEventRow, valueMaxW);
+  const dateLines = wrapLines(eventDate, regular, fsEventRow, valueMaxW);
+  const timeLines = wrapLines(eventTime, regular, fsEventRow, valueMaxW);
+  const venueLines = wrapLines(venue, regular, fsEventRow, valueMaxW);
 
   const leftColH =
     LOGO_H +
@@ -295,11 +293,11 @@ export async function generateVectorPassPdf(data: FullPassData): Promise<Buffer>
   contentY -= fsWelcome + PT(2);
   contentY = drawWrappedText(page, nameLines, leftX, contentY, fsName, lhName, bold);
   contentY -= PT(6);
-  page.drawText(safeText(data.mobileNumber) || "—", {
+  page.drawText(safeText(data.mobileNumber ?? "") || "—", {
     x: leftX,
     y: contentY - fsBody,
     size: fsBody,
-    font: mono,
+    font: regular,
     color: C.zinc700,
   });
   contentY -= lhBody + PT(4);
@@ -356,10 +354,10 @@ export async function generateVectorPassPdf(data: FullPassData): Promise<Buffer>
       x: eventTextX,
       y: baselineY,
       size: fsEventRow,
-      font: monoBold,
+      font: bold,
       color: C.zinc600,
     });
-    drawDetailRowText(page, row.lines, valueX, baselineY, fsEventRow, lhEventRow, mono, C.black);
+    drawDetailRowText(page, row.lines, valueX, baselineY, fsEventRow, lhEventRow, regular, C.black);
     if (i < rowSets.length - 1) ey -= eventRowGap;
   }
 
@@ -378,7 +376,7 @@ export async function generateVectorPassPdf(data: FullPassData): Promise<Buffer>
     x: cardX + PAD,
     y: cardBottom + (FOOTER_H - fsFooter) / 2,
     size: fsFooter,
-    font: mono,
+    font: regular,
     color: C.zinc500,
   });
 

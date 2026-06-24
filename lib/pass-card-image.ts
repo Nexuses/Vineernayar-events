@@ -9,7 +9,7 @@ export type FullPassData = {
   firstName: string;
   surname: string;
   email: string;
-  mobileNumber: string;
+  mobileNumber?: string;
   eventName: string;
   eventStartDate: Date | string;
   eventEndDate?: Date | string;
@@ -301,7 +301,7 @@ export async function generatePassCardImage(data: FullPassData): Promise<Buffer>
   svgParts.push(nameBlock.svg);
   y += nameBlock.height + 6 * SCALE;
 
-  svgParts.push(svgText(leftX, y, safeText(data.mobileNumber) || "—", fsBody, { fill: C.zinc700 }));
+  svgParts.push(svgText(leftX, y, safeText(data.mobileNumber ?? "") || "—", fsBody, { fill: C.zinc700 }));
   y += lhBody + 4 * SCALE;
 
   const emailBlock = svgTextBlock(emailLines, leftX, y, fsBody, lhBody, { fill: C.zinc600 });

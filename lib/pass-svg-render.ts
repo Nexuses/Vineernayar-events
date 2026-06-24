@@ -9,8 +9,8 @@ export function renderPassSvgToPng(svg: string): Buffer {
       fontDirs: [fontDir],
       fontFiles: getPassFontFiles(),
       loadSystemFonts: false,
-      defaultFontFamily: "Inter",
-      sansSerifFamily: "Inter",
+      defaultFontFamily: "Roboto",
+      sansSerifFamily: "Roboto",
     },
   });
   return Buffer.from(resvg.render().asPng());

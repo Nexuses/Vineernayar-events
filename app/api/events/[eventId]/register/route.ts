@@ -24,9 +24,10 @@ export async function POST(
       firstName,
       surname,
       email,
-      organization,
-      designation,
       mobileNumber,
+      workedWithVineet,
+      workedWithVineetDetails,
+      questionForVineet,
       addToWhatsapp,
       whatsappNumber,
       identityCardOrPassport,
@@ -42,9 +43,27 @@ export async function POST(
     if (!firstName?.trim() || !surname?.trim() || !email?.trim()) {
       return NextResponse.json({ error: "First name, surname and email are required" }, { status: 400 });
     }
-    if (!organization?.trim() || !designation?.trim() || !mobileNumber?.trim()) {
+    if (typeof workedWithVineet !== "boolean") {
       return NextResponse.json(
-        { error: "Organization, designation and mobile number are required" },
+        { error: "Please select whether you have worked with Vineet Nayar before" },
+        { status: 400 }
+      );
+    }
+    if (workedWithVineet) {
+      const details =
+        typeof workedWithVineetDetails === "string" ? workedWithVineetDetails.trim() : "";
+      if (!details) {
+        return NextResponse.json(
+          { error: "Please tell us where you have worked with Vineet Nayar" },
+          { status: 400 }
+        );
+      }
+    }
+    const questionTrimmed =
+      typeof questionForVineet === "string" ? questionForVineet.trim() : "";
+    if (!questionTrimmed) {
+      return NextResponse.json(
+        { error: "Please share one question you would like to ask Vineet Nayar at the event" },
         { status: 400 }
       );
     }
@@ -114,9 +133,12 @@ export async function POST(
       firstName: firstName.trim(),
       surname: surname.trim(),
       email: email.trim().toLowerCase(),
-      organization: (organization || "").trim(),
-      designation: (designation || "").trim(),
-      mobileNumber: (mobileNumber || "").trim(),
+      mobileNumber: typeof mobileNumber === "string" ? mobileNumber.trim() || undefined : undefined,
+      workedWithVineet,
+      workedWithVineetDetails: workedWithVineet
+        ? (typeof workedWithVineetDetails === "string" ? workedWithVineetDetails.trim() : "")
+        : undefined,
+      questionForVineet: questionTrimmed,
       addToWhatsapp: addToWhatsappEffective,
       whatsappNumber: whatsappNumberEffective,
       identityCardOrPassport: identityCardOrPassport?.trim() || undefined,
@@ -145,7 +167,7 @@ export async function POST(
         firstName: reg.firstName,
         surname: reg.surname,
         email: reg.email,
-        mobileNumber: reg.mobileNumber,
+        mobileNumber: reg.mobileNumber || "",
         eventName: reg.eventName,
         eventStartDate: reg.eventStartDate,
         eventEndDate: reg.eventEndDate,

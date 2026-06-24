@@ -10,6 +10,7 @@ const navItems = [
   { href: "/admin/create-event", label: "Create Event" },
   { href: "/admin/eligible", label: "Eligible Client" },
   { href: "/admin/registrations", label: "Registered Client" },
+  { href: "/admin/email-flow", label: "Email Flow" },
   { href: "/admin/scan", label: "QR Scanning" },
 ];
 

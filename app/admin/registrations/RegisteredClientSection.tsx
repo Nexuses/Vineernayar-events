@@ -26,9 +26,12 @@ type RegistrationItem = {
   firstName: string;
   surname: string;
   email: string;
-  organization: string;
-  designation: string;
-  mobileNumber: string;
+  organization?: string;
+  designation?: string;
+  mobileNumber?: string;
+  workedWithVineet?: boolean;
+  workedWithVineetDetails?: string;
+  questionForVineet?: string;
   addToWhatsapp: boolean;
   whatsappNumber?: string;
   identityCardOrPassport?: string;
@@ -110,6 +113,31 @@ function buildRegistrationsCsv(rows: RegistrationItem[]): string {
       hasData: (r) => r.overnightStay != null,
     },
     {
+      header: "Worked with Vineet Nayar",
+      value: (r) => (r.workedWithVineet == null ? "" : r.workedWithVineet ? "Yes" : "No"),
+      hasData: (r) => r.workedWithVineet != null,
+    },
+    {
+      header: "Worked with Vineet Nayar (details)",
+      value: (r) => r.workedWithVineetDetails || "",
+      hasData: (r) => Boolean(r.workedWithVineetDetails?.trim()),
+    },
+    {
+      header: "Question for Vineet Nayar",
+      value: (r) => r.questionForVineet || "",
+      hasData: (r) => Boolean(r.questionForVineet?.trim()),
+    },
+    {
+      header: "Organization",
+      value: (r) => r.organization || "",
+      hasData: (r) => Boolean(r.organization?.trim()),
+    },
+    {
+      header: "Designation",
+      value: (r) => r.designation || "",
+      hasData: (r) => Boolean(r.designation?.trim()),
+    },
+    {
       header: "Passport/NIC",
       value: (r) => r.passportNic || "",
       hasData: (r) => Boolean(r.passportNic?.trim()),
@@ -124,8 +152,6 @@ function buildRegistrationsCsv(rows: RegistrationItem[]): string {
     "First Name",
     "Surname",
     "Email",
-    "Organization",
-    "Designation",
     "Mobile Number",
     "WhatsApp Number",
     ...activeOptional.map((col) => col.header),
@@ -142,8 +168,6 @@ function buildRegistrationsCsv(rows: RegistrationItem[]): string {
       r.firstName,
       r.surname,
       r.email,
-      r.organization || "",
-      r.designation || "",
       r.mobileNumber || "",
       r.addToWhatsapp ? r.whatsappNumber || "" : "",
       ...activeOptional.map((col) => col.value(r)),
@@ -349,14 +373,6 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
                               </h3>
                               <dl className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
                                 <div>
-                                  <dt className="text-zinc-500">Organization</dt>
-                                  <dd className="text-zinc-900">{r.organization || "—"}</dd>
-                                </div>
-                                <div>
-                                  <dt className="text-zinc-500">Designation</dt>
-                                  <dd className="text-zinc-900">{r.designation || "—"}</dd>
-                                </div>
-                                <div>
                                   <dt className="text-zinc-500">Mobile</dt>
                                   <dd className="text-zinc-900">{r.mobileNumber || "—"}</dd>
                                 </div>
@@ -366,6 +382,30 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
                                     {r.addToWhatsapp ? (r.whatsappNumber || "—") : "—"}
                                   </dd>
                                 </div>
+                                {r.workedWithVineet != null ? (
+                                  <div>
+                                    <dt className="text-zinc-500">Worked with Vineet Nayar</dt>
+                                    <dd className="text-zinc-900">{r.workedWithVineet ? "Yes" : "No"}</dd>
+                                  </div>
+                                ) : null}
+                                {r.workedWithVineet && r.workedWithVineetDetails ? (
+                                  <div>
+                                    <dt className="text-zinc-500">Where worked with him</dt>
+                                    <dd className="text-zinc-900">{r.workedWithVineetDetails}</dd>
+                                  </div>
+                                ) : null}
+                                {r.organization ? (
+                                  <div>
+                                    <dt className="text-zinc-500">Organization</dt>
+                                    <dd className="text-zinc-900">{r.organization}</dd>
+                                  </div>
+                                ) : null}
+                                {r.designation ? (
+                                  <div>
+                                    <dt className="text-zinc-500">Designation</dt>
+                                    <dd className="text-zinc-900">{r.designation}</dd>
+                                  </div>
+                                ) : null}
                                 {(r.apparelSize != null && r.apparelSize !== "") ? (
                                   <div>
                                     <dt className="text-zinc-500">Apparel size</dt>
@@ -400,6 +440,12 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
                                   <div className="sm:col-span-2">
                                     <dt className="text-zinc-500">Special comment</dt>
                                     <dd className="text-zinc-900">{r.specialComment}</dd>
+                                  </div>
+                                ) : null}
+                                {r.questionForVineet ? (
+                                  <div className="sm:col-span-2">
+                                    <dt className="text-zinc-500">Question for Vineet Nayar</dt>
+                                    <dd className="text-zinc-900">{r.questionForVineet}</dd>
                                   </div>
                                 ) : null}
                               </dl>

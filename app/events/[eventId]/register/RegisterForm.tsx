@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 type EventSnap = {
@@ -38,17 +38,16 @@ export function RegisterForm({
   const [firstName, setFirstName] = useState("");
   const [surname, setSurname] = useState("");
   const [email, setEmail] = useState(prefilledEmail);
-  const [organization, setOrganization] = useState("");
-  const [designation, setDesignation] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
-  const [addToWhatsapp, setAddToWhatsapp] = useState(false);
+  const [workedWithVineetChoice, setWorkedWithVineetChoice] = useState<"" | "yes" | "no">("");
+  const [workedWithVineetDetails, setWorkedWithVineetDetails] = useState("");
+  const [questionForVineet, setQuestionForVineet] = useState("");
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [apparelSize, setApparelSize] = useState("");
   const [overnightStayChoice, setOvernightStayChoice] = useState<"" | "yes" | "no">("");
   const [passportNic, setPassportNic] = useState("");
   const [transportChoice, setTransportChoice] = useState<"" | "yes" | "no">("");
   const [transportLocation, setTransportLocation] = useState("");
-  const [specialComment, setSpecialComment] = useState("");
   const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -59,14 +58,6 @@ export function RegisterForm({
   const transportNeeded = transportChoice === "yes";
 
   const whatsappRequired = !!event.requireWhatsAppNumber;
-  const whatsappUsingMobile = addToWhatsapp; // toggle means "WhatsApp number = Mobile number"
-
-  // When toggle is ON, always sync WhatsApp number with Mobile.
-  // When toggle is OFF, we don't touch whatsappNumber (user can type or leave it empty).
-  useEffect(() => {
-    if (!whatsappUsingMobile) return;
-    setWhatsappNumber(mobileNumber);
-  }, [whatsappUsingMobile, mobileNumber]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -75,8 +66,16 @@ export function RegisterForm({
       setError("You must agree to the Privacy Policy to register.");
       return;
     }
-    if (!organization.trim() || !designation.trim() || !mobileNumber.trim()) {
-      setError("Organization, designation and mobile number are required.");
+    if (workedWithVineetChoice === "") {
+      setError("Please select whether you have worked with Vineet Nayar before.");
+      return;
+    }
+    if (workedWithVineetChoice === "yes" && !workedWithVineetDetails.trim()) {
+      setError("Please tell us where you have worked with Vineet Nayar.");
+      return;
+    }
+    if (!questionForVineet.trim()) {
+      setError("Please share one question you would like to ask Vineet Nayar at the event.");
       return;
     }
     if (event.requireWhatsAppNumber && !whatsappNumber.trim()) {
@@ -124,15 +123,15 @@ export function RegisterForm({
           firstName,
           surname,
           email,
-          organization,
-          designation,
-          mobileNumber,
-          addToWhatsapp,
+          mobileNumber: mobileNumber.trim() || undefined,
+          workedWithVineet: workedWithVineetChoice === "yes",
+          workedWithVineetDetails:
+            workedWithVineetChoice === "yes" ? workedWithVineetDetails.trim() : undefined,
+          questionForVineet: questionForVineet.trim(),
+          addToWhatsapp: whatsappRequired,
           whatsappNumber: whatsappRequired
             ? whatsappNumber?.trim() || undefined
-            : addToWhatsapp
-              ? whatsappNumber?.trim() || undefined
-              : undefined,
+            : undefined,
           ...(event.collectApparelSize && { apparelSize: apparelSize || undefined }),
           ...(event.collectOvernightStay && {
             overnightStay: overnightStayChoice === "yes",
@@ -140,7 +139,6 @@ export function RegisterForm({
           ...(event.collectPassportNic && { passportNic: passportNic || undefined }),
           ...(event.collectTransport && { transportNeeded }),
           ...(event.collectTransport && transportNeeded && { transportLocation: transportLocation || undefined }),
-          specialComment: specialComment || undefined,
           agreedToPrivacy: true,
         }),
       });
@@ -149,7 +147,7 @@ export function RegisterForm({
         setError(data.error || "Registration failed");
         return;
       }
-      router.push(`/events/${eventId}/pass/${data.uniqueCode}`);
+      router.replace(`/events/${eventId}/register?success=1`);
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -186,10 +184,10 @@ export function RegisterForm({
             {/* Message */}
             <div className="text-center">
               <p className="text-lg font-semibold text-zinc-800">
-                Generating Your Pass
+                Completing Your Registration
               </p>
               <p className="mt-1 text-sm text-zinc-500">
-                Please wait while we process your registration...
+                Please wait. Your confirmation and event pass will be sent to your registered email.
               </p>
             </div>
           </div>
@@ -248,69 +246,74 @@ export function RegisterForm({
 
       <div>
         <label className="mb-1 block text-sm font-medium text-zinc-700">
-          Organization <span className="text-red-500">*</span>
-        </label>
-        <input
-          type="text"
-          value={organization}
-          onChange={(e) => setOrganization(e.target.value)}
-          required
-          className={inputClass}
-          placeholder="Organization"
-        />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-medium text-zinc-700">
-          Designation <span className="text-red-500">*</span>
-        </label>
-        <input
-          type="text"
-          value={designation}
-          onChange={(e) => setDesignation(e.target.value)}
-          required
-          className={inputClass}
-          placeholder="Designation"
-        />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-medium text-zinc-700">
-          Mobile Number <span className="text-red-500">*</span>
+          Mobile Number{" "}
+          <span className="font-normal text-zinc-500">(if you want to be part of the community later)</span>
         </label>
         <input
           type="tel"
           value={mobileNumber}
           onChange={(e) => setMobileNumber(e.target.value)}
-          required
           className={inputClass}
           placeholder="e.g. 0779400675"
         />
-        <div className="mt-2 flex items-center gap-2">
-          <button
-            type="button"
-            role="switch"
-            aria-checked={addToWhatsapp}
-          onClick={() => {
-              const next = !addToWhatsapp;
-              setAddToWhatsapp(next);
-              if (next) setWhatsappNumber(mobileNumber);
-          }}
-          className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${
-              addToWhatsapp ? "bg-brand-500" : "bg-zinc-200"
-            }`}
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium text-zinc-700">
+          Have you worked with Vineet Nayar? <span className="text-red-500">*</span>
+        </label>
+        <div className="relative">
+          <select
+            value={workedWithVineetChoice}
+            onChange={(e) => {
+              const v = e.target.value as "" | "yes" | "no";
+              setWorkedWithVineetChoice(v);
+              if (v !== "yes") setWorkedWithVineetDetails("");
+            }}
+            required
+            className={`${inputClass} cursor-pointer appearance-none pr-10`}
+            aria-label="Worked with Vineet Nayar before"
           >
-            <span
-              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${
-                addToWhatsapp ? "translate-x-5" : "translate-x-1"
-              }`}
-            />
-          </button>
-          <span className="text-sm text-zinc-600">Add to WhatsApp</span>
+            <option value="">Select</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+          {selectChevron}
         </div>
       </div>
 
-        {(addToWhatsapp || whatsappRequired) && (
+      {workedWithVineetChoice === "yes" && (
+        <div>
+          <label className="mb-1 block text-sm font-medium text-zinc-700">
+            Where did you work with him? <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            value={workedWithVineetDetails}
+            onChange={(e) => setWorkedWithVineetDetails(e.target.value)}
+            required
+            className={inputClass}
+            placeholder="e.g. Company name, project, or event"
+          />
+        </div>
+      )}
+
+      <div>
+        <label className="mb-1 block text-sm font-medium text-zinc-700">
+          One question you'd like to ask Vineet Nayar at the event{" "}
+          <span className="text-red-500">*</span>
+        </label>
+        <textarea
+          value={questionForVineet}
+          onChange={(e) => setQuestionForVineet(e.target.value)}
+          required
+          rows={3}
+          className={inputClass}
+          placeholder="Type your question here"
+        />
+      </div>
+
+        {whatsappRequired && (
         <div>
           <label className="mb-1 block text-sm font-medium text-zinc-700">
             WhatsApp Number {event.requireWhatsAppNumber ? <span className="text-red-500">*</span> : null}
@@ -322,8 +325,6 @@ export function RegisterForm({
               value={whatsappNumber}
               onChange={(e) => setWhatsappNumber(e.target.value)}
               required={!!event.requireWhatsAppNumber}
-              readOnly={whatsappUsingMobile}
-              aria-readonly={whatsappUsingMobile}
               className={inputClass}
               placeholder="WhatsApp number"
             />

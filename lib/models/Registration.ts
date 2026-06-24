@@ -16,13 +16,19 @@ export interface RegistrationDoc {
   firstName: string;
   surname: string;
   email: string;
-  organization: string;
-  designation: string;
-  mobileNumber: string;
+  organization?: string;
+  designation?: string;
+  mobileNumber?: string;
   addToWhatsapp: boolean;
   whatsappNumber?: string;
   identityCardOrPassport?: string;
   specialComment?: string;
+  /** Whether the attendee has worked with Vineet Nayar before */
+  workedWithVineet?: boolean;
+  /** Where / how they worked with Vineet Nayar (when workedWithVineet is true) */
+  workedWithVineetDetails?: string;
+  /** Question the attendee would like to ask at the event */
+  questionForVineet?: string;
   agreedToPrivacy: boolean;
   /** Collected when event.collectApparelSize is true */
   apparelSize?: string;

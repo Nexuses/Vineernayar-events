@@ -5,6 +5,11 @@ import {
   buildSequenceEmailText,
   buildSequenceRenderContext,
 } from "@/lib/email-sequence-template";
+import {
+  applyEmailTemplate,
+  sequenceContextToVars,
+} from "@/lib/email-template-registry";
+import { getEmailTemplateOverride } from "@/lib/models/EmailTemplate";
 import { BRAND_NAME } from "@/lib/constants";
 
 const SMTP_HOST = process.env.SMTP_HOST;
@@ -34,7 +39,7 @@ export type PassEmailData = {
   to: string;
   firstName: string;
   surname: string;
-  mobileNumber: string;
+  mobileNumber?: string;
   email: string;
   eventName: string;
   eventStartDate: string;
@@ -85,7 +90,15 @@ export async function sendSequenceEmail(
       firstName: data.firstName,
       eventName: data.eventName,
     });
-    const html = buildSequenceEmailHtml(key, renderCtx);
+    const customHtml = await getEmailTemplateOverride(key);
+    const html = customHtml
+      ? applyEmailTemplate(customHtml, {
+          ...sequenceContextToVars(renderCtx),
+          eventStartDate: data.eventStartDate,
+          eventEndDate: data.eventEndDate,
+          passUrl: data.passUrl,
+        })
+      : buildSequenceEmailHtml(key, renderCtx);
 
     await transporter.sendMail({
       from: `"${FROM_NAME}" <${FROM_EMAIL}>`,

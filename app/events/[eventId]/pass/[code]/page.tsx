@@ -1,11 +1,17 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { Roboto } from "next/font/google";
 import { getRegistrationByCode } from "@/lib/models/Registration";
 import { getPublishedEventByEventId } from "@/lib/models/Event";
 import { formatEventDate, formatRegisteredDate, getEventTimeDisplay } from "@/lib/date-utils";
 import { BRAND_LOGO_URL, BRAND_NAME } from "@/lib/constants";
 import { CalendarIcon, ClockIcon, MapPinIcon } from "@/app/events/EventIcons";
 import { PassActions } from "./PassActions";
+
+const roboto = Roboto({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+});
 
 function capitalizeFirst(s: string) {
   const text = String(s || "").trim();
@@ -31,7 +37,7 @@ export default async function PassPage({
 
   return (
     <div className="min-h-screen bg-zinc-50 py-6 sm:py-10">
-      <div className="pass-page-wrap mx-auto max-w-xl px-4">
+      <div className={`pass-page-wrap mx-auto max-w-xl px-4 ${roboto.className}`}>
         <Link
           href="/"
           className="no-print mb-4 inline-block text-sm font-medium text-zinc-600 hover:text-zinc-900"
@@ -51,7 +57,7 @@ export default async function PassPage({
             <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-900">
               Event Pass
             </span>
-            <span className="font-mono text-[11px] font-bold text-zinc-800">{reg.uniqueCode}</span>
+            <span className="text-[11px] font-bold text-zinc-800">{reg.uniqueCode}</span>
           </div>
 
           <div className="p-4">
