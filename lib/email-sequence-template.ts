@@ -194,6 +194,34 @@ function buildCtaHtml(label: string, href: string): string {
     </table>`;
 }
 
+function buildSeq1DetailsSplitHtml(ctx: SequenceRenderContext): string {
+  return `
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:8px 0 22px;">
+      <tr>
+        <td style="border-top:1px solid #9ca3af;font-size:0;line-height:0;">&nbsp;</td>
+      </tr>
+    </table>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px;">
+      <tr>
+        <td valign="top" width="50%" style="padding:0 18px 0 0;border-right:1px solid #9ca3af;">
+          <p style="margin:0 0 12px;font-size:18px;line-height:1.35;font-weight:700;color:#111111;">Event Details</p>
+          <p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#111111;">&#128197; <strong>Date:</strong> ${escapeHtml(ctx.eventDateLong)}</p>
+          <p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#111111;">&#128339; <strong>Time:</strong> ${escapeHtml(ctx.eventTime)}</p>
+          <p style="margin:0;font-size:15px;line-height:1.6;color:#111111;">&#128205; <strong>Location:</strong> ${escapeHtml(ctx.venue)}</p>
+        </td>
+        <td valign="top" width="50%" style="padding:0 0 0 18px;">
+          <p style="margin:0 0 12px;font-size:18px;line-height:1.35;font-weight:700;color:#111111;">Here’s Your Entry Pass</p>
+          <p style="margin:0 0 8px;font-size:14px;line-height:1.5;color:#6b7280;">Download the email attachment</p>
+        </td>
+      </tr>
+    </table>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 22px;">
+      <tr>
+        <td style="border-top:1px solid #9ca3af;font-size:0;line-height:0;">&nbsp;</td>
+      </tr>
+    </table>`;
+}
+
 export function buildSequenceEmailHtml(
   key: EmailSequenceKey,
   ctx: SequenceRenderContext
@@ -229,6 +257,47 @@ export function buildSequenceEmailHtml(
   const signOff = `
     <p style="margin:0 0 4px;font-size:15px;line-height:1.6;color:#111111;">${escapeHtml(content.signOffLine)}</p>
     <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#111111;font-weight:600;">${escapeHtml(content.signOffTeam)}</p>`;
+
+  const seq1SignOff = `
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#111111;">${escapeHtml(content.signOffLine)}</p>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#111111;">See you there!</p>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#111111;font-weight:600;">${escapeHtml(content.signOffTeam)}</p>`;
+
+  if (key === "seq1") {
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${title}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#ffffff;font-family:Roboto,Segoe UI,Helvetica,Arial,sans-serif;color:#111111;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+    <tr>
+      <td align="center" style="padding:28px 16px 40px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:680px;">
+          <tr>
+            <td style="padding:0;">
+              <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#111111;">${escapeHtml(content.greeting)}</p>
+              ${bodyParagraphs}
+              <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#111111;">
+                Pre-order Link:
+                <a href="${escapeHtml(ctx.preOrderUrl)}" style="color:${CTA_BLUE};text-decoration:underline;word-break:break-all;">${escapeHtml(ctx.preOrderUrl)}</a>
+              </p>
+              <p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#111111;font-weight:700;">${escapeHtml(content.humanQuestion ?? "")}</p>
+              ${buildSeq1DetailsSplitHtml(ctx)}
+              ${seq1SignOff}
+              ${cta}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+  }
 
   return `
 <!DOCTYPE html>
@@ -302,7 +371,14 @@ export function buildSequenceEmailText(
       ""
     );
   }
-  lines.push(content.signOffLine, content.signOffTeam);
+  if (key === "seq1") {
+    lines.push(`Pre-order Link: ${ctx.preOrderUrl}`, "");
+  }
+  if (key === "seq1") {
+    lines.push(content.signOffLine, "See you there!", content.signOffTeam);
+  } else {
+    lines.push(content.signOffLine, content.signOffTeam);
+  }
   if (content.cta) lines.push("", `${content.cta.label}: ${content.cta.href}`);
   return lines.join("\n");
 }

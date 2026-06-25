@@ -84,7 +84,7 @@ export function createInitialEmailSequence(): EmailSequenceStatus {
 export function getSequenceSubject(key: EmailSequenceKey, _ctx: SequenceTemplateContext): string {
   switch (key) {
     case "seq1":
-      return "Registration confirmed: The Humans First Series";
+      return "You’re In! Registration Confirmed: Humans First, Machine Second";
     case "seq2":
       return "One week to go: The Humans First Series";
     case "seq3":
@@ -108,19 +108,22 @@ export function getSequenceContent(
   switch (key) {
     case "seq1":
       return {
-        greeting: "Greetings,",
-        headerSubtitle: "You have registered for",
+        greeting: `Hi ${ctx.firstName},`,
+        headerSubtitle: undefined,
         headerTitle: SERIES_TITLE,
-        showEventSummary: true,
+        showEventSummary: false,
         paragraphs: [
-          `Your registration for ${SERIES_TITLE} is confirmed. We are glad you will be with us.`,
-          "This is a conversation about winning in the age of AI without losing what makes us human. Before we meet, we would like to leave you with one question to carry with you. You will see it again when you arrive:",
+          `Your seat for Humans First, Machines Second in ${ctx.venue} is confirmed.`,
+          "We're looking forward to welcoming you to join a movement with Vineet Nayar and a community of leaders, thinkers, and lifelong learners as we explore the human potential in the age of AI.",
+          "Looking for a memorable keepsake from the evening?",
+          "Bring your copy of Humans First, Machines Second - 30 Sparks to Reimagine Winning in the Age of AI to the event to get it signed by Vineet Nayar, and the chance to capture a photograph together.",
+          "At a time when everyone is asking what AI can do, we're gathering to explore a different question:",
         ],
         humanQuestion: HUMAN_QUESTION,
-        showEventDetails: false,
-        preOrderVariant: "default",
-        signOffLine,
-        signOffTeam,
+        showEventDetails: true,
+        preOrderVariant: undefined,
+        signOffLine: "We can't wait to continue that conversation with you.",
+        signOffTeam: "Team HFMS",
       };
     case "seq2":
       return {

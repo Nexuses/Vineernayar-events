@@ -1,6 +1,6 @@
 export const MARKETING_SITE_URL =
   process.env.NEXT_PUBLIC_MARKETING_SITE_URL?.replace(/\/$/, "") ||
-  "https://vineet-nayar-uat-react.vercel.app";
+  "https://hfmsbook.com";
 
 export function getMarketingOrigin(): string {
   return new URL(MARKETING_SITE_URL).origin;
