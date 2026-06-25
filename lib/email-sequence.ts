@@ -48,6 +48,7 @@ export type SequenceRenderContext = {
   eventTime: string;
   venue: string;
   eventCity: string;
+  eventLocationFull: string;
   eventPageUrl: string;
   preOrderUrl: string;
   websiteUrl: string;
@@ -122,7 +123,7 @@ export function getSequenceContent(
           "At a time when everyone is asking what AI can do, we're gathering to explore a different question:",
         ],
         humanQuestion: HUMAN_QUESTION,
-        showEventDetails: true,
+        showEventDetails: false,
         preOrderVariant: undefined,
         signOffLine: "We can't wait to continue that conversation with you.",
         signOffTeam: "Team HFMS",
@@ -222,6 +223,7 @@ export function getSequenceTextParagraphs(
     eventTime: "",
     venue: "",
     eventCity: "",
+    eventLocationFull: "",
     eventPageUrl: "",
     preOrderUrl: "",
     websiteUrl: "",

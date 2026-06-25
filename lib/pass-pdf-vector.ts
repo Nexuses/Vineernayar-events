@@ -206,8 +206,6 @@ export async function generateVectorPassPdf(data: FullPassData): Promise<Buffer>
   const venueLines = wrapLines(venue, regular, fsEventRow, valueMaxW);
 
   const leftColH =
-    LOGO_H +
-    PT(8) +
     fsWelcome +
     PT(2) +
     nameLines.length * lhName +
@@ -216,7 +214,8 @@ export async function generateVectorPassPdf(data: FullPassData): Promise<Buffer>
     PT(4) +
     emailLines.length * lhBody;
 
-  const topRowH = showPassQr ? Math.max(leftColH, QR_BOX) : leftColH;
+  const rightColH = LOGO_H + (showPassQr ? PT(8) + QR_BOX : 0);
+  const topRowH = Math.max(leftColH, rightColH);
   const eventRowGap = PT(8);
   const detailRowH = (lines: string[]) => Math.max(PT(16), lines.length * lhEventRow);
 
@@ -260,6 +259,7 @@ export async function generateVectorPassPdf(data: FullPassData): Promise<Buffer>
 
   const bodyTop = cardTop - HEADER_H - PAD;
   const leftX = cardX + PAD;
+  const rightEdgeX = cardX + W - PAD;
 
   const logoBytes = await fetchLogo();
   let contentY = bodyTop;
@@ -270,22 +270,32 @@ export async function generateVectorPassPdf(data: FullPassData): Promise<Buffer>
       const logoScale = LOGO_H / logo.height;
       const logoW = logo.width * logoScale;
       page.drawImage(logo, {
-        x: leftX,
+        x: rightEdgeX - logoW,
         y: bodyTop - LOGO_H,
         width: logoW,
         height: LOGO_H,
       });
-      contentY = bodyTop - LOGO_H;
     } catch {
-      page.drawText(BRAND_NAME, { x: leftX, y: bodyTop - PT(14), size: PT(14), font: bold, color: C.black });
-      contentY = bodyTop - PT(17);
+      const brandText = safeText(BRAND_NAME);
+      page.drawText(brandText, {
+        x: rightEdgeX - bold.widthOfTextAtSize(brandText, PT(14)),
+        y: bodyTop - PT(14),
+        size: PT(14),
+        font: bold,
+        color: C.black,
+      });
     }
   } else {
-    page.drawText(BRAND_NAME, { x: leftX, y: bodyTop - PT(14), size: PT(14), font: bold, color: C.black });
-    contentY = bodyTop - PT(17);
+    const brandText = safeText(BRAND_NAME);
+    page.drawText(brandText, {
+      x: rightEdgeX - bold.widthOfTextAtSize(brandText, PT(14)),
+      y: bodyTop - PT(14),
+      size: PT(14),
+      font: bold,
+      color: C.black,
+    });
   }
 
-  contentY -= PT(8);
   page.drawText("Welcome", { x: leftX, y: contentY - fsWelcome, size: fsWelcome, font: bold, color: C.zinc500 });
   contentY -= fsWelcome + PT(2);
   contentY = drawWrappedText(page, nameLines, leftX, contentY, fsName, lhName, bold);
@@ -305,10 +315,11 @@ export async function generateVectorPassPdf(data: FullPassData): Promise<Buffer>
     const qrBuffer = await QRCode.toBuffer(data.uniqueCode, { width: 280, margin: 1, type: "png" });
     const qrImage = await doc.embedPng(qrBuffer);
     const qrImgX = qrX + QR_BORDER + QR_PAD;
-    const qrImgY = bodyTop - QR_BORDER - QR_PAD - QR_SIZE;
+    const qrBoxY = bodyTop - LOGO_H - PT(8) - QR_BOX;
+    const qrImgY = qrBoxY + QR_BORDER + QR_PAD;
     page.drawRectangle({
       x: qrX,
-      y: bodyTop - QR_BOX,
+      y: qrBoxY,
       width: QR_BOX,
       height: QR_BOX,
       color: C.white,

@@ -84,6 +84,7 @@ export function buildSequenceRenderContext(data: {
     eventTime,
     venue,
     eventCity: getBannerHighlightLabel(venue, data.eventName) || venue,
+    eventLocationFull: venue,
     eventPageUrl: getEventPageUrl(data.passUrl),
     preOrderUrl: PRE_ORDER_URL,
     websiteUrl: MARKETING_SITE_URL,
@@ -211,7 +212,7 @@ function buildSeq1DetailsSplitHtml(ctx: SequenceRenderContext): string {
           <p style="margin:0 0 12px;font-size:18px;line-height:1.35;font-weight:700;color:#111111;">Event Details</p>
           <p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#111111;">&#128197; <strong>Date:</strong> ${escapeHtml(ctx.eventDateLong)}</p>
           <p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#111111;">&#128339; <strong>Time:</strong> ${escapeHtml(ctx.eventTime)}</p>
-          <p style="margin:0;font-size:15px;line-height:1.6;color:#111111;">&#128205; <strong>Location:</strong> ${escapeHtml(ctx.venue)}</p>
+          <p style="margin:0;font-size:15px;line-height:1.6;color:#111111;">&#128205; <strong>Location:</strong> ${escapeHtml(ctx.eventLocationFull)}</p>
         </td>
       </tr>
     </table>
@@ -278,12 +279,16 @@ export function buildSequenceEmailHtml(
       <td align="center" style="padding:28px 16px 40px;">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:680px;">
           <tr>
+            <td style="padding:0 0 24px;">
+              <img src="${escapeHtml(EMAIL_LOGO)}" alt="Humans First" width="160" style="display:block;width:160px;max-width:160px;height:auto;border:0;" />
+            </td>
+          </tr>
+          <tr>
             <td style="padding:0;">
               <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#111111;">${escapeHtml(content.greeting)}</p>
               ${bodyParagraphs}
               <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#111111;">
-                Pre-order Link:
-                <a href="${escapeHtml(ctx.preOrderUrl)}" style="color:${CTA_BLUE};text-decoration:underline;word-break:break-all;">${escapeHtml(ctx.preOrderUrl)}</a>
+                <a href="${escapeHtml(ctx.preOrderUrl)}" style="color:${CTA_BLUE};text-decoration:underline;">Pre-order Now</a>
               </p>
               <p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#111111;font-weight:700;">${escapeHtml(content.humanQuestion ?? "")}</p>
               ${buildSeq1DetailsSplitHtml(ctx)}
@@ -353,7 +358,15 @@ export function buildSequenceEmailText(
   lines.push(content.greeting, "");
   lines.push(...content.paragraphs, "");
   if (content.humanQuestion) lines.push(content.humanQuestion, "");
-  if (content.showEventDetails) {
+  if (key === "seq1") {
+    lines.push(
+      "Event Details:",
+      `Date: ${ctx.eventDateLong}`,
+      `Time: ${ctx.eventTime}`,
+      `Location: ${ctx.eventLocationFull}`,
+      ""
+    );
+  } else if (content.showEventDetails) {
     lines.push(
       "Event Details:",
       `Date: ${ctx.eventDateDetail}`,
@@ -372,7 +385,7 @@ export function buildSequenceEmailText(
     );
   }
   if (key === "seq1") {
-    lines.push(`Pre-order Link: ${ctx.preOrderUrl}`, "");
+    lines.push(`Pre-order Now: ${ctx.preOrderUrl}`, "");
   }
   if (key === "seq1") {
     lines.push(content.signOffLine, "See you there!", content.signOffTeam);
