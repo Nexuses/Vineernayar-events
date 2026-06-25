@@ -4,8 +4,8 @@ import path from "path";
 import { PASS_FONT_BOLD_BASE64, PASS_FONT_REGULAR_BASE64 } from "./pass-font-data";
 
 const FONT_FILES = {
-  regular: "roboto-latin-400-normal.woff",
-  bold: "roboto-latin-700-normal.woff",
+  regular: "inter-latin-400-normal.woff",
+  bold: "inter-latin-700-normal.woff",
 } as const;
 
 let cachedFontDir: string | null = null;
@@ -37,4 +37,4 @@ export function getPassFontFiles(): string[] {
   return [path.join(dir, FONT_FILES.regular), path.join(dir, FONT_FILES.bold)];
 }
 
-export const PASS_FONT_FAMILY = "Roboto";
+export const PASS_FONT_FAMILY = "Helvetica";

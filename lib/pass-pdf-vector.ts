@@ -1,9 +1,7 @@
-import { PDFDocument, type PDFFont, type PDFPage, rgb } from "pdf-lib";
-import fontkit from "@pdf-lib/fontkit";
+import { PDFDocument, StandardFonts, type PDFFont, type PDFPage, rgb } from "pdf-lib";
 import QRCode from "qrcode";
 import { BRAND_COLOR, BRAND_LOGO_URL, BRAND_NAME } from "./constants";
 import { formatEventDate, formatRegisteredDate, getEventTimeDisplay } from "./date-utils";
-import { PASS_FONT_BOLD_BASE64, PASS_FONT_REGULAR_BASE64 } from "./pass-font-data";
 import type { FullPassData } from "./pass-card-image";
 
 const A4_WIDTH_PT = 595.28;
@@ -178,9 +176,8 @@ export async function generateVectorPassPdf(data: FullPassData): Promise<Buffer>
   const leftColW = showPassQr ? LEFT_COL_W_WITH_QR : W - PAD * 2;
 
   const doc = await PDFDocument.create();
-  doc.registerFontkit(fontkit);
-  const regular = await doc.embedFont(Buffer.from(PASS_FONT_REGULAR_BASE64, "base64"));
-  const bold = await doc.embedFont(Buffer.from(PASS_FONT_BOLD_BASE64, "base64"));
+  const regular = await doc.embedFont(StandardFonts.Helvetica);
+  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
 
   const fsHeader = PT(11);
   const fsWelcome = PT(12);

@@ -2,7 +2,6 @@ import sharp from "sharp";
 import QRCode from "qrcode";
 import { formatEventDate, formatRegisteredDate, getEventTimeDisplay } from "./date-utils";
 import { BRAND_COLOR, BRAND_LOGO_URL, BRAND_NAME } from "./constants";
-import { PASS_FONT_FAMILY } from "./pass-fonts";
 import { renderPassSvgToPng } from "./pass-svg-render";
 
 export type FullPassData = {
@@ -52,8 +51,8 @@ const ICON_MAP_PIN = [
   "M15 11a3 3 0 11-6 0 3 3 0 016 0z",
 ];
 
-const FONT_SANS = PASS_FONT_FAMILY;
-const FONT_MONO = PASS_FONT_FAMILY;
+const FONT_SANS = "Helvetica, Arial, sans-serif";
+const FONT_MONO = "Helvetica, Arial, sans-serif";
 
 const C = {
   black: "#18181b",

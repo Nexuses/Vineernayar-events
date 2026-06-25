@@ -1,6 +1,7 @@
 import { BRAND_LOGO_URL } from "@/lib/constants";
 import { EVENT_TIMEZONE, formatEventDate, getEventTimeDisplay } from "@/lib/date-utils";
 import { MARKETING_SITE_URL } from "@/lib/marketing-site";
+import { getBannerHighlightLabel } from "@/lib/banner-label";
 import type { EmailSequenceKey } from "@/lib/email-sequence";
 import { getSequenceContent, type SequenceRenderContext } from "@/lib/email-sequence";
 
@@ -73,13 +74,16 @@ export function buildSequenceRenderContext(data: {
     eventTime: data.eventTime,
   });
 
+  const venue = data.venue?.trim() || "—";
+
   return {
     firstName: capitalizeFirst(data.firstName),
     eventName: data.eventName.trim(),
     eventDateDetail: formatEventDateDetail(data.eventStartDate),
     eventDateLong: formatEventDate(data.eventStartDate),
     eventTime,
-    venue: data.venue?.trim() || "—",
+    venue,
+    eventCity: getBannerHighlightLabel(venue, data.eventName) || venue,
     eventPageUrl: getEventPageUrl(data.passUrl),
     preOrderUrl: PRE_ORDER_URL,
     websiteUrl: MARKETING_SITE_URL,
@@ -203,15 +207,11 @@ function buildSeq1DetailsSplitHtml(ctx: SequenceRenderContext): string {
     </table>
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px;">
       <tr>
-        <td valign="top" width="50%" style="padding:0 18px 0 0;border-right:1px solid #9ca3af;">
+        <td valign="top" style="padding:0;">
           <p style="margin:0 0 12px;font-size:18px;line-height:1.35;font-weight:700;color:#111111;">Event Details</p>
           <p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#111111;">&#128197; <strong>Date:</strong> ${escapeHtml(ctx.eventDateLong)}</p>
           <p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#111111;">&#128339; <strong>Time:</strong> ${escapeHtml(ctx.eventTime)}</p>
           <p style="margin:0;font-size:15px;line-height:1.6;color:#111111;">&#128205; <strong>Location:</strong> ${escapeHtml(ctx.venue)}</p>
-        </td>
-        <td valign="top" width="50%" style="padding:0 0 0 18px;">
-          <p style="margin:0 0 12px;font-size:18px;line-height:1.35;font-weight:700;color:#111111;">Here’s Your Entry Pass</p>
-          <p style="margin:0 0 8px;font-size:14px;line-height:1.5;color:#6b7280;">Download the email attachment</p>
         </td>
       </tr>
     </table>

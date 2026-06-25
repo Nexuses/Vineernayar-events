@@ -1,4 +1,5 @@
 import { istCalendarDayDiff } from "./date-utils";
+import { getBannerHighlightLabel } from "./banner-label";
 import type { RegistrationDoc } from "./models/Registration";
 
 export type EmailSequenceKey = "seq1" | "seq2" | "seq3" | "seq4" | "seq5";
@@ -46,6 +47,7 @@ export type SequenceRenderContext = {
   eventDateLong: string;
   eventTime: string;
   venue: string;
+  eventCity: string;
   eventPageUrl: string;
   preOrderUrl: string;
   websiteUrl: string;
@@ -113,7 +115,7 @@ export function getSequenceContent(
         headerTitle: SERIES_TITLE,
         showEventSummary: false,
         paragraphs: [
-          `Your seat for Humans First, Machines Second in ${ctx.venue} is confirmed.`,
+          `Your seat for Humans First, Machines Second in ${ctx.eventCity} is confirmed.`,
           "We're looking forward to welcoming you to join a movement with Vineet Nayar and a community of leaders, thinkers, and lifelong learners as we explore the human potential in the age of AI.",
           "Looking for a memorable keepsake from the evening?",
           "Bring your copy of Humans First, Machines Second - 30 Sparks to Reimagine Winning in the Age of AI to the event to get it signed by Vineet Nayar, and the chance to capture a photograph together.",
@@ -219,6 +221,7 @@ export function getSequenceTextParagraphs(
     eventDateLong: "",
     eventTime: "",
     venue: "",
+    eventCity: "",
     eventPageUrl: "",
     preOrderUrl: "",
     websiteUrl: "",
