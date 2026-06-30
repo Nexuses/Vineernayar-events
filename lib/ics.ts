@@ -10,9 +10,10 @@ import {
   resolveEventEndDate,
 } from "@/lib/date-utils";
 import { BRAND_NAME } from "@/lib/constants";
+import { SMTP_FROM_EMAIL, SMTP_FROM_NAME } from "@/lib/smtp";
 
-const ORGANIZER_EMAIL = process.env.FROM_EMAIL || "noreply@example.com";
-const ORGANIZER_NAME = process.env.FROM_NAME || `${BRAND_NAME} Events`;
+const ORGANIZER_EMAIL = SMTP_FROM_EMAIL;
+const ORGANIZER_NAME = SMTP_FROM_NAME;
 
 function escapeIcsText(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");

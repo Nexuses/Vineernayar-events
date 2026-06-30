@@ -1,4 +1,3 @@
-import nodemailer from "nodemailer";
 import { getSequenceSubject, type EmailSequenceKey } from "@/lib/email-sequence";
 import {
   buildSequenceEmailHtml,
@@ -10,30 +9,8 @@ import {
   sequenceContextToVars,
 } from "@/lib/email-template-registry";
 import { getEmailTemplateOverride } from "@/lib/models/EmailTemplate";
-import { BRAND_NAME } from "@/lib/constants";
-
-const SMTP_HOST = process.env.SMTP_HOST;
-const SMTP_PORT = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
-const SMTP_SECURE = process.env.SMTP_SECURE === "true";
-const EMAIL_USER = process.env.EMAIL_USER;
-const EMAIL_APP_PASSWORD = process.env.EMAIL_APP_PASSWORD;
-const FROM_EMAIL = process.env.FROM_EMAIL || "noreply@example.com";
-const FROM_NAME = process.env.FROM_NAME || `${BRAND_NAME} Events`;
-
-function getTransporter() {
-  if (!SMTP_HOST || !EMAIL_USER || !EMAIL_APP_PASSWORD) {
-    return null;
-  }
-  return nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: SMTP_SECURE,
-    auth: {
-      user: EMAIL_USER,
-      pass: EMAIL_APP_PASSWORD,
-    },
-  });
-}
+import { isMailConfigured, sendAppMail } from "@/lib/mail";
+import { SMTP_REPLY_EMAIL } from "@/lib/smtp";
 
 export type PassEmailData = {
   to: string;
@@ -41,6 +18,7 @@ export type PassEmailData = {
   surname: string;
   mobileNumber?: string;
   email: string;
+  eventId: string;
   eventName: string;
   eventStartDate: string;
   eventEndDate: string;
@@ -50,6 +28,7 @@ export type PassEmailData = {
   passUrl: string;
   uniqueCode: string;
   sequenceKey?: EmailSequenceKey;
+  priorityPass?: boolean;
 };
 
 export type SequenceEmailAttachments = {
@@ -62,19 +41,27 @@ export async function sendSequenceEmail(
   key: EmailSequenceKey,
   attachments?: SequenceEmailAttachments
 ): Promise<boolean> {
-  const transporter = getTransporter();
-  if (!transporter) {
-    console.warn("Email not configured: missing SMTP_HOST, EMAIL_USER or EMAIL_APP_PASSWORD");
+  if (!isMailConfigured()) {
+    console.warn(
+      "Email not configured: set SENDCLEAN_OWNER_ID, SENDCLEAN_TOKEN, SENDCLEAN_SMTPUSER (API), or SMTP_HOST + SENDCLEAN_SMTP_PASSWORD (SMTP)."
+    );
     return false;
   }
   try {
-    const mailAttachments: nodemailer.SendMailOptions["attachments"] = [];
-    let icalEvent: nodemailer.SendMailOptions["icalEvent"];
+    const mailAttachments: {
+      filename: string;
+      content: Buffer;
+      contentType: string;
+    }[] = [];
+    let icalEvent:
+      | { filename: string; method: string; content: string }
+      | undefined;
 
     if (attachments?.passPdfBuffer && attachments.passPdfBuffer.length > 0) {
       mailAttachments.push({
         filename: `event-pass-${data.uniqueCode}.pdf`,
         content: attachments.passPdfBuffer,
+        contentType: "application/pdf",
       });
     }
     if (attachments?.passIcsBuffer && attachments.passIcsBuffer.length > 0) {
@@ -85,12 +72,21 @@ export async function sendSequenceEmail(
       };
     }
 
-    const renderCtx = buildSequenceRenderContext(data);
+    const renderCtx = buildSequenceRenderContext({
+      firstName: data.firstName,
+      eventName: data.eventName,
+      eventStartDate: data.eventStartDate,
+      eventEndDate: data.eventEndDate,
+      eventTime: data.eventTime,
+      venue: data.venue,
+      passUrl: data.passUrl,
+      priorityPass: data.priorityPass,
+    });
     const subject = getSequenceSubject(key, {
       firstName: data.firstName,
       eventName: data.eventName,
     });
-    const customHtml = await getEmailTemplateOverride(key);
+    const customHtml = await getEmailTemplateOverride(key, data.eventId);
     const html = customHtml
       ? applyEmailTemplate(customHtml, {
           ...sequenceContextToVars(renderCtx),
@@ -100,14 +96,15 @@ export async function sendSequenceEmail(
         })
       : buildSequenceEmailHtml(key, renderCtx);
 
-    await transporter.sendMail({
-      from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
+    await sendAppMail({
       to: data.to,
+      toName: `${data.firstName} ${data.surname}`.trim(),
+      replyTo: SMTP_REPLY_EMAIL,
       subject,
       text: buildSequenceEmailText(key, renderCtx),
       html,
       attachments: mailAttachments.length > 0 ? mailAttachments : undefined,
-      ...(icalEvent ? { icalEvent } : {}),
+      icalEvent,
     });
     return true;
   } catch (err) {
@@ -126,3 +123,5 @@ export async function sendPassEmail(
     passIcsBuffer,
   });
 }
+
+export { isMailConfigured as isSmtpConfigured };

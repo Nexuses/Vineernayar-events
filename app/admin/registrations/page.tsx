@@ -1,13 +1,12 @@
-import { getAdminFromCookie } from "@/lib/auth";
-import { listEvents } from "@/lib/models/Event";
+import { getAdminSession, listEventsForAdmin } from "@/lib/admin-access";
 import { redirect } from "next/navigation";
 import { RegisteredClientSection } from "./RegisteredClientSection";
 
 export default async function RegisteredClientPage() {
-  const admin = await getAdminFromCookie();
-  if (!admin) redirect("/admin/login");
+  const session = await getAdminSession();
+  if (!session) redirect("/admin/login");
 
-  const events = await listEvents();
+  const events = await listEventsForAdmin(session);
   const eventList = events.map((e) => ({ eventId: e.eventId, eventName: e.eventName }));
 
   return (
@@ -16,7 +15,7 @@ export default async function RegisteredClientPage() {
         Registered Client
       </h1>
       <p className="mt-1 text-sm text-zinc-600">
-        View registrations event-wise. Select an event to see all registered clients and their details.
+        View confirmed registrations event-wise. Select an event to see accepted attendees and their details.
       </p>
       <RegisteredClientSection events={eventList} />
     </div>

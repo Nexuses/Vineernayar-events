@@ -1,18 +1,11 @@
-import nodemailer from "nodemailer";
 import { BRAND_LOGO_URL } from "@/lib/constants";
 import { EVENT_TIMEZONE } from "@/lib/date-utils";
 import { JOIN_NOTIFY_HTML, JOIN_THANK_YOU_HTML } from "@/lib/join-email-templates";
 import { getEmailTemplateOverride } from "@/lib/models/EmailTemplate";
 import { MARKETING_SITE_URL } from "@/lib/marketing-site";
+import { isMailConfigured, sendAppMail } from "@/lib/mail";
+import { SMTP_REPLY_EMAIL } from "@/lib/smtp";
 
-const SMTP_HOST = process.env.SMTP_HOST;
-const SMTP_PORT = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587;
-const SMTP_SECURE = process.env.SMTP_SECURE === "true";
-const SMTP_USER = process.env.SMTP_USER || process.env.EMAIL_USER;
-const SMTP_PASS = process.env.SMTP_PASS || process.env.EMAIL_APP_PASSWORD;
-const FROM_EMAIL =
-  process.env.SMTP_FROM_EMAIL || process.env.FROM_EMAIL || "noreply@example.com";
-const FROM_NAME = process.env.SMTP_FROM_NAME || "Humans First";
 const LOGO_URL = process.env.EMAIL_LOGO_URL || BRAND_LOGO_URL;
 
 function getSiteUrl(): string {
@@ -42,21 +35,6 @@ function getNavLogoUrl(): string {
   }
 
   return localAsset;
-}
-
-function getJoinTransporter() {
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
-    return null;
-  }
-  return nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: SMTP_SECURE,
-    auth: {
-      user: SMTP_USER,
-      pass: SMTP_PASS,
-    },
-  });
 }
 
 function getNotifyRecipients(): string[] {
@@ -90,17 +68,17 @@ export type JoinEmailPayload = {
 };
 
 export function isJoinEmailConfigured(): boolean {
-  return Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS);
+  return isMailConfigured();
 }
 
 export async function sendJoinEmails(
   payload: JoinEmailPayload
 ): Promise<{ ok: boolean; error?: string }> {
-  const transporter = getJoinTransporter();
-  if (!transporter) {
+  if (!isMailConfigured()) {
     return {
       ok: false,
-      error: "Email is not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS.",
+      error:
+        "Email is not configured. Set SENDCLEAN_OWNER_ID, SENDCLEAN_TOKEN, SENDCLEAN_SMTPUSER (API), or SMTP_HOST + SENDCLEAN_SMTP_PASSWORD (SMTP).",
     };
   }
 
@@ -148,10 +126,10 @@ City: ${payload.city}
 Submitted: ${submittedAt}`;
 
   try {
-    const thankYouMail = transporter.sendMail({
-      from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
+    const thankYouMail = sendAppMail({
       to: payload.email,
-      replyTo: FROM_EMAIL,
+      toName: payload.name,
+      replyTo: SMTP_REPLY_EMAIL,
       subject: `Thank you — your seat is reserved | Humans First`,
       text: thankYouText,
       html: thankYouHtml,
@@ -160,11 +138,10 @@ Submitted: ${submittedAt}`;
     const notifyTo = getNotifyRecipients();
     const notifyMail =
       notifyTo.length > 0
-        ? transporter.sendMail({
-            from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
-            to: notifyTo.join(", "),
-            replyTo: payload.email,
+        ? sendAppMail({
+            to: notifyTo,
             subject: `New seat reservation — ${payload.name} (${payload.city})`,
+            replyTo: payload.email,
             text: notifyText,
             html: notifyHtml,
           })

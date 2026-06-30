@@ -85,7 +85,8 @@ export function RichDescriptionEditor({
       </div>
 
       <p className="border-t border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-500">
-        Allowed tags: p, div, span, b, strong, em, i, br, hr, ul, ol, li
+        Allowed tags: p, div, span, b, strong, em, i, br, hr, ul, ol, li. Inline styles: color,
+        font-size, font-weight.
       </p>
     </div>
   );

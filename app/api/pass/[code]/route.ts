@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getRegistrationByCode } from "@/lib/models/Registration";
+import { getRegistrationByCode, getAdmissionStatus } from "@/lib/models/Registration";
 import { getEventByEventId } from "@/lib/models/Event";
 import { generateFullPassPdf } from "@/lib/pass-pdf";
 
@@ -12,6 +12,9 @@ export async function GET(
     const reg = await getRegistrationByCode(code);
     if (!reg) {
       return NextResponse.json({ error: "Pass not found" }, { status: 404 });
+    }
+    if (getAdmissionStatus(reg) !== "confirmed") {
+      return NextResponse.json({ error: "Pass not available until seat is confirmed" }, { status: 403 });
     }
 
     const event = await getEventByEventId(reg.eventId);
@@ -29,6 +32,7 @@ export async function GET(
       uniqueCode: reg.uniqueCode,
       createdAt: reg.createdAt,
       showPassQr: event?.showPassQr !== false,
+      priorityPass: reg.workedWithVineet === true,
     });
 
     return new NextResponse(new Uint8Array(pdf), {

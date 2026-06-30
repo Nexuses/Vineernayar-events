@@ -232,9 +232,6 @@ export default function CreateEventPage() {
               className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder="e.g. 100"
             />
-            <p className="mt-1 text-xs text-zinc-500">
-              Optional. Registration closes automatically when seats are full. Not shown on the public site.
-            </p>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700">Publish status</label>

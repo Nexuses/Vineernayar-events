@@ -113,12 +113,12 @@ function buildRegistrationsCsv(rows: RegistrationItem[]): string {
       hasData: (r) => r.overnightStay != null,
     },
     {
-      header: "Worked with Vineet Nayar",
-      value: (r) => (r.workedWithVineet == null ? "" : r.workedWithVineet ? "Yes" : "No"),
-      hasData: (r) => r.workedWithVineet != null,
+      header: "Priority Pass",
+      value: (r) => (r.workedWithVineet ? "Yes" : "No"),
+      hasData: (r) => r.workedWithVineet === true,
     },
     {
-      header: "Worked with Vineet Nayar (details)",
+      header: "Connection details",
       value: (r) => r.workedWithVineetDetails || "",
       hasData: (r) => Boolean(r.workedWithVineetDetails?.trim()),
     },
@@ -384,13 +384,13 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
                                 </div>
                                 {r.workedWithVineet != null ? (
                                   <div>
-                                    <dt className="text-zinc-500">Worked with Vineet Nayar</dt>
+                                    <dt className="text-zinc-500">Priority Pass</dt>
                                     <dd className="text-zinc-900">{r.workedWithVineet ? "Yes" : "No"}</dd>
                                   </div>
                                 ) : null}
                                 {r.workedWithVineet && r.workedWithVineetDetails ? (
                                   <div>
-                                    <dt className="text-zinc-500">Where worked with him</dt>
+                                    <dt className="text-zinc-500">Connection details</dt>
                                     <dd className="text-zinc-900">{r.workedWithVineetDetails}</dd>
                                   </div>
                                 ) : null}

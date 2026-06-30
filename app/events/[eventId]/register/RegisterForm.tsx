@@ -2,6 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  buildE164Phone,
+  DEFAULT_PHONE_COUNTRY,
+  maskPhoneForDisplay,
+  PHONE_COUNTRIES,
+} from "@/lib/phone-countries";
 
 type EventSnap = {
   eventId: string;
@@ -38,7 +44,8 @@ export function RegisterForm({
   const [firstName, setFirstName] = useState("");
   const [surname, setSurname] = useState("");
   const [email, setEmail] = useState(prefilledEmail);
-  const [mobileNumber, setMobileNumber] = useState("");
+  const [countryDial, setCountryDial] = useState(DEFAULT_PHONE_COUNTRY.dial);
+  const [mobileLocal, setMobileLocal] = useState("");
   const [workedWithVineetChoice, setWorkedWithVineetChoice] = useState<"" | "yes" | "no">("");
   const [workedWithVineetDetails, setWorkedWithVineetDetails] = useState("");
   const [questionForVineet, setQuestionForVineet] = useState("");
@@ -49,6 +56,11 @@ export function RegisterForm({
   const [transportChoice, setTransportChoice] = useState<"" | "yes" | "no">("");
   const [transportLocation, setTransportLocation] = useState("");
   const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
+  const [otpModalOpen, setOtpModalOpen] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpModalError, setOtpModalError] = useState("");
+  const [verifiedMobile, setVerifiedMobile] = useState("");
+  const [sendingOtp, setSendingOtp] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
@@ -59,97 +71,152 @@ export function RegisterForm({
 
   const whatsappRequired = !!event.requireWhatsAppNumber;
 
+  function getFullMobileNumber(): string {
+    return buildE164Phone(countryDial, mobileLocal);
+  }
+
+  function validateForm(): string | null {
+    if (!agreedToPrivacy) return "You must agree to the Privacy Policy to register.";
+    if (workedWithVineetChoice === "yes" && !workedWithVineetDetails.trim()) {
+      return "Please tell us more about where or how you connected.";
+    }
+    if (!questionForVineet.trim()) {
+      return "Please share one question you would like to ask Vineet Nayar at the event.";
+    }
+    if (!mobileLocal.trim()) return "Mobile number is required.";
+    if (!getFullMobileNumber()) {
+      return "Enter a valid mobile number for the selected country.";
+    }
+    if (event.requireWhatsAppNumber && !whatsappNumber.trim()) return "WhatsApp number is required.";
+    if (event.collectApparelSize && event.requireApparelSize && !apparelSize.trim()) {
+      return "Please select an apparel size.";
+    }
+    if (event.collectOvernightStay && event.requireOvernightStay) {
+      if (overnightStayChoice === "") return "Please select an option for Overnight Stay.";
+      if (overnightStayChoice !== "yes") return "Overnight Stay is required.";
+    }
+    if (event.collectPassportNic && event.requirePassportNic && !passportNic.trim()) {
+      return "Passport or NIC is required.";
+    }
+    if (event.collectTransport && event.requireTransport && transportChoice === "") {
+      return "Please select an option for Transport.";
+    }
+    if (event.collectTransport && transportNeeded && !transportLocation.trim()) {
+      return "Please select a transport location.";
+    }
+    return null;
+  }
+
+  function buildRegistrationPayload(mobileNumber: string, otp: string) {
+    return {
+      firstName,
+      surname,
+      email,
+      mobileNumber,
+      ...(workedWithVineetChoice !== "" && {
+        workedWithVineet: workedWithVineetChoice === "yes",
+        workedWithVineetDetails:
+          workedWithVineetChoice === "yes" ? workedWithVineetDetails.trim() : undefined,
+      }),
+      questionForVineet: questionForVineet.trim(),
+      addToWhatsapp: whatsappRequired,
+      whatsappNumber: whatsappRequired ? whatsappNumber?.trim() || undefined : undefined,
+      ...(event.collectApparelSize && { apparelSize: apparelSize || undefined }),
+      ...(event.collectOvernightStay && {
+        overnightStay: overnightStayChoice === "yes",
+      }),
+      ...(event.collectPassportNic && { passportNic: passportNic || undefined }),
+      ...(event.collectTransport && { transportNeeded }),
+      ...(event.collectTransport && transportNeeded && {
+        transportLocation: transportLocation || undefined,
+      }),
+      otpCode: otp,
+      agreedToPrivacy: true,
+    };
+  }
+
+  async function sendOtpToMobile(mobileNumber: string): Promise<string | null> {
+    setSendingOtp(true);
+    try {
+      const otpRes = await fetch(`/api/events/${eventId}/register/otp/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mobileNumber }),
+      });
+      const otpData = await otpRes.json();
+      if (!otpRes.ok) {
+        return otpData.error || "Unable to send OTP";
+      }
+      return null;
+    } catch {
+      return "Unable to send OTP. Please try again.";
+    } finally {
+      setSendingOtp(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    if (!agreedToPrivacy) {
-      setError("You must agree to the Privacy Policy to register.");
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
       return;
     }
-    if (workedWithVineetChoice === "") {
-      setError("Please select whether you have worked with Vineet Nayar before.");
+
+    const mobileNumber = getFullMobileNumber();
+    const otpError = await sendOtpToMobile(mobileNumber);
+    if (otpError) {
+      setError(otpError);
       return;
     }
-    if (workedWithVineetChoice === "yes" && !workedWithVineetDetails.trim()) {
-      setError("Please tell us where you have worked with Vineet Nayar.");
+
+    setVerifiedMobile(mobileNumber);
+    setOtpCode("");
+    setOtpModalError("");
+    setOtpModalOpen(true);
+  }
+
+  function closeOtpModal() {
+    if (loading || sendingOtp) return;
+    setOtpModalOpen(false);
+    setOtpCode("");
+    setOtpModalError("");
+  }
+
+  async function handleResendOtp() {
+    if (!verifiedMobile || sendingOtp) return;
+    setOtpModalError("");
+    const otpError = await sendOtpToMobile(verifiedMobile);
+    if (otpError) {
+      setOtpModalError(otpError);
+    }
+  }
+
+  async function handleOtpSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setOtpModalError("");
+
+    if (!otpCode.trim()) {
+      setOtpModalError("Enter the OTP sent to your mobile.");
       return;
     }
-    if (!questionForVineet.trim()) {
-      setError("Please share one question you would like to ask Vineet Nayar at the event.");
-      return;
-    }
-    if (event.requireWhatsAppNumber && !whatsappNumber.trim()) {
-      setError("WhatsApp number is required.");
-      return;
-    }
-    if (event.collectApparelSize && event.requireApparelSize && !apparelSize.trim()) {
-      setError("Please select an apparel size.");
-      return;
-    }
-    if (event.collectOvernightStay && event.requireOvernightStay) {
-      if (overnightStayChoice === "") {
-        setError("Please select an option for Overnight Stay.");
-        return;
-      }
-      if (overnightStayChoice !== "yes") {
-        setError("Overnight Stay is required.");
-        return;
-      }
-    }
-    if (event.collectPassportNic && event.requirePassportNic && !passportNic.trim()) {
-      setError("Passport or NIC is required.");
-      return;
-    }
-    if (event.collectTransport && event.requireTransport) {
-      if (transportChoice === "") {
-        setError("Please select an option for Transport.");
-        return;
-      }
-    }
-    if (
-      event.collectTransport &&
-      transportNeeded &&
-      !transportLocation.trim()
-    ) {
-      setError("Please select a transport location.");
-      return;
-    }
+
     setLoading(true);
     try {
       const res = await fetch(`/api/events/${eventId}/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          firstName,
-          surname,
-          email,
-          mobileNumber: mobileNumber.trim() || undefined,
-          workedWithVineet: workedWithVineetChoice === "yes",
-          workedWithVineetDetails:
-            workedWithVineetChoice === "yes" ? workedWithVineetDetails.trim() : undefined,
-          questionForVineet: questionForVineet.trim(),
-          addToWhatsapp: whatsappRequired,
-          whatsappNumber: whatsappRequired
-            ? whatsappNumber?.trim() || undefined
-            : undefined,
-          ...(event.collectApparelSize && { apparelSize: apparelSize || undefined }),
-          ...(event.collectOvernightStay && {
-            overnightStay: overnightStayChoice === "yes",
-          }),
-          ...(event.collectPassportNic && { passportNic: passportNic || undefined }),
-          ...(event.collectTransport && { transportNeeded }),
-          ...(event.collectTransport && transportNeeded && { transportLocation: transportLocation || undefined }),
-          agreedToPrivacy: true,
-        }),
+        body: JSON.stringify(buildRegistrationPayload(verifiedMobile, otpCode.trim())),
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Registration failed");
+        setOtpModalError(data.error || "Registration failed");
         return;
       }
-      router.replace(`/events/${eventId}/register?success=1`);
+      router.replace(`/events/${eventId}/register?waitlisted=1`);
     } catch {
-      setError("Something went wrong. Please try again.");
+      setOtpModalError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -172,35 +239,12 @@ export function RegisterForm({
 
   return (
     <>
-      {/* Full-screen loading overlay */}
-      {loading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-4 rounded-2xl bg-white p-8 shadow-2xl">
-            {/* Spinner */}
-            <div className="relative h-16 w-16">
-              <div className="absolute inset-0 rounded-full border-4 border-zinc-200"></div>
-              <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-brand-500"></div>
-            </div>
-            {/* Message */}
-            <div className="text-center">
-              <p className="text-lg font-semibold text-zinc-800">
-                Completing Your Registration
-              </p>
-              <p className="mt-1 text-sm text-zinc-500">
-                Please wait. Your confirmation and event pass will be sent to your registered email.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       <form onSubmit={handleSubmit} className="mt-8 space-y-4 rounded-xl border border-zinc-200 bg-white p-6">
       {error && (
         <p className="rounded-md bg-red-100 px-3 py-2 text-sm text-red-700">
           {error}
         </p>
       )}
-
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-sm font-medium text-zinc-700">
@@ -246,21 +290,41 @@ export function RegisterForm({
 
       <div>
         <label className="mb-1 block text-sm font-medium text-zinc-700">
-          Mobile Number{" "}
-          <span className="font-normal text-zinc-500">(if you want to be part of the community later)</span>
+          Mobile Number <span className="text-red-500">*</span>
         </label>
-        <input
-          type="tel"
-          value={mobileNumber}
-          onChange={(e) => setMobileNumber(e.target.value)}
-          className={inputClass}
-          placeholder="e.g. 0779400675"
-        />
+        <div className="flex gap-2">
+          <div className="relative w-[9.5rem] shrink-0 sm:w-44">
+            <select
+              value={countryDial}
+              onChange={(e) => setCountryDial(e.target.value)}
+              className={`${inputClass} cursor-pointer appearance-none pr-8 text-sm`}
+              aria-label="Country code"
+            >
+              {PHONE_COUNTRIES.map((country) => (
+                <option key={country.code} value={country.dial}>
+                  {country.dial} {country.name}
+                </option>
+              ))}
+            </select>
+            {selectChevron}
+          </div>
+          <input
+            type="tel"
+            inputMode="numeric"
+            value={mobileLocal}
+            onChange={(e) =>
+              setMobileLocal(e.target.value.replace(/[^\d]/g, "").slice(0, 15))
+            }
+            required
+            className={`${inputClass} min-w-0 flex-1`}
+            placeholder="Mobile number"
+          />
+        </div>
       </div>
 
       <div>
         <label className="mb-1 block text-sm font-medium text-zinc-700">
-          Have you worked with Vineet Nayar? <span className="text-red-500">*</span>
+          Have you worked, studied, or partnered with Vineet Nayar?
         </label>
         <div className="relative">
           <select
@@ -270,9 +334,8 @@ export function RegisterForm({
               setWorkedWithVineetChoice(v);
               if (v !== "yes") setWorkedWithVineetDetails("");
             }}
-            required
             className={`${inputClass} cursor-pointer appearance-none pr-10`}
-            aria-label="Worked with Vineet Nayar before"
+            aria-label="Worked, studied, or partnered with Vineet Nayar"
           >
             <option value="">Select</option>
             <option value="yes">Yes</option>
@@ -285,15 +348,16 @@ export function RegisterForm({
       {workedWithVineetChoice === "yes" && (
         <div>
           <label className="mb-1 block text-sm font-medium text-zinc-700">
-            Where did you work with him? <span className="text-red-500">*</span>
+            Tell us more about where or how you connected.{" "}
+            <span className="text-red-500">*</span>
           </label>
-          <input
-            type="text"
+          <textarea
             value={workedWithVineetDetails}
             onChange={(e) => setWorkedWithVineetDetails(e.target.value)}
             required
+            rows={3}
             className={inputClass}
-            placeholder="e.g. Company name, project, or event"
+            placeholder="e.g. How and where you connected — company, university, event, or partnership"
           />
         </div>
       )}
@@ -516,14 +580,92 @@ export function RegisterForm({
         </label>
       </div>
 
+      <p className="text-center text-sm font-medium text-zinc-700">
+        <span className="text-red-600">300 seats only.</span> Apply early, applications close once full.
+      </p>
+
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || sendingOtp}
         className="w-full rounded-md bg-brand-500 px-4 py-3 font-medium text-zinc-900 hover:bg-brand-600 disabled:opacity-50"
       >
-        {loading ? "Registering…" : "Register"}
+        {sendingOtp ? "Sending OTP…" : "Apply to Attend"}
       </button>
     </form>
+
+      {otpModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="otp-modal-title"
+        >
+          <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-xl">
+            <h2 id="otp-modal-title" className="text-lg font-semibold text-zinc-900">
+              Verify your mobile
+            </h2>
+            <p className="mt-2 text-sm text-zinc-600">
+              Enter the OTP sent to{" "}
+              <span className="font-medium text-zinc-800">
+                {maskPhoneForDisplay(verifiedMobile)}
+              </span>
+            </p>
+
+            <form onSubmit={handleOtpSubmit} className="mt-5 space-y-4">
+              {otpModalError && (
+                <p className="rounded-md bg-red-100 px-3 py-2 text-sm text-red-700">
+                  {otpModalError}
+                </p>
+              )}
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-zinc-700">
+                  OTP <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoFocus
+                  value={otpCode}
+                  onChange={(e) =>
+                    setOtpCode(e.target.value.replace(/[^\d]/g, "").slice(0, 8))
+                  }
+                  required
+                  className={inputClass}
+                  placeholder="Enter 6-digit OTP"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="submit"
+                  disabled={loading || sendingOtp}
+                  className="flex-1 rounded-md bg-brand-500 px-4 py-3 font-medium text-zinc-900 hover:bg-brand-600 disabled:opacity-50"
+                >
+                  {loading ? "Submitting…" : "Submit"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={loading || sendingOtp}
+                  className="rounded-md border border-zinc-300 px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                >
+                  {sendingOtp ? "Sending…" : "Resend OTP"}
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeOtpModal}
+                disabled={loading || sendingOtp}
+                className="w-full text-sm text-zinc-500 hover:text-zinc-700 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -1,24 +1,28 @@
 import { NextResponse } from "next/server";
-import { getAdminFromCookie } from "@/lib/auth";
 import { parseEventDateTime, resolveEventDatesFromAdminFields } from "@/lib/date-utils";
-import { createEvent, listEvents } from "@/lib/models/Event";
+import { createEvent } from "@/lib/models/Event";
 import { saveBannerFile } from "@/lib/banner-upload";
 import { parseSeatLimit } from "@/lib/parse-seat-limit";
 import {
   transportLocationsFromFormData,
   transportLocationsFromJsonBody,
 } from "@/lib/admin-transport-locations";
+import {
+  forbiddenResponse,
+  getAdminSession,
+  isSuperAdmin,
+  listEventsForAdmin,
+  unauthorizedResponse,
+} from "@/lib/admin-access";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET() {
-  const admin = await getAdminFromCookie();
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await getAdminSession();
+  if (!session) return unauthorizedResponse();
   try {
-    const events = await listEvents();
+    const events = await listEventsForAdmin(session);
     return NextResponse.json(events, {
       headers: {
         "Cache-Control": "no-store, max-age=0",
@@ -34,10 +38,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const admin = await getAdminFromCookie();
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await getAdminSession();
+  if (!session) return unauthorizedResponse();
+  if (!isSuperAdmin(session)) return forbiddenResponse();
 
   try {
     const contentType = request.headers.get("content-type") || "";

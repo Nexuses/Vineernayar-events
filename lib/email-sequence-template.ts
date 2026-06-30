@@ -67,6 +67,7 @@ export function buildSequenceRenderContext(data: {
   eventTime?: string;
   venue: string;
   passUrl: string;
+  priorityPass?: boolean;
 }): SequenceRenderContext {
   const eventTime = getEventTimeDisplay({
     eventStartDate: data.eventStartDate,
@@ -89,6 +90,7 @@ export function buildSequenceRenderContext(data: {
     preOrderUrl: PRE_ORDER_URL,
     websiteUrl: MARKETING_SITE_URL,
     calendar: getCalendarChip(data.eventStartDate),
+    isPriorityPass: data.priorityPass === true,
   };
 }
 

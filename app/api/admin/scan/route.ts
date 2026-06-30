@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server";
-import { getAdminFromCookie } from "@/lib/auth";
 import {
+  getAdmissionStatus,
   getRegistrationByCode,
   updateRegistrationParticipationStatus,
 } from "@/lib/models/Registration";
+import {
+  assertEventAccess,
+  getAdminSession,
+  unauthorizedResponse,
+} from "@/lib/admin-access";
 
 export async function POST(request: Request) {
-  const admin = await getAdminFromCookie();
-  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const session = await getAdminSession();
+  if (!session) return unauthorizedResponse();
   try {
     const body = await request.json();
     const code = typeof body?.code === "string" ? body.code.trim().toUpperCase() : "";
@@ -17,6 +22,11 @@ export async function POST(request: Request) {
     const reg = await getRegistrationByCode(code);
     if (!reg) {
       return NextResponse.json({ error: "Pass not found" }, { status: 404 });
+    }
+    const denied = assertEventAccess(session, reg.eventId);
+    if (denied) return denied;
+    if (getAdmissionStatus(reg) !== "confirmed") {
+      return NextResponse.json({ error: "Registration is not confirmed yet" }, { status: 403 });
     }
     let participationTimestamp: string | undefined;
     if (reg._id) {

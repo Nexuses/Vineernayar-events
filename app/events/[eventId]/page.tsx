@@ -76,8 +76,7 @@ export default async function EventPage({
                 <BannerImageWithHighlight
                   src={getEventBannerUrl(event)}
                   alt={event.eventName}
-                  venue={event.venue}
-                  eventName={event.eventName}
+                  label=""
                   size="medium"
                   className="h-full"
                 />

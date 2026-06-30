@@ -164,6 +164,37 @@ function bottomRoundedBarPath(w: number, h: number, r: number, yTop: number): st
   ].join(" ");
 }
 
+function drawHeaderPriorityBadge(
+  page: PDFPage,
+  x: number,
+  headerTop: number,
+  headerH: number,
+  font: PDFFont
+): void {
+  const label = "PRIORITY PASS";
+  const fs = PT(8);
+  const padX = PT(10);
+  const padY = PT(4);
+  const textW = font.widthOfTextAtSize(label, fs);
+  const badgeW = textW + padX * 2;
+  const badgeH = fs + padY * 2;
+  const badgeYTop = headerTop - (headerH - badgeH) / 2;
+  const badgeBottom = badgeYTop - badgeH;
+
+  page.drawSvgPath(roundedRectPath(badgeW, badgeH, badgeH / 2), {
+    x,
+    y: badgeYTop,
+    color: C.black,
+  });
+  page.drawText(label, {
+    x: x + padX,
+    y: badgeBottom + padY,
+    size: fs,
+    font,
+    color: C.white,
+  });
+}
+
 /** Draw pass card with pdf-lib + embedded fonts (reliable on Vercel; no SVG rasterization). */
 export async function generateVectorPassPdf(data: FullPassData): Promise<Buffer> {
   const firstName = capitalizeFirst(data.firstName);
@@ -173,6 +204,7 @@ export async function generateVectorPassPdf(data: FullPassData): Promise<Buffer>
   const venue = data.venue || "—";
   const registered = `Registered ${formatRegisteredDate(data.createdAt)}`;
   const showPassQr = data.showPassQr !== false;
+  const isPriorityPass = data.priorityPass === true;
   const leftColW = showPassQr ? LEFT_COL_W_WITH_QR : W - PAD * 2;
 
   const doc = await PDFDocument.create();
@@ -241,13 +273,17 @@ export async function generateVectorPassPdf(data: FullPassData): Promise<Buffer>
   page.drawSvgPath(topRoundedBarPath(W, HEADER_H, R_CARD), { x: cardX, y: cardTop, color: C.brand });
 
   const headerTextY = cardTop - HEADER_H + (HEADER_H - fsHeader) / 2;
-  page.drawText("Event Pass", {
-    x: cardX + PAD,
-    y: headerTextY,
-    size: fsHeader,
-    font: bold,
-    color: C.black,
-  });
+  if (isPriorityPass) {
+    drawHeaderPriorityBadge(page, cardX + PAD, cardTop, HEADER_H, bold);
+  } else {
+    page.drawText("Event Pass", {
+      x: cardX + PAD,
+      y: headerTextY,
+      size: fsHeader,
+      font: bold,
+      color: C.black,
+    });
+  }
   const codeText = safeText(data.uniqueCode);
   page.drawText(codeText, {
     x: cardX + W - PAD - bold.widthOfTextAtSize(codeText, fsHeader),

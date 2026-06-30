@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { getPublishedEventByEventId, getPublicRegistrationStatus } from "@/lib/models/Event";
 import { isEligible } from "@/lib/models/EligibleEmail";
-import { createRegistration, findRegistrationByEventAndEmail, countRegistrationsByEventId } from "@/lib/models/Registration";
-import { sendEmailSequenceForRegistration } from "@/lib/email-sequence-runner";
-import { generateIcs } from "@/lib/ics";
-import { generateFullPassPdf } from "@/lib/pass-pdf";
+import {
+  createRegistration,
+  findRegistrationByEventAndEmail,
+  getAdmissionStatus,
+} from "@/lib/models/Registration";
+import { sendWaitlistThankYouEmail } from "@/lib/waitlist-email";
+import { checkOtpCode, normalizePhoneForOtp } from "@/lib/twilio-otp";
 
 export async function POST(
   request: Request,
@@ -38,23 +41,29 @@ export async function POST(
       transportNeeded,
       transportLocation,
       agreedToPrivacy,
+      otpCode,
     } = body;
 
     if (!firstName?.trim() || !surname?.trim() || !email?.trim()) {
       return NextResponse.json({ error: "First name, surname and email are required" }, { status: 400 });
     }
-    if (typeof workedWithVineet !== "boolean") {
+    const workedWithVineetProvided =
+      workedWithVineet !== undefined && workedWithVineet !== null && workedWithVineet !== "";
+    const workedWithVineetValue = workedWithVineetProvided
+      ? workedWithVineet === true
+      : undefined;
+    if (workedWithVineetProvided && typeof workedWithVineet !== "boolean") {
       return NextResponse.json(
-        { error: "Please select whether you have worked with Vineet Nayar before" },
+        { error: "Invalid answer for Vineet Nayar connection question" },
         { status: 400 }
       );
     }
-    if (workedWithVineet) {
+    if (workedWithVineetValue === true) {
       const details =
         typeof workedWithVineetDetails === "string" ? workedWithVineetDetails.trim() : "";
       if (!details) {
         return NextResponse.json(
-          { error: "Please tell us where you have worked with Vineet Nayar" },
+          { error: "Please tell us more about where or how you connected" },
           { status: 400 }
         );
       }
@@ -66,6 +75,21 @@ export async function POST(
         { error: "Please share one question you would like to ask Vineet Nayar at the event" },
         { status: 400 }
       );
+    }
+    const mobileNormalized = normalizePhoneForOtp(typeof mobileNumber === "string" ? mobileNumber : "");
+    if (!mobileNormalized) {
+      return NextResponse.json(
+        { error: "Mobile number is required in international format (e.g. +91XXXXXXXXXX)" },
+        { status: 400 }
+      );
+    }
+    const otpTrimmed = typeof otpCode === "string" ? otpCode.trim() : "";
+    if (!otpTrimmed) {
+      return NextResponse.json({ error: "OTP is required" }, { status: 400 });
+    }
+    const otpOk = await checkOtpCode(mobileNormalized, otpTrimmed);
+    if (!otpOk) {
+      return NextResponse.json({ error: "Invalid or expired OTP" }, { status: 400 });
     }
     if (!agreedToPrivacy) {
       return NextResponse.json({ error: "You must agree to the Privacy Policy" }, { status: 400 });
@@ -109,19 +133,12 @@ export async function POST(
     }
 
     const existing = await findRegistrationByEventAndEmail(eventId, email);
-    if (existing) {
+    if (existing && getAdmissionStatus(existing) !== "rejected") {
       return NextResponse.json({ error: "Already registered" }, { status: 409 });
     }
 
     const addToWhatsappEffective = event.requireWhatsAppNumber ? true : !!addToWhatsapp;
     const whatsappNumberEffective = addToWhatsappEffective ? whatsappNumber?.trim() || undefined : undefined;
-
-    if (event.seatLimit && event.seatLimit > 0) {
-      const registrationCount = await countRegistrationsByEventId(eventId);
-      if (registrationCount >= event.seatLimit) {
-        return NextResponse.json({ error: "Registration is closed for this event" }, { status: 403 });
-      }
-    }
 
     const reg = await createRegistration({
       eventId,
@@ -133,11 +150,12 @@ export async function POST(
       firstName: firstName.trim(),
       surname: surname.trim(),
       email: email.trim().toLowerCase(),
-      mobileNumber: typeof mobileNumber === "string" ? mobileNumber.trim() || undefined : undefined,
-      workedWithVineet,
-      workedWithVineetDetails: workedWithVineet
-        ? (typeof workedWithVineetDetails === "string" ? workedWithVineetDetails.trim() : "")
-        : undefined,
+      mobileNumber: mobileNormalized,
+      ...(workedWithVineetValue !== undefined && { workedWithVineet: workedWithVineetValue }),
+      workedWithVineetDetails:
+        workedWithVineetValue === true
+          ? (typeof workedWithVineetDetails === "string" ? workedWithVineetDetails.trim() : "")
+          : undefined,
       questionForVineet: questionTrimmed,
       addToWhatsapp: addToWhatsappEffective,
       whatsappNumber: whatsappNumberEffective,
@@ -152,66 +170,28 @@ export async function POST(
           ? transportLocation.trim() || undefined
           : undefined,
       agreedToPrivacy: true,
+      admissionStatus: "waitlisted",
     });
 
-    const baseUrl =
-      process.env.SITE_URL ||
-      (typeof request.url === "string" ? new URL(request.url).origin : null) ||
-      "http://localhost:3000";
-    const passUrl = `${baseUrl}/events/${eventId}/pass/${reg.uniqueCode}`;
-
-    let passPdfBuffer: Buffer | undefined;
-    let passIcsBuffer: Buffer | undefined;
+    let emailSent = false;
     try {
-      passPdfBuffer = await generateFullPassPdf({
-        firstName: reg.firstName,
-        surname: reg.surname,
-        email: reg.email,
-        mobileNumber: reg.mobileNumber || "",
-        eventName: reg.eventName,
-        eventStartDate: reg.eventStartDate,
-        eventEndDate: reg.eventEndDate,
-        eventTime: reg.eventTime,
-        venue: reg.venue,
-        uniqueCode: reg.uniqueCode,
-        createdAt: reg.createdAt,
-        showPassQr: event.showPassQr !== false,
-      });
+      emailSent = await sendWaitlistThankYouEmail(reg);
     } catch (err) {
-      console.error("Pass generation failed:", err);
-    }
-    try {
-      const icsContent = generateIcs(
-        {
-          eventName: event.eventName,
-          eventStartDate: event.eventStartDate,
-          eventEndDate: event.eventEndDate,
-          eventTime: event.eventTime,
-          venue: event.venue,
-          uniqueCode: reg.uniqueCode,
-          passUrl,
-          attendeeName: `${reg.firstName} ${reg.surname}`,
-          attendeeEmail: reg.email,
-        },
-        eventId
-      );
-      passIcsBuffer = Buffer.from(icsContent, "utf-8");
-    } catch (err) {
-      console.error("ICS generation failed:", err);
-    }
-    try {
-      await sendEmailSequenceForRegistration(reg, "seq1", {
-        passPdfBuffer,
-        passIcsBuffer,
-      });
-    } catch (err) {
-      console.error("Pass email failed:", err);
+      console.error("Waitlist thank-you email failed:", err);
     }
 
     return NextResponse.json({
       success: true,
+      waitlisted: true,
+      emailSent,
       uniqueCode: reg.uniqueCode,
       registrationId: reg._id?.toString(),
+      ...(emailSent
+        ? {}
+        : {
+            emailWarning:
+              "Registration saved, but the waitlist email could not be sent. Contact the organizer if you do not receive it.",
+          }),
     });
   } catch (err) {
     console.error(err);

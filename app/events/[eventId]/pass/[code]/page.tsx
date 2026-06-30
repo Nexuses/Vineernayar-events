@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getRegistrationByCode } from "@/lib/models/Registration";
+import { getRegistrationByCode, getAdmissionStatus } from "@/lib/models/Registration";
 import { getPublishedEventByEventId } from "@/lib/models/Event";
 import { formatEventDate, formatRegisteredDate, getEventTimeDisplay } from "@/lib/date-utils";
 import { BRAND_LOGO_URL, BRAND_NAME } from "@/lib/constants";
@@ -21,6 +21,22 @@ export default async function PassPage({
   const { eventId, code } = await params;
   const reg = await getRegistrationByCode(code);
   if (!reg) notFound();
+  if (getAdmissionStatus(reg) !== "confirmed") {
+    return (
+      <div className="min-h-screen bg-zinc-50 py-6 sm:py-10">
+        <div className="mx-auto max-w-xl px-4 text-center">
+          <h1 className="text-xl font-bold text-zinc-900">Pass not available yet</h1>
+          <p className="mt-3 text-sm text-zinc-600">
+            Your registration is on the waitlist. Your event pass will be available here once your seat is
+            confirmed by email.
+          </p>
+          <Link href="/" className="mt-6 inline-block text-sm font-medium text-zinc-700 hover:underline">
+            ← Back to events
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const event = await getPublishedEventByEventId(eventId);
   const showPassQr = event?.showPassQr !== false;
@@ -28,6 +44,7 @@ export default async function PassPage({
   const qrUrl = `/api/qr?code=${encodeURIComponent(reg.uniqueCode)}`;
   const firstName = capitalizeFirst(reg.firstName);
   const surname = capitalizeFirst(reg.surname);
+  const isPriorityPass = reg.workedWithVineet === true;
 
   return (
     <div className="min-h-screen bg-zinc-50 py-6 sm:py-10">
@@ -48,9 +65,15 @@ export default async function PassPage({
           className="overflow-hidden rounded-2xl border border-zinc-200 bg-white font-[Helvetica,Arial,sans-serif] shadow-lg print:rounded-xl print:border-zinc-300 print:shadow-none"
         >
           <div className="flex items-center justify-between bg-brand-500 px-4 py-2.5">
-            <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-900">
-              Event Pass
-            </span>
+            {isPriorityPass ? (
+              <span className="inline-flex items-center rounded-full bg-zinc-900 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white">
+                Priority Pass
+              </span>
+            ) : (
+              <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-900">
+                Event Pass
+              </span>
+            )}
             <span className="text-[11px] font-bold text-zinc-800">{reg.uniqueCode}</span>
           </div>
 

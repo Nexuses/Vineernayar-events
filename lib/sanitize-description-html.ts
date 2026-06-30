@@ -33,6 +33,62 @@ function sanitizeFontSizeStyle(style: string): string | null {
   return `font-size: ${size}${unit}`;
 }
 
+function sanitizeFontWeightStyle(style: string): string | null {
+  for (const declaration of style.split(";")) {
+    const colon = declaration.indexOf(":");
+    if (colon === -1) continue;
+    const prop = declaration.slice(0, colon).trim().toLowerCase();
+    if (prop !== "font-weight") continue;
+    const value = declaration.slice(colon + 1).replace(/\s*!important/gi, "").trim().toLowerCase();
+    if (/^(normal|bold|bolder|lighter)$/.test(value)) return `font-weight: ${value}`;
+    const numeric = Number.parseInt(value, 10);
+    if (Number.isFinite(numeric) && numeric >= 100 && numeric <= 900 && numeric % 100 === 0) {
+      return `font-weight: ${numeric}`;
+    }
+  }
+  return null;
+}
+
+function sanitizeColorStyle(style: string): string | null {
+  for (const declaration of style.split(";")) {
+    const colon = declaration.indexOf(":");
+    if (colon === -1) continue;
+    const prop = declaration.slice(0, colon).trim().toLowerCase();
+    if (prop !== "color" && prop !== "text-color") continue;
+    const value = declaration.slice(colon + 1).replace(/\s*!important/gi, "").trim().toLowerCase();
+    if (/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/.test(value)) {
+      return `color: ${value}`;
+    }
+    const rgb = value.match(
+      /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*(0|1|0?\.\d+))?\s*\)$/
+    );
+    if (rgb) {
+      const [, r, g, b, a] = rgb;
+      if ([r, g, b].every((channel) => Number(channel) <= 255)) {
+        return a !== undefined ? `color: rgba(${r}, ${g}, ${b}, ${a})` : `color: rgb(${r}, ${g}, ${b})`;
+      }
+    }
+  }
+  return null;
+}
+
+function sanitizeInlineStyle(style: string): string | null {
+  const parts = [
+    sanitizeFontSizeStyle(style),
+    sanitizeFontWeightStyle(style),
+    sanitizeColorStyle(style),
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join("; ") : null;
+}
+
+function extractSafeStyle(attrs: string): string | null {
+  const match = attrs.match(/\bstyle\s*=\s*["']([^"']*)["']/i);
+  if (!match) return null;
+  return sanitizeInlineStyle(match[1]);
+}
+
+const STYLE_ALLOWED_TAGS = new Set(["p", "div", "span", "strong", "b", "em", "i"]);
+
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
@@ -62,19 +118,18 @@ export function sanitizeDescriptionHtml(html: string): string {
       if (match.startsWith("</")) return `</${tag}>`;
 
       if (tag === "div") {
+        const safeStyle = extractSafeStyle(attrs);
         if (extractClass(attrs) === DESC_GAP_LG) {
-          return `<div class="${DESC_GAP_LG}">`;
+          return safeStyle
+            ? `<div class="${DESC_GAP_LG}" style="${safeStyle}">`
+            : `<div class="${DESC_GAP_LG}">`;
         }
-        return "<div>";
+        return safeStyle ? `<div style="${safeStyle}">` : "<div>";
       }
 
-      if (tag === "span") {
-        const styleMatch = attrs.match(/\bstyle\s*=\s*["']([^"']*)["']/i);
-        if (styleMatch) {
-          const safeStyle = sanitizeFontSizeStyle(styleMatch[1]);
-          if (safeStyle) return `<span style="${safeStyle}">`;
-        }
-        return "<span>";
+      if (STYLE_ALLOWED_TAGS.has(tag)) {
+        const safeStyle = extractSafeStyle(attrs);
+        return safeStyle ? `<${tag} style="${safeStyle}">` : `<${tag}>`;
       }
 
       return `<${tag}>`;

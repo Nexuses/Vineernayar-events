@@ -1,8 +1,10 @@
 import { getDb } from "../mongodb";
-import { ObjectId } from "mongodb";
+import { ObjectId, type Filter } from "mongodb";
 import { createInitialEmailSequence, type EmailSequenceStatus } from "../email-sequence";
 
 export type ParticipationStatus = "registered" | "attended";
+export type AdmissionStatus = "waitlisted" | "confirmed" | "rejected";
+export type BlastAudience = "confirmed" | "waitlisted" | "all";
 
 export interface RegistrationDoc {
   _id?: ObjectId;
@@ -43,12 +45,38 @@ export interface RegistrationDoc {
   participationStatus?: ParticipationStatus;
   /** When the attendee was marked as attended (via scan or admin) */
   participationTimestamp?: Date;
+  /** Waitlist workflow: new registrations start as waitlisted until admin accepts */
+  admissionStatus?: AdmissionStatus;
+  admissionUpdatedAt?: Date;
+  /** Internal notes added by admin while reviewing waitlist */
+  adminNotes?: string;
   /** Automated email communication sequence status */
   emailSequence?: EmailSequenceStatus;
   createdAt: Date;
 }
 
 const COLLECTION = "registrations";
+
+export function getAdmissionStatus(reg: RegistrationDoc): AdmissionStatus {
+  return reg.admissionStatus ?? "confirmed";
+}
+
+export function isConfirmedRegistration(reg: RegistrationDoc): boolean {
+  return getAdmissionStatus(reg) === "confirmed";
+}
+
+function confirmedAdmissionFilter(): Filter<RegistrationDoc> {
+  return {
+    $or: [
+      { admissionStatus: "confirmed" as const },
+      { admissionStatus: { $exists: false } },
+    ],
+  };
+}
+
+function waitlistedAdmissionFilter(): Filter<RegistrationDoc> {
+  return { admissionStatus: "waitlisted" as const };
+}
 
 function generateUniqueCode(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -79,6 +107,7 @@ export async function createRegistration(data: Omit<RegistrationDoc, "_id" | "un
     ...data,
     uniqueCode,
     participationStatus: "registered",
+    admissionStatus: data.admissionStatus ?? "waitlisted",
     emailSequence: createInitialEmailSequence(),
     createdAt: new Date(),
   };
@@ -92,6 +121,33 @@ export async function findRegistrationByEventAndEmail(
 ): Promise<RegistrationDoc | null> {
   const col = await getRegistrationsCollection();
   return col.findOne({ eventId, email: email.trim().toLowerCase() });
+}
+
+export async function updateAdmissionStatus(
+  id: string,
+  admissionStatus: AdmissionStatus
+): Promise<boolean> {
+  const col = await getRegistrationsCollection();
+  if (!ObjectId.isValid(id)) return false;
+  const result = await col.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: { admissionStatus, admissionUpdatedAt: new Date() } }
+  );
+  return result.modifiedCount > 0;
+}
+
+export async function updateRegistrationAdminNotes(
+  id: string,
+  adminNotes: string
+): Promise<boolean> {
+  const col = await getRegistrationsCollection();
+  if (!ObjectId.isValid(id)) return false;
+  const trimmed = adminNotes.trim();
+  const result = await col.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: { adminNotes: trimmed } }
+  );
+  return result.matchedCount > 0;
 }
 
 export async function updateRegistrationParticipationStatus(
@@ -129,14 +185,61 @@ export async function getRegistrationById(id: string): Promise<RegistrationDoc |
   return col.findOne({ _id: new ObjectId(id) });
 }
 
+function nonRejectedAdmissionFilter(): Filter<RegistrationDoc> {
+  return {
+    $or: [
+      { admissionStatus: { $exists: false } },
+      { admissionStatus: { $in: ["confirmed", "waitlisted"] as AdmissionStatus[] } },
+    ],
+  };
+}
+
+function audienceFilter(audience: BlastAudience): Filter<RegistrationDoc> {
+  if (audience === "confirmed") return confirmedAdmissionFilter();
+  if (audience === "waitlisted") return waitlistedAdmissionFilter();
+  return nonRejectedAdmissionFilter();
+}
+
+export async function listRegistrationsForEmailBlast(
+  eventId: string,
+  audience: BlastAudience
+): Promise<RegistrationDoc[]> {
+  const col = await getRegistrationsCollection();
+  return col
+    .find({ eventId, ...audienceFilter(audience) })
+    .sort({ createdAt: -1 })
+    .toArray();
+}
+
+export async function countRegistrationsForEmailBlast(
+  eventId: string,
+  audience: BlastAudience
+): Promise<number> {
+  const col = await getRegistrationsCollection();
+  return col.countDocuments({ eventId, ...audienceFilter(audience) });
+}
+
 export async function listRegistrationsByEventId(eventId: string): Promise<RegistrationDoc[]> {
   const col = await getRegistrationsCollection();
-  return col.find({ eventId }).sort({ createdAt: -1 }).toArray();
+  return col
+    .find({ eventId, ...confirmedAdmissionFilter() })
+    .sort({ createdAt: -1 })
+    .toArray();
+}
+
+export async function listWaitlistedByEventId(eventId: string): Promise<RegistrationDoc[]> {
+  const col = await getRegistrationsCollection();
+  return col.find({ eventId, ...waitlistedAdmissionFilter() }).sort({ createdAt: -1 }).toArray();
 }
 
 export async function countRegistrationsByEventId(eventId: string): Promise<number> {
   const col = await getRegistrationsCollection();
-  return col.countDocuments({ eventId });
+  return col.countDocuments({ eventId, ...confirmedAdmissionFilter() });
+}
+
+export async function countWaitlistedByEventId(eventId: string): Promise<number> {
+  const col = await getRegistrationsCollection();
+  return col.countDocuments({ eventId, ...waitlistedAdmissionFilter() });
 }
 
 export async function getRegistrationCountsByEventIds(
@@ -148,7 +251,7 @@ export async function getRegistrationCountsByEventIds(
   const col = await getRegistrationsCollection();
   const rows = await col
     .aggregate<{ _id: string; count: number }>([
-      { $match: { eventId: { $in: eventIds } } },
+      { $match: { eventId: { $in: eventIds }, ...confirmedAdmissionFilter() } },
       { $group: { _id: "$eventId", count: { $sum: 1 } } },
     ])
     .toArray();

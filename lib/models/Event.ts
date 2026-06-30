@@ -1,7 +1,6 @@
 import { getDb } from "../mongodb";
 import { ObjectId } from "mongodb";
 import { DEFAULT_EVENT_BANNER_URL } from "../constants";
-import { countRegistrationsByEventId, getRegistrationCountsByEventIds } from "./Registration";
 import {
   getRegistrationWindowStatus,
   getPublicRegistrationWindowLabel,
@@ -88,52 +87,33 @@ export function getEffectiveRegistrationStatus(
   return getRegistrationWindowStatus(event) === "open" ? "open" : "closed";
 }
 
-function isSeatsFull(
-  event: Pick<EventDoc, "seatLimit">,
-  registrationCount: number
-): boolean {
-  const limit = event.seatLimit;
-  return typeof limit === "number" && limit > 0 && registrationCount >= limit;
-}
-
-/** Public registration window: dates, then seat limit. */
+/** Public registration window from registration start and end dates. */
 export async function getPublicRegistrationWindowStatus(
-  event: Pick<EventDoc, "eventId" | "registrationStartDate" | "registrationEndDate" | "seatLimit">
+  event: Pick<EventDoc, "registrationStartDate" | "registrationEndDate">
 ): Promise<RegistrationWindowStatus> {
-  const window = getRegistrationWindowStatus(event);
-  if (window !== "open") return window;
-  if (!event.seatLimit || event.seatLimit <= 0) return "open";
-  const count = await countRegistrationsByEventId(event.eventId);
-  return isSeatsFull(event, count) ? "closed" : "open";
+  return getRegistrationWindowStatus(event);
 }
 
 /** Whether the public registration form accepts submissions. */
 export async function getPublicRegistrationStatus(
-  event: Pick<EventDoc, "eventId" | "registrationStartDate" | "registrationEndDate" | "seatLimit">
+  event: Pick<EventDoc, "registrationStartDate" | "registrationEndDate">
 ): Promise<RegistrationStatus> {
   const window = await getPublicRegistrationWindowStatus(event);
   return window === "open" ? "open" : "closed";
 }
 
 export async function getPublicRegistrationWindowStatusByEventIds(
-  events: Pick<EventDoc, "eventId" | "registrationStartDate" | "registrationEndDate" | "seatLimit">[]
+  events: Pick<EventDoc, "eventId" | "registrationStartDate" | "registrationEndDate">[]
 ): Promise<Map<string, RegistrationWindowStatus>> {
-  const counts = await getRegistrationCountsByEventIds(events.map((e) => e.eventId));
   const statuses = new Map<string, RegistrationWindowStatus>();
   for (const event of events) {
-    const window = getRegistrationWindowStatus(event);
-    if (window !== "open") {
-      statuses.set(event.eventId, window);
-      continue;
-    }
-    const count = counts.get(event.eventId) ?? 0;
-    statuses.set(event.eventId, isSeatsFull(event, count) ? "closed" : "open");
+    statuses.set(event.eventId, getRegistrationWindowStatus(event));
   }
   return statuses;
 }
 
 export async function getPublicRegistrationStatusByEventIds(
-  events: Pick<EventDoc, "eventId" | "registrationStartDate" | "registrationEndDate" | "seatLimit">[]
+  events: Pick<EventDoc, "eventId" | "registrationStartDate" | "registrationEndDate">[]
 ): Promise<Map<string, RegistrationStatus>> {
   const windows = await getPublicRegistrationWindowStatusByEventIds(events);
   const statuses = new Map<string, RegistrationStatus>();

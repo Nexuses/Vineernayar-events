@@ -10,9 +10,16 @@ import {
   buildSequenceRenderContext,
 } from "@/lib/email-sequence-template";
 import { JOIN_NOTIFY_HTML, JOIN_THANK_YOU_HTML } from "@/lib/join-email-templates";
+import { WAITLIST_REJECTED_HTML, WAITLIST_THANK_YOU_HTML } from "@/lib/waitlist-email-templates";
 import { BRAND_LOGO_URL } from "@/lib/constants";
 import { MARKETING_SITE_URL } from "@/lib/marketing-site";
-import type { EmailTemplateKey } from "@/lib/models/EmailTemplate";
+import type { EmailTemplateKey } from "@/lib/email-template-keys";
+import {
+  applyEmailTemplate,
+  getSampleJoinVars,
+} from "@/lib/email-template-client";
+
+export { applyEmailTemplate, getSampleJoinVars };
 
 export type EmailTemplateDefinition = {
   key: EmailTemplateKey;
@@ -75,40 +82,63 @@ export const EMAIL_TEMPLATE_DEFINITIONS: EmailTemplateDefinition[] = [
     group: "Join movement emails",
     placeholders: JOIN_PLACEHOLDERS,
   },
+  {
+    key: "waitlist_thank_you",
+    label: "Waitlist — thank you",
+    schedule: "When someone registers (waitlisted)",
+    group: "Waitlist emails",
+    placeholders: [...SEQUENCE_PLACEHOLDERS, "{{logoUrl}}"],
+  },
+  {
+    key: "waitlist_rejected",
+    label: "Waitlist — rejected",
+    schedule: "When admin rejects a waitlisted registration",
+    group: "Waitlist emails",
+    placeholders: [...SEQUENCE_PLACEHOLDERS, "{{logoUrl}}"],
+  },
 ];
-
-const SAMPLE_PASS_URL = `${MARKETING_SITE_URL}/events/sample-event/pass/SAMPLE01`;
 
 export function getSampleSequenceContext(): SequenceRenderContext {
   const nextMonth = new Date();
   nextMonth.setMonth(nextMonth.getMonth() + 1);
   nextMonth.setDate(15);
 
-  return buildSequenceRenderContext({
-    firstName: "Alex",
+  return buildSampleSequenceContextFromEvent({
+    eventId: "sample-event",
     eventName: "The Humans First Series with Vineet Nayar",
     eventStartDate: nextMonth.toISOString(),
     eventEndDate: nextMonth.toISOString(),
     eventTime: "6:00 PM – 8:30 PM IST",
     venue: "Taj Lands End, Mumbai",
-    passUrl: SAMPLE_PASS_URL,
   });
 }
 
-export function getSampleJoinVars(): Record<string, string> {
-  return {
-    name: "Alex",
-    email: "alex@example.com",
-    city: "Mumbai",
-    logoUrl: process.env.EMAIL_LOGO_URL || BRAND_LOGO_URL,
-    navLogoUrl: process.env.EMAIL_LOGO_URL || BRAND_LOGO_URL,
-    homeUrl: MARKETING_SITE_URL,
-    bookUrl: `${MARKETING_SITE_URL}/book`,
-    citiesUrl: `${MARKETING_SITE_URL}/#cities-cards`,
-    watchUrl: `${MARKETING_SITE_URL}/#mosaic`,
-    wallUrl: `${MARKETING_SITE_URL}/#wall`,
-    submittedAt: "15 June 2026, 10:30 am",
-  };
+export function buildSampleSequenceContextFromEvent(event: {
+  eventId: string;
+  eventName: string;
+  eventStartDate: string | Date;
+  eventEndDate: string | Date;
+  eventTime?: string;
+  venue: string;
+}): SequenceRenderContext {
+  const start =
+    event.eventStartDate instanceof Date
+      ? event.eventStartDate.toISOString()
+      : String(event.eventStartDate);
+  const end =
+    event.eventEndDate instanceof Date
+      ? event.eventEndDate.toISOString()
+      : String(event.eventEndDate);
+
+  return buildSequenceRenderContext({
+    firstName: "Alex",
+    eventName: event.eventName,
+    eventStartDate: start,
+    eventEndDate: end,
+    eventTime: event.eventTime || "6:00 PM – 8:30 PM IST",
+    venue: event.venue,
+    passUrl: `${MARKETING_SITE_URL}/events/${event.eventId}/pass/SAMPLE01`,
+  });
 }
 
 export function sequenceContextToVars(ctx: SequenceRenderContext): Record<string, string> {
@@ -130,28 +160,41 @@ export function sequenceContextToVars(ctx: SequenceRenderContext): Record<string
   };
 }
 
-export function applyEmailTemplate(
-  template: string,
-  vars: Record<string, string>
-): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => vars[key] ?? "");
-}
-
 export function getDefaultTemplateHtml(key: EmailTemplateKey): string {
   if (key === "join_thank_you") return JOIN_THANK_YOU_HTML;
   if (key === "join_notify") return JOIN_NOTIFY_HTML;
+  if (key === "waitlist_thank_you") return WAITLIST_THANK_YOU_HTML;
+  if (key === "waitlist_rejected") return WAITLIST_REJECTED_HTML;
   return buildSequenceEmailHtml(key as EmailSequenceKey, getSampleSequenceContext());
 }
 
 export function getPreviewHtml(
   key: EmailTemplateKey,
-  customHtml?: string | null
+  customHtml?: string | null,
+  sampleContext?: SequenceRenderContext
 ): string {
-  if (customHtml?.trim()) {
+  const ctx = sampleContext ?? getSampleSequenceContext();
+  const html = customHtml?.trim();
+  if (html) {
     if (key === "join_thank_you" || key === "join_notify") {
-      return applyEmailTemplate(customHtml, getSampleJoinVars());
+      return applyEmailTemplate(html, getSampleJoinVars());
     }
-    return applyEmailTemplate(customHtml, sequenceContextToVars(getSampleSequenceContext()));
+    if (key === "waitlist_thank_you" || key === "waitlist_rejected") {
+      return applyEmailTemplate(html, {
+        ...sequenceContextToVars(ctx),
+        logoUrl: process.env.EMAIL_LOGO_URL || BRAND_LOGO_URL,
+      });
+    }
+    return applyEmailTemplate(html, sequenceContextToVars(ctx));
   }
-  return getDefaultTemplateHtml(key);
+  if (key === "join_thank_you" || key === "join_notify") {
+    return getDefaultTemplateHtml(key);
+  }
+  if (key === "waitlist_thank_you" || key === "waitlist_rejected") {
+    return applyEmailTemplate(getDefaultTemplateHtml(key), {
+      ...sequenceContextToVars(ctx),
+      logoUrl: process.env.EMAIL_LOGO_URL || BRAND_LOGO_URL,
+    });
+  }
+  return buildSequenceEmailHtml(key as EmailSequenceKey, ctx);
 }

@@ -6,6 +6,7 @@ import { getEventByEventId } from "./models/Event";
 import {
   getRegistrationsCollection,
   listAllRegistrations,
+  isConfirmedRegistration,
   type RegistrationDoc,
 } from "./models/Registration";
 import { ObjectId } from "mongodb";
@@ -25,6 +26,7 @@ function toPassEmailData(reg: RegistrationDoc, passUrl: string): PassEmailData {
     surname: reg.surname,
     mobileNumber: reg.mobileNumber,
     email: reg.email,
+    eventId: reg.eventId,
     eventName: reg.eventName,
     eventStartDate:
       reg.eventStartDate instanceof Date
@@ -42,6 +44,7 @@ function toPassEmailData(reg: RegistrationDoc, passUrl: string): PassEmailData {
         : String(reg.createdAt),
     passUrl,
     uniqueCode: reg.uniqueCode,
+    priorityPass: reg.workedWithVineet === true,
   };
 }
 
@@ -68,6 +71,7 @@ async function buildPassEmailAttachments(
       uniqueCode: reg.uniqueCode,
       createdAt: reg.createdAt,
       showPassQr: event?.showPassQr !== false,
+      priorityPass: reg.workedWithVineet === true,
     });
   } catch (err) {
     console.error("Pass PDF generation for email failed:", err);
@@ -171,6 +175,8 @@ export async function processDueEmailSequences(now: Date = new Date()): Promise<
   let failed = 0;
 
   for (const reg of registrations) {
+    if (!isConfirmedRegistration(reg)) continue;
+
     for (const key of ["seq2", "seq3", "seq4", "seq5"] as EmailSequenceKey[]) {
       const current = reg.emailSequence?.[key];
       if (current?.status === "sent") continue;

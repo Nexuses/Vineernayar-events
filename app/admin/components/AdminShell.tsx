@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { AdminSidebar } from "./AdminSidebar";
 import { LogoutButton } from "./LogoutButton";
+import type { NavItem } from "@/lib/admin-nav";
 
 function MenuIcon({ className }: { className?: string }) {
   return (
@@ -15,16 +15,24 @@ function MenuIcon({ className }: { className?: string }) {
 
 export function AdminShell({
   email,
+  name,
+  navItems,
   children,
 }: {
   email: string;
+  name?: string;
+  navItems: NavItem[];
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div className="flex h-full overflow-hidden">
-      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <AdminSidebar
+        navItems={navItems}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
       {/* Mobile overlay when sidebar is open */}
       {sidebarOpen && (
         <button
@@ -46,7 +54,7 @@ export function AdminShell({
           </button>
           <div className="flex flex-1 items-center justify-end gap-2 sm:flex-none">
             <span className="truncate text-sm text-zinc-600" title={email}>
-              {email}
+              {name ? `${name} · ${email}` : email}
             </span>
             <LogoutButton />
           </div>

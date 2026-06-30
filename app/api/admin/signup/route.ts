@@ -1,10 +1,18 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { findAdminByEmail, createAdmin } from "@/lib/models/Admin";
+import { countAdmins, findAdminByEmail, createAdmin } from "@/lib/models/Admin";
 import { createToken, setAuthCookie } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
+    const adminCount = await countAdmins();
+    if (adminCount > 0) {
+      return NextResponse.json(
+        { error: "Public signup is disabled. Ask a super admin to create your account." },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { email, password, name } = body;
 
@@ -35,6 +43,7 @@ export async function POST(request: Request) {
       email,
       passwordHash,
       name,
+      role: "superadmin",
     });
 
     const token = await createToken({

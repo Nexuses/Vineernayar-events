@@ -1,18 +1,32 @@
 import Link from "next/link";
-import { getAdminFromCookie } from "@/lib/auth";
-import { getEffectiveRegistrationStatus, listEvents } from "@/lib/models/Event";
+import { getEffectiveRegistrationStatus } from "@/lib/models/Event";
 import { listAllRegistrations } from "@/lib/models/Registration";
 import { listAllEligible } from "@/lib/models/EligibleEmail";
 import { StatCards, BarChartCard, PieChartCard } from "./components/DashboardCharts";
+import {
+  getAdminSession,
+  isSuperAdmin,
+  listEventsForAdmin,
+} from "@/lib/admin-access";
 
 export default async function AdminDashboardPage() {
-  const admin = await getAdminFromCookie();
+  const session = await getAdminSession();
+  const superadmin = session ? isSuperAdmin(session) : false;
 
-  const [events, registrations, eligibleClients] = await Promise.all([
-    listEvents(),
+  const events = session ? await listEventsForAdmin(session) : [];
+  const allowedEventIds = new Set(events.map((e) => e.eventId));
+
+  const [allRegistrations, allEligible] = await Promise.all([
     listAllRegistrations(),
     listAllEligible(),
   ]);
+
+  const registrations = superadmin
+    ? allRegistrations
+    : allRegistrations.filter((r) => allowedEventIds.has(r.eventId));
+  const eligibleClients = superadmin
+    ? allEligible
+    : allEligible.filter((e) => allowedEventIds.has(e.eventId));
 
   const now = new Date();
   const totalEvents = events.length;
@@ -57,7 +71,10 @@ export default async function AdminDashboardPage() {
           Dashboard
         </h1>
         <p className="mt-2 text-sm text-zinc-600 sm:text-base">
-          Welcome back, {admin?.email ?? "Admin"}. Here is how your events are performing.
+          Welcome back, {session?.name ?? session?.email ?? "Admin"}.
+          {superadmin
+            ? " Here is how your events are performing."
+            : " You are viewing data for your assigned events only."}
         </p>
       </div>
 
@@ -112,20 +129,22 @@ export default async function AdminDashboardPage() {
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <Link
-            href="/admin/create-event"
-            className="group flex flex-col justify-between rounded-xl border border-zinc-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-brand-500 hover:shadow-md"
-          >
-            <div>
-              <p className="text-sm font-semibold text-zinc-900">Create event</p>
-              <p className="mt-1 text-xs text-zinc-500">
-                Set up a new event, time, and venue.
-              </p>
-            </div>
-            <span className="mt-3 text-xs font-medium text-brand-600 group-hover:underline">
-              Go to create event →
-            </span>
-          </Link>
+          {superadmin ? (
+            <Link
+              href="/admin/create-event"
+              className="group flex flex-col justify-between rounded-xl border border-zinc-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-brand-500 hover:shadow-md"
+            >
+              <div>
+                <p className="text-sm font-semibold text-zinc-900">Create event</p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Set up a new event, time, and venue.
+                </p>
+              </div>
+              <span className="mt-3 text-xs font-medium text-brand-600 group-hover:underline">
+                Go to create event →
+              </span>
+            </Link>
+          ) : null}
           <Link
             href="/admin/registrations"
             className="group flex flex-col justify-between rounded-xl border border-zinc-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-brand-500 hover:shadow-md"

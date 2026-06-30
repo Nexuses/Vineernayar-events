@@ -3,21 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BRAND_LOGO_URL, BRAND_NAME } from "@/lib/constants";
-
-const navItems = [
-  { href: "/admin", label: "Dashboard" },
-  { href: "/admin/events", label: "All Events" },
-  { href: "/admin/create-event", label: "Create Event" },
-  { href: "/admin/eligible", label: "Eligible Client" },
-  { href: "/admin/registrations", label: "Registered Client" },
-  { href: "/admin/email-flow", label: "Email Flow" },
-  { href: "/admin/scan", label: "QR Scanning" },
-];
+import type { NavItem } from "@/lib/admin-nav";
 
 export function AdminSidebar({
+  navItems,
   open = false,
   onClose,
 }: {
+  navItems: NavItem[];
   open?: boolean;
   onClose?: () => void;
 }) {
@@ -55,19 +48,19 @@ export function AdminSidebar({
             {navItems.map((item) => {
               const active = isActive(item.href);
               return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onClose}
-              aria-current={active ? "page" : undefined}
-              className={`group flex items-center rounded-xl border border-transparent px-3 py-2.5 text-[15px] font-semibold transition-colors ${
-                active
-                  ? "border-zinc-900/80 bg-zinc-100 text-zinc-900 shadow-sm ring-1 ring-zinc-900/40"
-                  : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
-              }`}
-            >
-              <span>{item.label}</span>
-            </Link>
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onClose}
+                  aria-current={active ? "page" : undefined}
+                  className={`group flex items-center rounded-xl border border-transparent px-3 py-2.5 text-[15px] font-semibold transition-colors ${
+                    active
+                      ? "border-zinc-900/80 bg-zinc-100 text-zinc-900 shadow-sm ring-1 ring-zinc-900/40"
+                      : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+                  }`}
+                >
+                  <span>{item.label}</span>
+                </Link>
               );
             })}
           </div>

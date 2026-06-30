@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getAdminFromCookie } from "@/lib/auth";
 import { parseEventDateTime, resolveEventDatesFromAdminFields, toEventDateInput } from "@/lib/date-utils";
 import { getEventById, updateEvent } from "@/lib/models/Event";
 import { saveBannerFile } from "@/lib/banner-upload";
@@ -8,6 +7,12 @@ import {
   transportLocationsFromFormData,
   transportLocationsFromJsonBody,
 } from "@/lib/admin-transport-locations";
+import {
+  assertEventAccess,
+  assertCanEditEvents,
+  getAdminSession,
+  unauthorizedResponse,
+} from "@/lib/admin-access";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -16,16 +21,16 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ eventId: string }> }
 ) {
-  const admin = await getAdminFromCookie();
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await getAdminSession();
+  if (!session) return unauthorizedResponse();
   try {
     const { eventId } = await params;
     const event = await getEventById(eventId);
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
+    const denied = assertEventAccess(session, event.eventId);
+    if (denied) return denied;
     return NextResponse.json(event, {
       headers: {
         "Cache-Control": "no-store, max-age=0",
@@ -44,10 +49,10 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ eventId: string }> }
 ) {
-  const admin = await getAdminFromCookie();
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await getAdminSession();
+  if (!session) return unauthorizedResponse();
+  const editDenied = assertCanEditEvents(session);
+  if (editDenied) return editDenied;
 
   try {
     const { eventId } = await params;
@@ -157,6 +162,8 @@ export async function PUT(
     if (!existing) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
+    const denied = assertEventAccess(session, existing.eventId);
+    if (denied) return denied;
 
     if (registrationStartDate && registrationEndDate) {
       const start = parseEventDateTime(registrationStartDate);

@@ -1,4 +1,4 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { isJoinEmailConfigured, sendJoinEmails } from "@/lib/join-email";
 import { JOIN_CITIES } from "@/lib/join-cities";
 
@@ -33,12 +33,14 @@ export async function POST(request: Request) {
       );
     }
 
-    after(async () => {
-      const result = await sendJoinEmails({ name, email, city });
-      if (!result.ok) {
-        console.error("Background join email failed:", result.error);
-      }
-    });
+    const result = await sendJoinEmails({ name, email, city });
+    if (!result.ok) {
+      console.error("Join email failed:", result.error);
+      return NextResponse.json(
+        { error: result.error || "Unable to send confirmation email. Please try again." },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({ ok: true });
   } catch {

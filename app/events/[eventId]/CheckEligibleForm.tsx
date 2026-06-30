@@ -72,7 +72,7 @@ export function CheckEligibleForm({ eventId }: { eventId: string }) {
         disabled={loading}
         className="check-btn-hover w-full rounded-md bg-brand-500 px-4 py-2.5 font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50"
       >
-        <span>{loading ? "Registering…" : "Register"}</span>
+        <span>{loading ? "Applying…" : "Apply to Attend"}</span>
       </button>
     </form>
   );

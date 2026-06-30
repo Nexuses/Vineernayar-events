@@ -1,19 +1,22 @@
-import { getAdminFromCookie } from "@/lib/auth";
+import { getAdminSession, isSuperAdmin, listEventsForAdmin } from "@/lib/admin-access";
 import { redirect } from "next/navigation";
 import { EmailFlowSection } from "./EmailFlowSection";
 
 export default async function EmailFlowPage() {
-  const admin = await getAdminFromCookie();
-  if (!admin) redirect("/admin/login");
+  const session = await getAdminSession();
+  if (!session) redirect("/admin/login");
+  if (!isSuperAdmin(session)) redirect("/admin");
+
+  const events = await listEventsForAdmin(session);
+  const eventList = events.map((e) => ({ eventId: e.eventId, eventName: e.eventName }));
 
   return (
     <div>
       <h1 className="text-xl font-bold text-zinc-900 sm:text-2xl">Email Flow</h1>
       <p className="mt-1 text-sm text-zinc-600">
-        Review and edit automated email templates. Changes apply to future emails sent from this
-        system.
+        View and edit automated email templates event-wise. Select an event to manage its email flow.
       </p>
-      <EmailFlowSection />
+      <EmailFlowSection events={eventList} />
     </div>
   );
 }

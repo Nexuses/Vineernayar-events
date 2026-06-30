@@ -41,19 +41,27 @@ function effectiveRegistrationStatus(ev: EventItem): ReturnType<typeof getRegist
 
 export default function AllEventsPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [canEdit, setCanEdit] = useState(false);
   const [listLoading, setListLoading] = useState(true);
   const [error, setError] = useState("");
 
   async function fetchEvents() {
     setListLoading(true);
     try {
-      const res = await fetch("/api/admin/events");
-      if (!res.ok) {
+      const [eventsRes, meRes] = await Promise.all([
+        fetch("/api/admin/events"),
+        fetch("/api/admin/me"),
+      ]);
+      if (!eventsRes.ok) {
         setError("Failed to load events");
         return;
       }
-      const data = await res.json();
+      const data = await eventsRes.json();
       setEvents(data);
+      if (meRes.ok) {
+        const me = await meRes.json();
+        setCanEdit(me.role === "superadmin");
+      }
     } catch {
       setError("Failed to load events");
     } finally {
@@ -146,12 +154,14 @@ export default function AllEventsPage() {
                       </div>
                     ) : null}
                   </dl>
-                  <Link
-                    href={`/admin/events/${ev._id}/edit`}
-                    className="mt-4 inline-flex w-full justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-                  >
-                    Edit
-                  </Link>
+                  {canEdit ? (
+                    <Link
+                      href={`/admin/events/${ev._id}/edit`}
+                      className="mt-4 inline-flex w-full justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+                    >
+                      Edit
+                    </Link>
+                  ) : null}
                 </div>
               </article>
             );

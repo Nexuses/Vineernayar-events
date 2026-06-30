@@ -1,14 +1,20 @@
 import { NextResponse } from "next/server";
-import { getAdminFromCookie } from "@/lib/auth";
 import { listRegistrationsByEventId } from "@/lib/models/Registration";
 import { serializeEmailSequence } from "@/lib/email-sequence";
+import {
+  assertEventAccess,
+  getAdminSession,
+  unauthorizedResponse,
+} from "@/lib/admin-access";
 
 export async function GET(request: Request) {
-  const admin = await getAdminFromCookie();
-  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const session = await getAdminSession();
+  if (!session) return unauthorizedResponse();
   const { searchParams } = new URL(request.url);
   const eventId = searchParams.get("eventId");
   if (!eventId) return NextResponse.json({ error: "eventId required" }, { status: 400 });
+  const denied = assertEventAccess(session, eventId);
+  if (denied) return denied;
   try {
     const list = await listRegistrationsByEventId(eventId);
     const serialized = list.map((r) => ({

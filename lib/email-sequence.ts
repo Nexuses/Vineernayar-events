@@ -29,7 +29,7 @@ export const EMAIL_SEQUENCE_LABELS: Record<EmailSequenceKey, string> = {
 };
 
 export const EMAIL_SEQUENCE_SCHEDULE: Record<EmailSequenceKey, string> = {
-  seq1: "On registration",
+  seq1: "On admin acceptance (confirmation + pass)",
   seq2: "7 days before event",
   seq3: "1 day before event",
   seq4: "1 day after event",
@@ -53,6 +53,7 @@ export type SequenceRenderContext = {
   preOrderUrl: string;
   websiteUrl: string;
   calendar: { month: string; day: string; weekday: string };
+  isPriorityPass?: boolean;
 };
 
 export type SequenceContent = {
@@ -101,6 +102,9 @@ export function getSequenceSubject(key: EmailSequenceKey, _ctx: SequenceTemplate
   }
 }
 
+const PRIORITY_PASS_LINE =
+  "As a friend of Vineet Nayar, we are reserving your seat on a priority basis.";
+
 export function getSequenceContent(
   key: EmailSequenceKey,
   ctx: SequenceRenderContext
@@ -117,6 +121,7 @@ export function getSequenceContent(
         showEventSummary: false,
         paragraphs: [
           `Your seat for Humans First, Machines Second in ${ctx.eventCity} is confirmed.`,
+          ...(ctx.isPriorityPass ? [PRIORITY_PASS_LINE] : []),
           "We're looking forward to welcoming you to join a movement with Vineet Nayar and a community of leaders, thinkers, and lifelong learners as we explore the human potential in the age of AI.",
           "Looking for a memorable keepsake from the evening?",
           "Bring your copy of Humans First, Machines Second - 30 Sparks to Reimagine Winning in the Age of AI to the event to get it signed by Vineet Nayar, and the chance to capture a photograph together.",
