@@ -1,5 +1,6 @@
 import { getAdminSession, listEventsForAdmin } from "@/lib/admin-access";
 import { redirect } from "next/navigation";
+import { formatEventDropdownLabel } from "@/lib/event-option-label";
 import { RegisteredClientSection } from "./RegisteredClientSection";
 
 export default async function RegisteredClientPage() {
@@ -7,7 +8,11 @@ export default async function RegisteredClientPage() {
   if (!session) redirect("/admin/login");
 
   const events = await listEventsForAdmin(session);
-  const eventList = events.map((e) => ({ eventId: e.eventId, eventName: e.eventName }));
+  const eventList = events.map((e) => ({
+    eventId: e.eventId,
+    eventName: e.eventName,
+    dropdownLabel: formatEventDropdownLabel(e),
+  }));
 
   return (
     <div>

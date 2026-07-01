@@ -52,6 +52,8 @@ export interface RegistrationDoc {
   adminNotes?: string;
   /** Automated email communication sequence status */
   emailSequence?: EmailSequenceStatus;
+  /** Set when this registration receives an admin email blast */
+  lastEmailBlastAt?: Date;
   createdAt: Date;
 }
 
@@ -219,6 +221,16 @@ export async function countRegistrationsForEmailBlast(
   return col.countDocuments({ eventId, ...audienceFilter(audience) });
 }
 
+export async function markRegistrationsBlasted(registrationIds: ObjectId[]): Promise<void> {
+  if (registrationIds.length === 0) return;
+  const col = await getRegistrationsCollection();
+  const now = new Date();
+  await col.updateMany(
+    { _id: { $in: registrationIds } },
+    { $set: { lastEmailBlastAt: now } }
+  );
+}
+
 export async function listRegistrationsByEventId(eventId: string): Promise<RegistrationDoc[]> {
   const col = await getRegistrationsCollection();
   return col
@@ -230,6 +242,18 @@ export async function listRegistrationsByEventId(eventId: string): Promise<Regis
 export async function listWaitlistedByEventId(eventId: string): Promise<RegistrationDoc[]> {
   const col = await getRegistrationsCollection();
   return col.find({ eventId, ...waitlistedAdmissionFilter() }).sort({ createdAt: -1 }).toArray();
+}
+
+/** Waitlisted plus accepted/rejected entries for the admin waitlist review table. */
+export async function listWaitlistReviewByEventId(eventId: string): Promise<RegistrationDoc[]> {
+  const col = await getRegistrationsCollection();
+  return col
+    .find({
+      eventId,
+      admissionStatus: { $in: ["waitlisted", "confirmed", "rejected"] as AdmissionStatus[] },
+    })
+    .sort({ createdAt: -1 })
+    .toArray();
 }
 
 export async function countRegistrationsByEventId(eventId: string): Promise<number> {

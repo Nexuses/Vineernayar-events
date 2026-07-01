@@ -1,5 +1,6 @@
 import { getAdminSession, isSuperAdmin, listEventsForAdmin } from "@/lib/admin-access";
 import { redirect } from "next/navigation";
+import { formatEventDropdownLabel } from "@/lib/event-option-label";
 import { EmailFlowSection } from "./EmailFlowSection";
 
 export default async function EmailFlowPage() {
@@ -8,7 +9,11 @@ export default async function EmailFlowPage() {
   if (!isSuperAdmin(session)) redirect("/admin");
 
   const events = await listEventsForAdmin(session);
-  const eventList = events.map((e) => ({ eventId: e.eventId, eventName: e.eventName }));
+  const eventList = events.map((e) => ({
+    eventId: e.eventId,
+    eventName: e.eventName,
+    dropdownLabel: formatEventDropdownLabel(e),
+  }));
 
   return (
     <div>

@@ -5,12 +5,17 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { toDatetimeLocal, toEventDateInput, getEventTimeDisplay } from "@/lib/date-utils";
 import { RichDescriptionEditor } from "@/app/admin/components/RichDescriptionEditor";
+import { EventAgendaEditor } from "@/app/admin/components/EventAgendaEditor";
+import { getEventPublicPath } from "@/lib/event-path";
+import type { EventAgendaItem } from "@/lib/event-agenda";
 
 type EventItem = {
   _id: string;
   eventId: string;
+  slug?: string;
   eventName: string;
   description?: string;
+  agenda?: EventAgendaItem[];
   eventBanner: string;
   eventStartDate: string;
   eventEndDate: string;
@@ -32,7 +37,9 @@ export default function EditEventPage() {
   const eventId = params.eventId as string;
   const [event, setEvent] = useState<EventItem | null>(null);
   const [eventName, setEventName] = useState("");
+  const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
+  const [agenda, setAgenda] = useState<EventAgendaItem[]>([]);
   const [eventDate, setEventDate] = useState("");
   const [eventTime, setEventTime] = useState("");
   const [registrationStartDate, setRegistrationStartDate] = useState("");
@@ -63,7 +70,9 @@ export default function EditEventPage() {
         const data = await res.json();
         setEvent(data);
         setEventName(data.eventName ?? "");
+        setSlug(data.slug ?? "");
         setDescription(data.description ?? "");
+        setAgenda(Array.isArray(data.agenda) ? data.agenda : []);
         setEventDate(toEventDateInput(data.eventStartDate));
         setEventTime(
           data.eventTime?.trim() ||
@@ -109,8 +118,10 @@ export default function EditEventPage() {
       if (bannerFile) {
         const formData = new FormData();
         formData.set("eventName", eventName);
+        formData.set("slug", slug);
         formData.set("eventBanner", bannerUrl);
         formData.set("description", description);
+        formData.set("agenda", JSON.stringify(agenda));
         formData.set("eventDate", eventDate);
         formData.set("eventTime", eventTime);
         formData.set("registrationStartDate", registrationStartDate);
@@ -130,7 +141,9 @@ export default function EditEventPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             eventName,
+            slug,
             description,
+            agenda,
             eventBanner: bannerUrl,
             eventDate,
             eventTime,
@@ -154,8 +167,10 @@ export default function EditEventPage() {
       }
       setSuccess("Event updated.");
       setEvent(data);
+      setSlug(data.slug ?? "");
       setEventBannerUrl(data.eventBanner ?? "");
       setDescription(data.description ?? "");
+      setAgenda(Array.isArray(data.agenda) ? data.agenda : []);
       setSeatLimit(
         typeof data.seatLimit === "number" && data.seatLimit > 0
           ? String(data.seatLimit)
@@ -207,6 +222,8 @@ export default function EditEventPage() {
       </h1>
       <p className="mt-1 text-sm text-zinc-600">
         Event ID: <span className="font-mono">{event.eventId}</span>
+        {" · "}
+        Public URL: <span className="font-mono">{getEventPublicPath(event)}</span>
       </p>
 
       <form
@@ -232,6 +249,22 @@ export default function EditEventPage() {
               placeholder="e.g. Annual Tech Summit" />
           </div>
           <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-700">URL slug</label>
+            <div className="flex items-center gap-1 rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
+              <span className="shrink-0">/events/</span>
+              <input
+                type="text"
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
+                className="min-w-0 flex-1 border-0 bg-transparent p-0 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-0"
+                placeholder="delhi"
+              />
+            </div>
+            <p className="mt-1 text-xs text-zinc-500">
+              Short public URL (e.g. delhi). Leave empty to use the event ID in links.
+            </p>
+          </div>
+          <div className="sm:col-span-2">
             <label className="mb-1 block text-sm font-medium text-zinc-700">Venue</label>
             <input type="text" value={venue} onChange={(e) => setVenue(e.target.value)}
               className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -246,8 +279,18 @@ export default function EditEventPage() {
               key={event._id}
               value={description}
               onChange={setDescription}
-              placeholder="Describe the event for attendees (shown on the public event page)"
+              placeholder="Event details and itinerary (shown below the registration form on the public page)"
             />
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-sm font-medium text-zinc-700">
+              Event agenda
+            </label>
+            <p className="mb-2 text-xs text-zinc-500">
+              Shown as the detailed itinerary on the registration page.
+            </p>
+            <EventAgendaEditor value={agenda} onChange={setAgenda} />
           </div>
 
           <div>

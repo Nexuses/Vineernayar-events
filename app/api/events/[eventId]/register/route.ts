@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPublishedEventByEventId, getPublicRegistrationStatus } from "@/lib/models/Event";
+import { getPublishedEventByParam, getPublicRegistrationStatus } from "@/lib/models/Event";
 import { isEligible } from "@/lib/models/EligibleEmail";
 import {
   createRegistration,
@@ -8,15 +8,18 @@ import {
 } from "@/lib/models/Registration";
 import { sendWaitlistThankYouEmail } from "@/lib/waitlist-email";
 import { checkOtpCode, normalizePhoneForOtp } from "@/lib/twilio-otp";
+import { validateRegistrationFieldLengths, isRegistrationProfile } from "@/lib/registration-field-limits";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    const { eventId } = await params;
-    const event = await getPublishedEventByEventId(eventId);
+    const { eventId: param } = await params;
+    const event = await getPublishedEventByParam(param);
     if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
+
+    const eventId = event.eventId;
 
     if ((await getPublicRegistrationStatus(event)) === "closed") {
       return NextResponse.json({ error: "Registration is closed for this event" }, { status: 403 });
@@ -28,9 +31,10 @@ export async function POST(
       surname,
       email,
       mobileNumber,
+      organization,
+      designation,
       workedWithVineet,
       workedWithVineetDetails,
-      questionForVineet,
       addToWhatsapp,
       whatsappNumber,
       identityCardOrPassport,
@@ -47,17 +51,32 @@ export async function POST(
     if (!firstName?.trim() || !surname?.trim() || !email?.trim()) {
       return NextResponse.json({ error: "First name, surname and email are required" }, { status: 400 });
     }
+    const mobileNormalized = normalizePhoneForOtp(typeof mobileNumber === "string" ? mobileNumber : "");
+    const lengthError = validateRegistrationFieldLengths({
+      firstName: String(firstName),
+      surname: String(surname),
+      email: String(email),
+      organization: typeof organization === "string" ? organization : undefined,
+      mobileE164: mobileNormalized || undefined,
+    });
+    if (lengthError) {
+      return NextResponse.json({ error: lengthError }, { status: 400 });
+    }
+    const organizationTrimmed =
+      typeof organization === "string" ? organization.trim() : "";
+    const profileValue = typeof designation === "string" ? designation.trim() : "";
+    if (profileValue && !isRegistrationProfile(profileValue)) {
+      return NextResponse.json({ error: "Invalid profile selection" }, { status: 400 });
+    }
     const workedWithVineetProvided =
       workedWithVineet !== undefined && workedWithVineet !== null && workedWithVineet !== "";
-    const workedWithVineetValue = workedWithVineetProvided
-      ? workedWithVineet === true
-      : undefined;
-    if (workedWithVineetProvided && typeof workedWithVineet !== "boolean") {
+    if (!workedWithVineetProvided || typeof workedWithVineet !== "boolean") {
       return NextResponse.json(
-        { error: "Invalid answer for Vineet Nayar connection question" },
+        { error: "Please answer whether you have worked, studied, or partnered with Vineet Nayar" },
         { status: 400 }
       );
     }
+    const workedWithVineetValue = workedWithVineet;
     if (workedWithVineetValue === true) {
       const details =
         typeof workedWithVineetDetails === "string" ? workedWithVineetDetails.trim() : "";
@@ -68,15 +87,6 @@ export async function POST(
         );
       }
     }
-    const questionTrimmed =
-      typeof questionForVineet === "string" ? questionForVineet.trim() : "";
-    if (!questionTrimmed) {
-      return NextResponse.json(
-        { error: "Please share one question you would like to ask Vineet Nayar at the event" },
-        { status: 400 }
-      );
-    }
-    const mobileNormalized = normalizePhoneForOtp(typeof mobileNumber === "string" ? mobileNumber : "");
     if (!mobileNormalized) {
       return NextResponse.json(
         { error: "Mobile number is required in international format (e.g. +91XXXXXXXXXX)" },
@@ -151,12 +161,13 @@ export async function POST(
       surname: surname.trim(),
       email: email.trim().toLowerCase(),
       mobileNumber: mobileNormalized,
-      ...(workedWithVineetValue !== undefined && { workedWithVineet: workedWithVineetValue }),
+      organization: organizationTrimmed || undefined,
+      designation: profileValue || undefined,
+      workedWithVineet: workedWithVineetValue,
       workedWithVineetDetails:
         workedWithVineetValue === true
           ? (typeof workedWithVineetDetails === "string" ? workedWithVineetDetails.trim() : "")
           : undefined,
-      questionForVineet: questionTrimmed,
       addToWhatsapp: addToWhatsappEffective,
       whatsappNumber: whatsappNumberEffective,
       identityCardOrPassport: identityCardOrPassport?.trim() || undefined,

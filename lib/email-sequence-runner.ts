@@ -3,6 +3,7 @@ import { type EmailSequenceKey, isSequenceDue } from "./email-sequence";
 import { generateIcs } from "./ics";
 import { generateFullPassPdf } from "./pass-pdf";
 import { getEventByEventId } from "./models/Event";
+import { getEventPassPath } from "./event-path";
 import {
   getRegistrationsCollection,
   listAllRegistrations,
@@ -13,9 +14,11 @@ import { ObjectId } from "mongodb";
 
 const SEQUENCES_WITH_PASS_ATTACHMENTS = new Set<EmailSequenceKey>(["seq1", "seq2", "seq3"]);
 
-function buildPassUrl(eventId: string, uniqueCode: string): string {
+async function buildPassUrl(eventId: string, uniqueCode: string): Promise<string> {
   const base =
     process.env.SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
+  const event = await getEventByEventId(eventId);
+  if (event) return `${base}${getEventPassPath(event, uniqueCode)}`;
   return `${base}/events/${eventId}/pass/${uniqueCode}`;
 }
 
@@ -130,7 +133,7 @@ export async function sendEmailSequenceForRegistration(
     passIcsBuffer?: Buffer;
   }
 ): Promise<boolean> {
-  const passUrl = buildPassUrl(reg.eventId, reg.uniqueCode);
+  const passUrl = await buildPassUrl(reg.eventId, reg.uniqueCode);
   const data = toPassEmailData(reg, passUrl);
   const id = reg._id?.toString();
   if (!id) return false;

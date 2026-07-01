@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listWaitlistedByEventId } from "@/lib/models/Registration";
+import { listWaitlistReviewByEventId } from "@/lib/models/Registration";
 import {
   assertEventAccess,
   getAdminSession,
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
   if (denied) return denied;
 
   try {
-    const list = await listWaitlistedByEventId(eventId);
+    const list = await listWaitlistReviewByEventId(eventId);
     const serialized = list.map((r) => ({
       _id: r._id?.toString(),
       uniqueCode: r.uniqueCode,

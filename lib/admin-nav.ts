@@ -1,13 +1,15 @@
 import type { AdminDoc } from "./models/Admin";
 import { isSuperAdmin } from "./models/Admin";
+import type { AdminCityDashboard } from "./admin-city-dashboard";
 
 export type NavItem = {
   href: string;
   label: string;
   superadminOnly?: boolean;
+  children?: NavItem[];
 };
 
-export const ADMIN_NAV_ITEMS: NavItem[] = [
+export const ADMIN_NAV_ITEMS: Omit<NavItem, "children">[] = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/users", label: "User Management", superadminOnly: true },
   { href: "/admin/events", label: "All Events" },
@@ -20,7 +22,26 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { href: "/admin/scan", label: "QR Scanning" },
 ];
 
-export function navItemsForAdmin(admin: AdminDoc): NavItem[] {
-  if (isSuperAdmin(admin)) return ADMIN_NAV_ITEMS;
-  return ADMIN_NAV_ITEMS.filter((item) => !item.superadminOnly);
+export function navItemsForAdmin(
+  admin: AdminDoc,
+  cities: AdminCityDashboard[] = []
+): NavItem[] {
+  const base = isSuperAdmin(admin)
+    ? ADMIN_NAV_ITEMS
+    : ADMIN_NAV_ITEMS.filter((item) => !item.superadminOnly);
+
+  return base.map((item) => {
+    if (item.href !== "/admin" || cities.length === 0) return item;
+
+    return {
+      ...item,
+      children: [
+        { href: "/admin", label: "All cities" },
+        ...cities.map((city) => ({
+          href: `/admin/cities/${city.slug}`,
+          label: city.label,
+        })),
+      ],
+    };
+  });
 }

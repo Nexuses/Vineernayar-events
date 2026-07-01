@@ -2,7 +2,13 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 
-type EventItem = { eventId: string; eventName: string };
+type EventItem = {
+  eventId: string;
+  eventName: string;
+  dropdownLabel: string;
+};
+
+type AdmissionStatus = "waitlisted" | "confirmed" | "rejected";
 
 type WaitlistItem = {
   _id: string;
@@ -26,8 +32,86 @@ type WaitlistItem = {
   transportNeeded?: boolean;
   transportLocation?: string;
   adminNotes?: string;
+  admissionStatus?: AdmissionStatus;
   createdAt: string;
 };
+
+type StatusFilter = "all" | "pending" | "accepted" | "rejected";
+type PriorityFilter = "all" | "priority" | "non-priority";
+
+function statusLabel(status?: AdmissionStatus): string {
+  if (status === "confirmed") return "Accepted";
+  if (status === "rejected") return "Rejected";
+  return "Pending";
+}
+
+function statusBadgeClass(status?: AdmissionStatus): string {
+  if (status === "confirmed") return "bg-emerald-100 text-emerald-800";
+  if (status === "rejected") return "bg-red-100 text-red-800";
+  return "bg-amber-100 text-amber-800";
+}
+
+function matchesStatusFilter(row: WaitlistItem, filter: StatusFilter): boolean {
+  if (filter === "all") return true;
+  if (filter === "accepted") return row.admissionStatus === "confirmed";
+  if (filter === "rejected") return row.admissionStatus === "rejected";
+  return row.admissionStatus === "waitlisted" || !row.admissionStatus;
+}
+
+function matchesPriorityFilter(row: WaitlistItem, filter: PriorityFilter): boolean {
+  if (filter === "all") return true;
+  if (filter === "priority") return row.workedWithVineet === true;
+  return row.workedWithVineet !== true;
+}
+
+function FilterPill({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-all sm:px-3 sm:text-sm ${
+        active
+          ? "bg-zinc-900 text-white shadow-sm"
+          : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function FilterGroup({
+  label,
+  align = "start",
+  children,
+}: {
+  label: string;
+  align?: "start" | "end";
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={`flex min-w-0 flex-wrap items-center gap-2 sm:gap-3 ${
+        align === "end" ? "lg:justify-end" : ""
+      }`}
+    >
+      <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+        {label}
+      </span>
+      <div className="inline-flex max-w-full flex-wrap gap-0.5 rounded-lg border border-zinc-200 bg-white p-1 shadow-sm">
+        {children}
+      </div>
+    </div>
+  );
+}
 
 function formatDate(iso: string) {
   if (!iso) return "—";
@@ -95,6 +179,8 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
   const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
 
   function fetchWaitlist() {
     if (!selectedEventId) return;
@@ -117,15 +203,37 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
       setRows([]);
       setExpandedId(null);
       setSearchQuery("");
+      setStatusFilter("all");
+      setPriorityFilter("all");
       return;
     }
     setSearchQuery("");
+    setStatusFilter("all");
+    setPriorityFilter("all");
     fetchWaitlist();
   }, [selectedEventId]);
 
   const filteredRows = useMemo(
-    () => rows.filter((row) => matchesSearch(row, searchQuery, notesDraft)),
-    [rows, searchQuery, notesDraft]
+    () =>
+      rows.filter(
+        (row) =>
+          matchesSearch(row, searchQuery, notesDraft) &&
+          matchesStatusFilter(row, statusFilter) &&
+          matchesPriorityFilter(row, priorityFilter)
+      ),
+    [rows, searchQuery, notesDraft, statusFilter, priorityFilter]
+  );
+
+  const statusCounts = useMemo(
+    () => ({
+      all: rows.length,
+      pending: rows.filter((r) => r.admissionStatus === "waitlisted" || !r.admissionStatus).length,
+      accepted: rows.filter((r) => r.admissionStatus === "confirmed").length,
+      rejected: rows.filter((r) => r.admissionStatus === "rejected").length,
+      priority: rows.filter((r) => r.workedWithVineet === true).length,
+      nonPriority: rows.filter((r) => r.workedWithVineet !== true).length,
+    }),
+    [rows]
   );
 
   async function handleSaveNotes(id: string) {
@@ -172,8 +280,16 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
           ? "Accepted. Confirmation email with event pass has been sent."
           : "Rejected. Rejection email has been sent."
       );
-      setRows((prev) => prev.filter((row) => row._id !== id));
-      if (expandedId === id) setExpandedId(null);
+      setRows((prev) =>
+        prev.map((row) =>
+          row._id === id
+            ? {
+                ...row,
+                admissionStatus: action === "accept" ? "confirmed" : "rejected",
+              }
+            : row
+        )
+      );
     } catch {
       setMessage(`Unable to ${label} registration`);
     } finally {
@@ -195,7 +311,7 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
           <option value="">Choose an event</option>
           {events.map((ev) => (
             <option key={ev.eventId} value={ev.eventId}>
-              {ev.eventName}
+              {ev.dropdownLabel}
             </option>
           ))}
         </select>
@@ -211,8 +327,8 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
         <div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-zinc-900">
-              Waitlisted ({rows.length})
-              {searchQuery.trim() ? (
+              Waitlist ({rows.length})
+              {searchQuery.trim() || statusFilter !== "all" || priorityFilter !== "all" ? (
                 <span className="ml-2 text-sm font-normal text-zinc-500">
                   · {filteredRows.length} shown
                 </span>
@@ -234,12 +350,70 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
               </div>
             ) : null}
           </div>
+
+          {rows.length > 0 ? (
+            <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-gradient-to-b from-zinc-50 to-white p-4 sm:p-5">
+              <div className="grid grid-cols-1 items-center gap-4 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-6">
+                <FilterGroup label="Status">
+                  <FilterPill active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>
+                    All <span className={statusFilter === "all" ? "opacity-80" : "text-zinc-400"}>({statusCounts.all})</span>
+                  </FilterPill>
+                  <FilterPill
+                    active={statusFilter === "pending"}
+                    onClick={() => setStatusFilter("pending")}
+                  >
+                    Pending <span className={statusFilter === "pending" ? "opacity-80" : "text-zinc-400"}>({statusCounts.pending})</span>
+                  </FilterPill>
+                  <FilterPill
+                    active={statusFilter === "accepted"}
+                    onClick={() => setStatusFilter("accepted")}
+                  >
+                    Accepted <span className={statusFilter === "accepted" ? "opacity-80" : "text-zinc-400"}>({statusCounts.accepted})</span>
+                  </FilterPill>
+                  <FilterPill
+                    active={statusFilter === "rejected"}
+                    onClick={() => setStatusFilter("rejected")}
+                  >
+                    Rejected <span className={statusFilter === "rejected" ? "opacity-80" : "text-zinc-400"}>({statusCounts.rejected})</span>
+                  </FilterPill>
+                </FilterGroup>
+
+                <div
+                  className="mx-auto hidden h-8 w-px shrink-0 self-center bg-zinc-200 lg:block"
+                  aria-hidden
+                />
+                <div className="h-px w-full bg-zinc-200 lg:hidden" aria-hidden />
+
+                <FilterGroup label="Priority" align="end">
+                  <FilterPill
+                    active={priorityFilter === "all"}
+                    onClick={() => setPriorityFilter("all")}
+                  >
+                    All <span className={priorityFilter === "all" ? "opacity-80" : "text-zinc-400"}>({statusCounts.all})</span>
+                  </FilterPill>
+                  <FilterPill
+                    active={priorityFilter === "priority"}
+                    onClick={() => setPriorityFilter("priority")}
+                  >
+                    Priority <span className={priorityFilter === "priority" ? "opacity-80" : "text-zinc-400"}>({statusCounts.priority})</span>
+                  </FilterPill>
+                  <FilterPill
+                    active={priorityFilter === "non-priority"}
+                    onClick={() => setPriorityFilter("non-priority")}
+                  >
+                    Non-priority <span className={priorityFilter === "non-priority" ? "opacity-80" : "text-zinc-400"}>({statusCounts.nonPriority})</span>
+                  </FilterPill>
+                </FilterGroup>
+              </div>
+            </div>
+          ) : null}
+
           {loading ? (
             <p className="mt-2 text-sm text-zinc-500">Loading…</p>
           ) : rows.length === 0 ? (
-            <p className="mt-2 text-sm text-zinc-500">No waitlisted registrations for this event.</p>
+            <p className="mt-2 text-sm text-zinc-500">No waitlist registrations for this event.</p>
           ) : filteredRows.length === 0 ? (
-            <p className="mt-2 text-sm text-zinc-500">No waitlisted registrations match your search.</p>
+            <p className="mt-2 text-sm text-zinc-500">No registrations match your filters.</p>
           ) : (
             <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 -mx-2 sm:mx-0">
               <table className="w-full min-w-[720px] text-left text-sm">
@@ -248,6 +422,7 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
                     <th className="w-8 px-2 py-3" aria-label="Expand" />
                     <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Name</th>
                     <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Email</th>
+                    <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Status</th>
                     <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Priority</th>
                     <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Registered</th>
                     <th className="min-w-[180px] px-3 py-3 font-medium text-zinc-700 sm:px-4">Notes</th>
@@ -268,6 +443,13 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
                           {r.firstName} {r.surname}
                         </td>
                         <td className="px-3 py-3 text-zinc-700 sm:px-4">{r.email}</td>
+                        <td className="px-3 py-3 sm:px-4">
+                          <span
+                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(r.admissionStatus)}`}
+                          >
+                            {statusLabel(r.admissionStatus)}
+                          </span>
+                        </td>
                         <td className="px-3 py-3 text-zinc-700 sm:px-4">
                           {r.workedWithVineet ? (
                             <span className="inline-flex rounded-full bg-zinc-900 px-2 py-0.5 text-xs font-medium text-white">
@@ -301,29 +483,33 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
                           />
                         </td>
                         <td className="px-3 py-3 sm:px-4" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              disabled={actionId === r._id}
-                              onClick={(e) => handleAction(r._id, "accept", e)}
-                              className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-                            >
-                              Accept
-                            </button>
-                            <button
-                              type="button"
-                              disabled={actionId === r._id}
-                              onClick={(e) => handleAction(r._id, "reject", e)}
-                              className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-                            >
-                              Reject
-                            </button>
-                          </div>
+                          {r.admissionStatus === "waitlisted" || !r.admissionStatus ? (
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                disabled={actionId === r._id}
+                                onClick={(e) => handleAction(r._id, "accept", e)}
+                                className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                              >
+                                Accept
+                              </button>
+                              <button
+                                type="button"
+                                disabled={actionId === r._id}
+                                onClick={(e) => handleAction(r._id, "reject", e)}
+                                className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-zinc-500">—</span>
+                          )}
                         </td>
                       </tr>
                       {expandedId === r._id && (
                         <tr className="bg-zinc-50">
-                          <td colSpan={7} className="px-4 py-4">
+                          <td colSpan={8} className="px-4 py-4">
                             <div className="rounded-lg border border-zinc-200 bg-white p-4">
                               <h3 className="mb-3 text-sm font-semibold text-zinc-700">
                                 Full details
@@ -363,7 +549,7 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
                                 ) : null}
                                 {r.designation ? (
                                   <div>
-                                    <dt className="text-zinc-500">Designation</dt>
+                                    <dt className="text-zinc-500">Profile</dt>
                                     <dd className="text-zinc-900">{r.designation}</dd>
                                   </div>
                                 ) : null}

@@ -1,7 +1,8 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { getRegistrationByCode, getAdmissionStatus } from "@/lib/models/Registration";
-import { getPublishedEventByEventId } from "@/lib/models/Event";
+import { getPublishedEventByParam } from "@/lib/models/Event";
+import { getCanonicalEventPathIfNeeded } from "@/lib/event-path";
 import { formatEventDate, formatRegisteredDate, getEventTimeDisplay } from "@/lib/date-utils";
 import { BRAND_LOGO_URL, BRAND_NAME } from "@/lib/constants";
 import { CalendarIcon, ClockIcon, MapPinIcon } from "@/app/events/EventIcons";
@@ -18,9 +19,20 @@ export default async function PassPage({
 }: {
   params: Promise<{ eventId: string; code: string }>;
 }) {
-  const { eventId, code } = await params;
+  const { eventId: param, code } = await params;
   const reg = await getRegistrationByCode(code);
   if (!reg) notFound();
+  if (reg.eventId) {
+    const eventForRedirect = await getPublishedEventByParam(param);
+    if (eventForRedirect && eventForRedirect.eventId === reg.eventId) {
+      const canonicalPath = getCanonicalEventPathIfNeeded(
+        param,
+        eventForRedirect,
+        `/pass/${code}`
+      );
+      if (canonicalPath) redirect(canonicalPath);
+    }
+  }
   if (getAdmissionStatus(reg) !== "confirmed") {
     return (
       <div className="min-h-screen bg-zinc-50 py-6 sm:py-10">
@@ -38,7 +50,8 @@ export default async function PassPage({
     );
   }
 
-  const event = await getPublishedEventByEventId(eventId);
+  const event = await getPublishedEventByParam(param);
+  if (!event || event.eventId !== reg.eventId) notFound();
   const showPassQr = event?.showPassQr !== false;
 
   const qrUrl = `/api/qr?code=${encodeURIComponent(reg.uniqueCode)}`;

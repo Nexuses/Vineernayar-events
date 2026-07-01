@@ -98,8 +98,7 @@ export default function AllEventsPage() {
                   <BannerImageWithHighlight
                     src={ev.eventBanner?.trim() || DEFAULT_EVENT_BANNER_URL}
                     alt={ev.eventName}
-                    venue={ev.venue}
-                    eventName={ev.eventName}
+                    label=""
                     className="h-full"
                   />
                 </div>

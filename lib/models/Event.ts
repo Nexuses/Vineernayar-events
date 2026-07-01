@@ -8,6 +8,7 @@ import {
   getRegistrationWindowBadgeClass,
   type RegistrationWindowStatus,
 } from "../registration-window";
+import type { EventAgendaItem } from "../event-agenda";
 
 export type { RegistrationWindowStatus };
 export {
@@ -25,9 +26,13 @@ export type RegistrationType = "open_for_all" | "invitees_only";
 export interface EventDoc {
   _id?: ObjectId;
   eventId: string;
+  /** URL slug for public pages, e.g. /events/delhi */
+  slug?: string;
   eventName: string;
   /** Optional long-form text shown on the public event page */
   description?: string;
+  /** Session itinerary shown on the registration hub */
+  agenda?: EventAgendaItem[];
   eventBanner: string; // URL or path like /events/xxx.jpg
   eventStartDate: Date;
   eventEndDate: Date;
@@ -71,6 +76,43 @@ export interface EventDoc {
 }
 
 const COLLECTION = "events";
+
+const PUBLISHED_FILTER = { $or: [{ published: true }, { published: { $exists: false } }] };
+
+export async function isEventSlugTaken(slug: string, excludeEventId?: string): Promise<boolean> {
+  const col = await getEventsCollection();
+  const query: Record<string, unknown> = { slug };
+  if (excludeEventId) query.eventId = { $ne: excludeEventId };
+  const doc = await col.findOne(query);
+  return Boolean(doc);
+}
+
+export async function getEventBySlug(slug: string): Promise<EventDoc | null> {
+  const col = await getEventsCollection();
+  return col.findOne({ slug: slug.toLowerCase() });
+}
+
+export async function getPublishedEventBySlug(slug: string): Promise<EventDoc | null> {
+  const col = await getEventsCollection();
+  return col.findOne({ slug: slug.toLowerCase(), ...PUBLISHED_FILTER });
+}
+
+/** Resolve URL segment as slug first, then legacy eventId. */
+export async function getPublishedEventByParam(param: string): Promise<EventDoc | null> {
+  const trimmed = param.trim();
+  if (!trimmed) return null;
+  const bySlug = await getPublishedEventBySlug(trimmed);
+  if (bySlug) return bySlug;
+  return getPublishedEventByEventId(trimmed);
+}
+
+export async function getEventByParam(param: string): Promise<EventDoc | null> {
+  const trimmed = param.trim();
+  if (!trimmed) return null;
+  const bySlug = await getEventBySlug(trimmed);
+  if (bySlug) return bySlug;
+  return getEventByEventId(trimmed);
+}
 
 /** Re-export for convenience */
 export { DEFAULT_EVENT_BANNER_URL };
@@ -135,6 +177,7 @@ export async function createEvent(data: Omit<EventDoc, "_id" | "eventId" | "crea
     eventId,
     eventName: data.eventName.trim(),
     description: data.description?.trim() || undefined,
+    agenda: data.agenda?.length ? data.agenda : undefined,
     eventBanner: data.eventBanner.trim() || "",
     eventStartDate: new Date(data.eventStartDate),
     eventEndDate: new Date(data.eventEndDate),
@@ -159,6 +202,7 @@ export async function createEvent(data: Omit<EventDoc, "_id" | "eventId" | "crea
     requireWhatsAppNumber: data.requireWhatsAppNumber ?? false,
     seatLimit: data.seatLimit,
     showPassQr: data.showPassQr ?? true,
+    slug: data.slug,
     createdAt: new Date(),
   };
   const result = await col.insertOne(doc);
@@ -237,6 +281,9 @@ export async function updateEvent(
     const trimmed = data.description.trim();
     update.description = trimmed || undefined;
   }
+  if (data.agenda !== undefined) {
+    update.agenda = data.agenda.length ? data.agenda : [];
+  }
   if (data.eventBanner !== undefined) update.eventBanner = data.eventBanner.trim();
   if (data.eventStartDate !== undefined) update.eventStartDate = new Date(data.eventStartDate);
   if (data.eventEndDate !== undefined) update.eventEndDate = new Date(data.eventEndDate);
@@ -275,6 +322,10 @@ export async function updateEvent(
     }
   }
   if (data.published !== undefined) update.published = data.published;
+  if (data.slug !== undefined) {
+    if (data.slug) update.slug = data.slug;
+    else unset.slug = "";
+  }
   const updateOps: Record<string, unknown> = {};
   if (Object.keys(update).length > 0) updateOps.$set = update;
   if (Object.keys(unset).length > 0) updateOps.$unset = unset;

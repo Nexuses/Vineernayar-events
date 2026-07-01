@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { getPublishedEventByEventId } from "@/lib/models/Event";
+import { getPublishedEventByParam } from "@/lib/models/Event";
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    const { eventId } = await params;
-    const event = await getPublishedEventByEventId(eventId);
+    const { eventId: param } = await params;
+    const event = await getPublishedEventByParam(param);
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }

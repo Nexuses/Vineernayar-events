@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { parseEventDateTime, resolveEventDatesFromAdminFields } from "@/lib/date-utils";
 import { createEvent } from "@/lib/models/Event";
+import { validateEventSlugForSave } from "@/lib/validate-event-slug";
 import { saveBannerFile } from "@/lib/banner-upload";
 import { parseSeatLimit } from "@/lib/parse-seat-limit";
 import {
   transportLocationsFromFormData,
   transportLocationsFromJsonBody,
 } from "@/lib/admin-transport-locations";
+import {
+  eventAgendaFromFormData,
+  eventAgendaFromJsonBody,
+} from "@/lib/event-agenda";
 import {
   forbiddenResponse,
   getAdminSession,
@@ -67,11 +72,14 @@ export async function POST(request: Request) {
     let published: boolean;
     let showPassQr: boolean;
     let transportLocationsParsed: string[];
+    let agendaParsed: ReturnType<typeof eventAgendaFromJsonBody>;
     let seatLimitRaw: unknown;
+    let slugRaw = "";
 
     if (contentType.includes("multipart/form-data")) {
       const formData = await request.formData();
       eventName = (formData.get("eventName") as string) || "";
+      slugRaw = (formData.get("slug") as string) || "";
       description = (formData.get("description") as string) || "";
       eventBanner = (formData.get("eventBanner") as string) || "";
       eventDate = (formData.get("eventDate") as string) || "";
@@ -96,6 +104,7 @@ export async function POST(request: Request) {
       showPassQr = formData.get("showPassQr") !== "false" && formData.get("showPassQr") !== "0";
       seatLimitRaw = formData.get("seatLimit");
       transportLocationsParsed = transportLocationsFromFormData(formData);
+      agendaParsed = eventAgendaFromFormData(formData);
 
       const file = formData.get("bannerFile") as File | null;
       if (file && file.size > 0) {
@@ -104,6 +113,7 @@ export async function POST(request: Request) {
     } else {
       const body = await request.json();
       eventName = body.eventName ?? "";
+      slugRaw = typeof body.slug === "string" ? body.slug : "";
       description = body.description ?? "";
       eventBanner = body.eventBanner ?? "";
       eventDate = body.eventDate ?? "";
@@ -127,6 +137,7 @@ export async function POST(request: Request) {
       showPassQr = body.showPassQr === undefined ? true : !!body.showPassQr;
       seatLimitRaw = body.seatLimit;
       transportLocationsParsed = transportLocationsFromJsonBody(body);
+      agendaParsed = eventAgendaFromJsonBody(body);
     }
 
     if (!eventName.trim()) {
@@ -178,6 +189,11 @@ export async function POST(request: Request) {
       );
     }
 
+    const slugResult = await validateEventSlugForSave(slugRaw);
+    if (slugResult.error) {
+      return NextResponse.json({ error: slugResult.error }, { status: 400 });
+    }
+
     const event = await createEvent({
       eventName,
       description: description.trim() || undefined,
@@ -204,7 +220,9 @@ export async function POST(request: Request) {
       published: !!published,
       showPassQr: !!showPassQr,
       transportLocations: collectTransport ? transportLocationsParsed : [],
+      agenda: agendaParsed,
       seatLimit,
+      ...(slugResult.slug ? { slug: slugResult.slug } : {}),
     });
 
     return NextResponse.json(event);

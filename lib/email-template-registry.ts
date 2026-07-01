@@ -13,6 +13,7 @@ import { JOIN_NOTIFY_HTML, JOIN_THANK_YOU_HTML } from "@/lib/join-email-template
 import { WAITLIST_REJECTED_HTML, WAITLIST_THANK_YOU_HTML } from "@/lib/waitlist-email-templates";
 import { BRAND_LOGO_URL } from "@/lib/constants";
 import { MARKETING_SITE_URL } from "@/lib/marketing-site";
+import { getEventPassPath } from "@/lib/event-path";
 import type { EmailTemplateKey } from "@/lib/email-template-keys";
 import {
   applyEmailTemplate,
@@ -115,6 +116,7 @@ export function getSampleSequenceContext(): SequenceRenderContext {
 
 export function buildSampleSequenceContextFromEvent(event: {
   eventId: string;
+  slug?: string;
   eventName: string;
   eventStartDate: string | Date;
   eventEndDate: string | Date;
@@ -137,7 +139,7 @@ export function buildSampleSequenceContextFromEvent(event: {
     eventEndDate: end,
     eventTime: event.eventTime || "6:00 PM – 8:30 PM IST",
     venue: event.venue,
-    passUrl: `${MARKETING_SITE_URL}/events/${event.eventId}/pass/SAMPLE01`,
+    passUrl: `${MARKETING_SITE_URL}${getEventPassPath(event, "SAMPLE01")}`,
   });
 }
 

@@ -8,6 +8,8 @@ import { getEmailTemplateOverride } from "@/lib/models/EmailTemplate";
 import type { RegistrationDoc } from "@/lib/models/Registration";
 import { isMailConfigured, sendAppMail } from "@/lib/mail";
 import { SMTP_REPLY_EMAIL } from "@/lib/smtp";
+import { getEventByEventId } from "@/lib/models/Event";
+import { getEventPassPath } from "@/lib/event-path";
 import {
   WAITLIST_REJECTED_HTML,
   WAITLIST_THANK_YOU_HTML,
@@ -15,13 +17,15 @@ import {
 
 const LOGO_URL = process.env.EMAIL_LOGO_URL || BRAND_LOGO_URL;
 
-function buildPassUrl(eventId: string, uniqueCode: string): string {
+async function buildPassUrl(eventId: string, uniqueCode: string): Promise<string> {
   const base = process.env.SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
+  const event = await getEventByEventId(eventId);
+  if (event) return `${base}${getEventPassPath(event, uniqueCode)}`;
   return `${base}/events/${eventId}/pass/${uniqueCode}`;
 }
 
-function buildTemplateVars(reg: RegistrationDoc): Record<string, string> {
-  const passUrl = buildPassUrl(reg.eventId, reg.uniqueCode);
+async function buildTemplateVars(reg: RegistrationDoc): Promise<Record<string, string>> {
+  const passUrl = await buildPassUrl(reg.eventId, reg.uniqueCode);
   const ctx = buildSequenceRenderContext({
     firstName: reg.firstName,
     eventName: reg.eventName,
@@ -48,7 +52,7 @@ function buildTemplateVars(reg: RegistrationDoc): Record<string, string> {
 export async function sendWaitlistThankYouEmail(reg: RegistrationDoc): Promise<boolean> {
   if (!isMailConfigured()) return false;
 
-  const vars = buildTemplateVars(reg);
+  const vars = await buildTemplateVars(reg);
   const customHtml = await getEmailTemplateOverride("waitlist_thank_you", reg.eventId);
   const html = applyEmailTemplate(customHtml || WAITLIST_THANK_YOU_HTML, vars);
   const text = [
@@ -86,7 +90,7 @@ export async function sendWaitlistThankYouEmail(reg: RegistrationDoc): Promise<b
 export async function sendWaitlistRejectedEmail(reg: RegistrationDoc): Promise<boolean> {
   if (!isMailConfigured()) return false;
 
-  const vars = buildTemplateVars(reg);
+  const vars = await buildTemplateVars(reg);
   const customHtml = await getEmailTemplateOverride("waitlist_rejected", reg.eventId);
   const html = applyEmailTemplate(customHtml || WAITLIST_REJECTED_HTML, vars);
   const text = [

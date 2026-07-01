@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listPublishedEvents, getEventBannerUrl, getPublicRegistrationWindowStatusByEventIds, getRegistrationWindowLabel } from "@/lib/models/Event";
+import { getEventPublicPath } from "@/lib/event-path";
 import { getRegistrationWindowBadgeClass } from "@/lib/registration-window";
 import { formatEventDate } from "@/lib/date-utils";
 import { CalendarIcon } from "@/app/events/EventIcons";
@@ -36,7 +37,7 @@ export default async function Home() {
                 return (
                   <Link
                     key={ev._id?.toString() ?? ev.eventId}
-                    href={`/events/${ev.eventId}`}
+                    href={getEventPublicPath(ev)}
                     target="_blank"
                     className="group flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition-shadow hover:shadow-md"
                   >
@@ -44,8 +45,7 @@ export default async function Home() {
                       <BannerImageWithHighlight
                         src={getEventBannerUrl(ev)}
                         alt={ev.eventName}
-                        venue={ev.venue}
-                        eventName={ev.eventName}
+                        label=""
                         className="h-full"
                         imgClassName="transition-transform group-hover:scale-[1.02]"
                       />

@@ -11,9 +11,15 @@ type EventCountdownProps = {
   startIso: string;
   endIso: string;
   initialState: CountdownState;
+  variant?: "default" | "hub";
 };
 
-export function EventCountdown({ startIso, endIso, initialState }: EventCountdownProps) {
+export function EventCountdown({
+  startIso,
+  endIso,
+  initialState,
+  variant = "default",
+}: EventCountdownProps) {
   const startMs = new Date(startIso).getTime();
   const endMs = new Date(endIso).getTime();
   const valid = Number.isFinite(startMs) && Number.isFinite(endMs);
@@ -30,6 +36,31 @@ export function EventCountdown({ startIso, endIso, initialState }: EventCountdow
   }, [valid, startMs, endMs]);
 
   if (!valid) return null;
+
+  if (variant === "hub") {
+    if (state.status !== "upcoming") {
+      return (
+        <p className="mt-2 text-base font-bold text-amber-900">
+          {state.status === "live" ? "Event is live now" : "Event has ended"}
+        </p>
+      );
+    }
+
+    return (
+      <div className="mx-auto grid max-w-[240px] grid-cols-4 gap-2">
+        {state.units.map((unit) => (
+          <div key={unit.label} className="flex flex-col items-center">
+            <span className="text-2xl font-extrabold tabular-nums text-amber-900">
+              {pad(unit.value)}
+            </span>
+            <span className="text-[10px] font-semibold uppercase text-amber-800">
+              {unit.label}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="mt-5 rounded-lg border border-brand-200 bg-brand-50 p-4">

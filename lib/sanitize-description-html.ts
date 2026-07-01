@@ -13,6 +13,11 @@ const ALLOWED_TAGS = new Set([
   "ul",
   "ol",
   "li",
+  "h1",
+  "h2",
+  "h3",
+  "mark",
+  "blockquote",
 ]);
 
 function extractClass(attrs: string): string | null {
@@ -72,11 +77,26 @@ function sanitizeColorStyle(style: string): string | null {
   return null;
 }
 
+function sanitizeBackgroundStyle(style: string): string | null {
+  for (const declaration of style.split(";")) {
+    const colon = declaration.indexOf(":");
+    if (colon === -1) continue;
+    const prop = declaration.slice(0, colon).trim().toLowerCase();
+    if (prop !== "background" && prop !== "background-color") continue;
+    const value = declaration.slice(colon + 1).replace(/\s*!important/gi, "").trim().toLowerCase();
+    if (/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/.test(value)) {
+      return `background-color: ${value}`;
+    }
+  }
+  return null;
+}
+
 function sanitizeInlineStyle(style: string): string | null {
   const parts = [
     sanitizeFontSizeStyle(style),
     sanitizeFontWeightStyle(style),
     sanitizeColorStyle(style),
+    sanitizeBackgroundStyle(style),
   ].filter(Boolean);
   return parts.length > 0 ? parts.join("; ") : null;
 }
@@ -87,7 +107,19 @@ function extractSafeStyle(attrs: string): string | null {
   return sanitizeInlineStyle(match[1]);
 }
 
-const STYLE_ALLOWED_TAGS = new Set(["p", "div", "span", "strong", "b", "em", "i"]);
+const STYLE_ALLOWED_TAGS = new Set([
+  "p",
+  "div",
+  "span",
+  "strong",
+  "b",
+  "em",
+  "i",
+  "h1",
+  "h2",
+  "h3",
+  "mark",
+]);
 
 function escapeHtml(text: string): string {
   return text

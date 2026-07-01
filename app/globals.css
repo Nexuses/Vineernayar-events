@@ -279,9 +279,21 @@ body.modal-open {
   height: 2.35em;
 }
 
-/* Site header (loaded globally to avoid FOUC before client hydration) */
+/* Fixed Humans First navbar offset (also set in HumansFirstNavbar inline styles) */
+:root {
+  --hf-header: 80px;
+  --hf-yellow: #f5ea30;
+}
+
+.hf-header-spacer {
+  height: var(--hf-header);
+  min-height: var(--hf-header);
+  flex-shrink: 0;
+}
+
+/* Legacy header spacer — keep in sync with --hf-header */
 .header-spacer {
-  height: var(--header);
+  height: var(--hf-header);
   flex-shrink: 0;
 }
 

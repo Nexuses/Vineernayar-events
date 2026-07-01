@@ -8,7 +8,11 @@ import {
   type EmailSequenceKey,
 } from "@/lib/email-sequence";
 
-type EventItem = { eventId: string; eventName: string };
+type EventItem = {
+  eventId: string;
+  eventName: string;
+  dropdownLabel: string;
+};
 
 type ParticipationStatus = "registered" | "attended";
 
@@ -133,7 +137,7 @@ function buildRegistrationsCsv(rows: RegistrationItem[]): string {
       hasData: (r) => Boolean(r.organization?.trim()),
     },
     {
-      header: "Designation",
+      header: "Profile",
       value: (r) => r.designation || "",
       hasData: (r) => Boolean(r.designation?.trim()),
     },
@@ -281,7 +285,7 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
           <option value="">Choose an event</option>
           {events.map((ev) => (
             <option key={ev.eventId} value={ev.eventId}>
-              {ev.eventName}
+              {ev.dropdownLabel}
             </option>
           ))}
         </select>
@@ -402,7 +406,7 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
                                 ) : null}
                                 {r.designation ? (
                                   <div>
-                                    <dt className="text-zinc-500">Designation</dt>
+                                    <dt className="text-zinc-500">Profile</dt>
                                     <dd className="text-zinc-900">{r.designation}</dd>
                                   </div>
                                 ) : null}

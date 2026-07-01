@@ -6,7 +6,11 @@ import {
   getSampleJoinVars,
 } from "@/lib/email-template-client";
 
-type EventItem = { eventId: string; eventName: string };
+type EventItem = {
+  eventId: string;
+  eventName: string;
+  dropdownLabel: string;
+};
 
 type TemplateItem = {
   key: string;
@@ -448,7 +452,7 @@ export function EmailFlowSection({ events }: { events: EventItem[] }) {
           <option value="">Choose an event</option>
           {events.map((ev) => (
             <option key={ev.eventId} value={ev.eventId}>
-              {ev.eventName}
+              {ev.dropdownLabel}
             </option>
           ))}
         </select>
