@@ -82,18 +82,18 @@ export function RegistrationEventSidebar({
           </div>
 
           {venue ? (
-            <div className="flex items-center gap-3 py-3.5">
+            <div className="flex items-start gap-3 py-3.5">
               <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-full bg-[#f3e31d]">
                 <MapPinIcon className="h-6 w-6 text-zinc-900" />
               </div>
-              <p className="min-w-0 flex-1 truncate text-base font-bold tracking-tight text-zinc-900 sm:text-[18px]">
+              <p className="min-w-0 flex-1 break-words text-base font-bold leading-snug tracking-tight text-zinc-900 sm:text-[18px]">
                 {venue}
               </p>
               <a
                 href={buildGoogleMapsDirectionsUrl(venue)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex shrink-0 items-center gap-2 rounded-full bg-[#f3e31d] px-3.5 py-1.5 text-xs font-bold text-zinc-900 no-underline transition hover:brightness-95"
+                className="inline-flex shrink-0 items-center gap-2 self-center rounded-full bg-[#f3e31d] px-3.5 py-1.5 text-xs font-bold text-zinc-900 no-underline transition hover:brightness-95"
               >
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[rgba(0,0,0,0.08)]">
                   <MapPinIcon className="h-3.5 w-3.5 text-zinc-900" />
