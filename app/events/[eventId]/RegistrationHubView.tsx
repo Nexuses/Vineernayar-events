@@ -121,9 +121,6 @@ export function RegistrationHubView({
                     <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-[28px]">
                       Apply for an Invitation
                     </h2>
-                    <p className="mt-1.5 text-sm text-slate-500">
-                      Complete the form below to request your entry pass for What Part of Being Human Will You Never Give Up?
-                    </p>
                   </div>
                   <RegisterForm
                     eventId={publicSlug}
