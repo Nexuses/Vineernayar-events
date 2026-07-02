@@ -1,5 +1,9 @@
 import { getSequenceSubject, type EmailSequenceKey } from "@/lib/email-sequence";
 import {
+  appendAttendanceRsvpToEmailHtml,
+  appendAttendanceRsvpToEmailText,
+} from "@/lib/attendance-rsvp";
+import {
   buildSequenceEmailHtml,
   buildSequenceEmailText,
   buildSequenceRenderContext,
@@ -81,27 +85,41 @@ export async function sendSequenceEmail(
       venue: data.venue,
       passUrl: data.passUrl,
       priorityPass: data.priorityPass,
+      uniqueCode: data.uniqueCode,
     });
     const subject = getSequenceSubject(key, {
       firstName: data.firstName,
       eventName: data.eventName,
     });
     const customHtml = await getEmailTemplateOverride(key, data.eventId);
-    const html = customHtml
-      ? applyEmailTemplate(customHtml, {
-          ...sequenceContextToVars(renderCtx),
-          eventStartDate: data.eventStartDate,
-          eventEndDate: data.eventEndDate,
-          passUrl: data.passUrl,
-        })
-      : buildSequenceEmailHtml(key, renderCtx);
+    const templateVars = {
+      ...sequenceContextToVars(renderCtx),
+      eventStartDate: data.eventStartDate,
+      eventEndDate: data.eventEndDate,
+      passUrl: data.passUrl,
+      confirmAttendingUrl: renderCtx.confirmAttendingUrl ?? "",
+      confirmDeclinedUrl: renderCtx.confirmDeclinedUrl ?? "",
+    };
+    const html = appendAttendanceRsvpToEmailHtml(
+      customHtml
+        ? applyEmailTemplate(customHtml, templateVars)
+        : buildSequenceEmailHtml(key, renderCtx),
+      key,
+      renderCtx
+    );
+
+    const text = appendAttendanceRsvpToEmailText(
+      buildSequenceEmailText(key, renderCtx),
+      key,
+      renderCtx
+    );
 
     await sendAppMail({
       to: data.to,
       toName: `${data.firstName} ${data.surname}`.trim(),
       replyTo: SMTP_REPLY_EMAIL,
       subject,
-      text: buildSequenceEmailText(key, renderCtx),
+      text,
       html,
       attachments: mailAttachments.length > 0 ? mailAttachments : undefined,
       icalEvent,

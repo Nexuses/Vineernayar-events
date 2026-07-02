@@ -16,6 +16,10 @@ import { MARKETING_SITE_URL } from "@/lib/marketing-site";
 import { getEventPassPath } from "@/lib/event-path";
 import type { EmailTemplateKey } from "@/lib/email-template-keys";
 import {
+  appendAttendanceRsvpToEmailHtml,
+  isAttendanceRsvpSequenceKey,
+} from "@/lib/attendance-rsvp";
+import {
   applyEmailTemplate,
   getSampleJoinVars,
 } from "@/lib/email-template-client";
@@ -59,6 +63,8 @@ const SEQUENCE_PLACEHOLDERS = [
   "{{calendarMonth}}",
   "{{calendarDay}}",
   "{{calendarWeekday}}",
+  "{{confirmAttendingUrl}}",
+  "{{confirmDeclinedUrl}}",
 ];
 
 export const EMAIL_TEMPLATE_DEFINITIONS: EmailTemplateDefinition[] = [
@@ -140,6 +146,7 @@ export function buildSampleSequenceContextFromEvent(event: {
     eventTime: event.eventTime || "6:00 PM – 8:30 PM IST",
     venue: event.venue,
     passUrl: `${MARKETING_SITE_URL}${getEventPassPath(event, "SAMPLE01")}`,
+    uniqueCode: "SAMPLE01",
   });
 }
 
@@ -159,6 +166,8 @@ export function sequenceContextToVars(ctx: SequenceRenderContext): Record<string
     calendarMonth: ctx.calendar.month,
     calendarDay: ctx.calendar.day,
     calendarWeekday: ctx.calendar.weekday,
+    confirmAttendingUrl: ctx.confirmAttendingUrl ?? "",
+    confirmDeclinedUrl: ctx.confirmDeclinedUrl ?? "",
   };
 }
 
@@ -177,26 +186,36 @@ export function getPreviewHtml(
 ): string {
   const ctx = sampleContext ?? getSampleSequenceContext();
   const html = customHtml?.trim();
+  let rendered: string;
+
   if (html) {
     if (key === "join_thank_you" || key === "join_notify") {
-      return applyEmailTemplate(html, getSampleJoinVars());
-    }
-    if (key === "waitlist_thank_you" || key === "waitlist_rejected") {
-      return applyEmailTemplate(html, {
+      rendered = applyEmailTemplate(html, getSampleJoinVars());
+    } else if (key === "waitlist_thank_you" || key === "waitlist_rejected") {
+      rendered = applyEmailTemplate(html, {
         ...sequenceContextToVars(ctx),
         logoUrl: process.env.EMAIL_LOGO_URL || BRAND_LOGO_URL,
       });
+    } else {
+      rendered = applyEmailTemplate(html, {
+        ...sequenceContextToVars(ctx),
+        confirmAttendingUrl: ctx.confirmAttendingUrl ?? "",
+        confirmDeclinedUrl: ctx.confirmDeclinedUrl ?? "",
+      });
     }
-    return applyEmailTemplate(html, sequenceContextToVars(ctx));
-  }
-  if (key === "join_thank_you" || key === "join_notify") {
-    return getDefaultTemplateHtml(key);
-  }
-  if (key === "waitlist_thank_you" || key === "waitlist_rejected") {
-    return applyEmailTemplate(getDefaultTemplateHtml(key), {
+  } else if (key === "join_thank_you" || key === "join_notify") {
+    rendered = getDefaultTemplateHtml(key);
+  } else if (key === "waitlist_thank_you" || key === "waitlist_rejected") {
+    rendered = applyEmailTemplate(getDefaultTemplateHtml(key), {
       ...sequenceContextToVars(ctx),
       logoUrl: process.env.EMAIL_LOGO_URL || BRAND_LOGO_URL,
     });
+  } else {
+    rendered = buildSequenceEmailHtml(key as EmailSequenceKey, ctx);
   }
-  return buildSequenceEmailHtml(key as EmailSequenceKey, ctx);
+
+  if (isAttendanceRsvpSequenceKey(key as EmailSequenceKey)) {
+    return appendAttendanceRsvpToEmailHtml(rendered, key as EmailSequenceKey, ctx);
+  }
+  return rendered;
 }

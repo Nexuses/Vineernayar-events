@@ -1,6 +1,12 @@
 import { BRAND_LOGO_URL } from "@/lib/constants";
 import { EVENT_TIMEZONE, formatEventDate, getEventTimeDisplay } from "@/lib/date-utils";
 import { MARKETING_SITE_URL } from "@/lib/marketing-site";
+import {
+  buildAttendanceConfirmUrls,
+  buildAttendanceRsvpFooterHtml,
+  buildAttendanceRsvpFooterText,
+  isAttendanceRsvpSequenceKey,
+} from "@/lib/attendance-rsvp";
 import { getBannerHighlightLabel } from "@/lib/banner-label";
 import type { EmailSequenceKey } from "@/lib/email-sequence";
 import { getSequenceContent, type SequenceRenderContext } from "@/lib/email-sequence";
@@ -68,6 +74,7 @@ export function buildSequenceRenderContext(data: {
   venue: string;
   passUrl: string;
   priorityPass?: boolean;
+  uniqueCode?: string;
 }): SequenceRenderContext {
   const eventTime = getEventTimeDisplay({
     eventStartDate: data.eventStartDate,
@@ -76,6 +83,9 @@ export function buildSequenceRenderContext(data: {
   });
 
   const venue = data.venue?.trim() || "—";
+  const confirmUrls = data.uniqueCode
+    ? buildAttendanceConfirmUrls(data.passUrl, data.uniqueCode)
+    : {};
 
   return {
     firstName: capitalizeFirst(data.firstName),
@@ -91,6 +101,7 @@ export function buildSequenceRenderContext(data: {
     websiteUrl: MARKETING_SITE_URL,
     calendar: getCalendarChip(data.eventStartDate),
     isPriorityPass: data.priorityPass === true,
+    ...confirmUrls,
   };
 }
 
@@ -256,6 +267,9 @@ export function buildSequenceEmailHtml(
         : "";
 
   const cta = content.cta ? buildCtaHtml(content.cta.label, content.cta.href) : "";
+  const rsvpFooter = isAttendanceRsvpSequenceKey(key)
+    ? buildAttendanceRsvpFooterHtml(ctx)
+    : "";
 
   const signOff = `
     <p style="margin:0 0 4px;font-size:15px;line-height:1.6;color:#111111;">${escapeHtml(content.signOffLine)}</p>
@@ -296,6 +310,7 @@ export function buildSequenceEmailHtml(
               ${buildSeq1DetailsSplitHtml(ctx)}
               ${seq1SignOff}
               ${cta}
+              ${rsvpFooter}
             </td>
           </tr>
         </table>
@@ -338,6 +353,7 @@ export function buildSequenceEmailHtml(
               ${preOrder}
               ${signOff}
               ${cta}
+              ${rsvpFooter}
             </td>
           </tr>
         </table>
@@ -395,5 +411,9 @@ export function buildSequenceEmailText(
     lines.push(content.signOffLine, content.signOffTeam);
   }
   if (content.cta) lines.push("", `${content.cta.label}: ${content.cta.href}`);
+  if (isAttendanceRsvpSequenceKey(key)) {
+    const rsvpText = buildAttendanceRsvpFooterText(ctx);
+    if (rsvpText) lines.push(rsvpText);
+  }
   return lines.join("\n");
 }

@@ -61,6 +61,25 @@ function isSendCleanSuccess(data: {
   return false;
 }
 
+async function parseSendCleanResponse(response: Response): Promise<void> {
+  const raw = await response.text();
+  let data: { status?: string; message?: string; name?: string; type?: string };
+
+  try {
+    data = JSON.parse(raw) as typeof data;
+  } catch {
+    const preview = raw.replace(/\s+/g, " ").trim().slice(0, 200);
+    throw new Error(
+      `SendClean API returned non-JSON (HTTP ${response.status})${preview ? `: ${preview}` : ""}`
+    );
+  }
+
+  if (!isSendCleanSuccess(data)) {
+    const detail = data.message || data.name || data.type || `HTTP ${response.status}`;
+    throw new Error(`SendClean API error: ${detail}`);
+  }
+}
+
 export async function sendViaSendCleanApi(input: SendMailInput): Promise<void> {
   const owner_id = process.env.SENDCLEAN_OWNER_ID!.trim();
   const token = process.env.SENDCLEAN_TOKEN!.trim();
@@ -102,26 +121,39 @@ export async function sendViaSendCleanApi(input: SendMailInput): Promise<void> {
     }));
   }
 
-  const response = await fetch(getApiUrl(), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      owner_id,
-      token,
-      smtp_user_name,
-      message,
-    }),
+  const body = JSON.stringify({
+    owner_id,
+    token,
+    smtp_user_name,
+    message,
   });
 
-  let data: { status?: string; message?: string; name?: string; type?: string };
-  try {
-    data = (await response.json()) as typeof data;
-  } catch {
-    throw new Error(`SendClean API returned non-JSON (HTTP ${response.status})`);
+  const url = getApiUrl();
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
+
+      if (!response.ok && response.status >= 500 && attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        continue;
+      }
+
+      await parseSendCleanResponse(response);
+      return;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        continue;
+      }
+    }
   }
 
-  if (!isSendCleanSuccess(data)) {
-    const detail = data.message || data.name || data.type || `HTTP ${response.status}`;
-    throw new Error(`SendClean API error: ${detail}`);
-  }
+  throw lastError ?? new Error("SendClean API error: request failed");
 }

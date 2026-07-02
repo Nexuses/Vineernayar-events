@@ -5,10 +5,14 @@ import {
   createRegistration,
   findRegistrationByEventAndEmail,
   getAdmissionStatus,
+  updateWaitlistNotificationStatus,
 } from "@/lib/models/Registration";
-import { sendWaitlistThankYouEmail } from "@/lib/waitlist-email";
+import { sendWaitlistThankYouEmail, sendWaitlistThankYouWhatsApp } from "@/lib/waitlist-email";
 import { checkOtpCode, normalizePhoneForOtp } from "@/lib/twilio-otp";
-import { validateRegistrationFieldLengths, isRegistrationProfile } from "@/lib/registration-field-limits";
+import {
+  REGISTRATION_FIELD_LIMITS,
+  validateRegistrationFieldLengths,
+} from "@/lib/registration-field-limits";
 
 export async function POST(
   request: Request,
@@ -32,7 +36,9 @@ export async function POST(
       email,
       mobileNumber,
       organization,
-      designation,
+      currentDesignation,
+      whyAttend,
+      signedCopyInterested,
       workedWithVineet,
       workedWithVineetDetails,
       addToWhatsapp,
@@ -64,10 +70,20 @@ export async function POST(
     }
     const organizationTrimmed =
       typeof organization === "string" ? organization.trim() : "";
-    const profileValue = typeof designation === "string" ? designation.trim() : "";
-    if (profileValue && !isRegistrationProfile(profileValue)) {
-      return NextResponse.json({ error: "Invalid profile selection" }, { status: 400 });
+    const currentDesignationTrimmed =
+      typeof currentDesignation === "string" ? currentDesignation.trim() : "";
+    if (!organizationTrimmed) {
+      return NextResponse.json({ error: "Your current organisation is required" }, { status: 400 });
     }
+    if (!currentDesignationTrimmed) {
+      return NextResponse.json({ error: "Your current designation is required" }, { status: 400 });
+    }
+    const whyAttendTrimmed = typeof whyAttend === "string" ? whyAttend.trim() : "";
+    if (whyAttendTrimmed.length > REGISTRATION_FIELD_LIMITS.whyAttend) {
+      return NextResponse.json({ error: "Why attend response is too long" }, { status: 400 });
+    }
+    const signedCopyInterestedValue =
+      typeof signedCopyInterested === "boolean" ? signedCopyInterested : undefined;
     const workedWithVineetProvided =
       workedWithVineet !== undefined && workedWithVineet !== null && workedWithVineet !== "";
     if (!workedWithVineetProvided || typeof workedWithVineet !== "boolean") {
@@ -162,7 +178,9 @@ export async function POST(
       email: email.trim().toLowerCase(),
       mobileNumber: mobileNormalized,
       organization: organizationTrimmed || undefined,
-      designation: profileValue || undefined,
+      currentDesignation: currentDesignationTrimmed || undefined,
+      whyAttend: whyAttendTrimmed || undefined,
+      signedCopyInterested: signedCopyInterestedValue,
       workedWithVineet: workedWithVineetValue,
       workedWithVineetDetails:
         workedWithVineetValue === true
@@ -182,19 +200,43 @@ export async function POST(
           : undefined,
       agreedToPrivacy: true,
       admissionStatus: "waitlisted",
+      waitlistEmailStatus: "pending",
+      waitlistWhatsAppStatus: "pending",
     });
 
     let emailSent = false;
+    let whatsappSent = false;
+    let whatsappError: string | undefined;
     try {
       emailSent = await sendWaitlistThankYouEmail(reg);
     } catch (err) {
       console.error("Waitlist thank-you email failed:", err);
+    }
+    try {
+      const wa = await sendWaitlistThankYouWhatsApp(reg);
+      whatsappSent = wa.ok;
+      whatsappError = wa.error;
+    } catch (err) {
+      console.error("Waitlist thank-you WhatsApp failed:", err);
+      whatsappError = err instanceof Error ? err.message : "WhatsApp send failed";
+    }
+
+    if (reg._id) {
+      await updateWaitlistNotificationStatus(reg._id.toString(), {
+        waitlistEmailStatus: emailSent ? "sent" : "failed",
+        waitlistEmailSentAt: emailSent ? new Date() : undefined,
+        waitlistEmailError: emailSent ? undefined : "Waitlist email delivery failed",
+        waitlistWhatsAppStatus: whatsappSent ? "sent" : "failed",
+        waitlistWhatsAppSentAt: whatsappSent ? new Date() : undefined,
+        waitlistWhatsAppError: whatsappSent ? undefined : whatsappError || "Waitlist WhatsApp delivery failed",
+      });
     }
 
     return NextResponse.json({
       success: true,
       waitlisted: true,
       emailSent,
+      whatsappSent,
       uniqueCode: reg.uniqueCode,
       registrationId: reg._id?.toString(),
       ...(emailSent

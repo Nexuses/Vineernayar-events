@@ -1,22 +1,26 @@
 import { sendSequenceEmail, type PassEmailData, type SequenceEmailAttachments } from "./email";
 import { type EmailSequenceKey, isSequenceDue } from "./email-sequence";
+import { buildSequenceRenderContext } from "./email-sequence-template";
+import { resolveSequenceWhatsAppMessageText } from "./whatsapp-template-resolve";
+import { sendEnablexWhatsAppText } from "./enablex-whatsapp";
 import { generateIcs } from "./ics";
 import { generateFullPassPdf } from "./pass-pdf";
 import { getEventByEventId } from "./models/Event";
 import { getEventPassPath } from "./event-path";
+import { getPublicSiteUrl } from "./site-url";
 import {
   getRegistrationsCollection,
   listAllRegistrations,
   isConfirmedRegistration,
   type RegistrationDoc,
 } from "./models/Registration";
+import type { WhatsAppSequenceKey } from "./whatsapp-sequence";
 import { ObjectId } from "mongodb";
 
 const SEQUENCES_WITH_PASS_ATTACHMENTS = new Set<EmailSequenceKey>(["seq1", "seq2", "seq3"]);
 
 async function buildPassUrl(eventId: string, uniqueCode: string): Promise<string> {
-  const base =
-    process.env.SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
+  const base = getPublicSiteUrl();
   const event = await getEventByEventId(eventId);
   if (event) return `${base}${getEventPassPath(event, uniqueCode)}`;
   return `${base}/events/${eventId}/pass/${uniqueCode}`;
@@ -125,6 +129,73 @@ export async function updateEmailSequenceStatus(
   return result.matchedCount > 0;
 }
 
+export async function updateWhatsAppSequenceStatus(
+  registrationId: string,
+  key: WhatsAppSequenceKey,
+  status: "pending" | "sent" | "failed",
+  error?: string
+): Promise<boolean> {
+  const col = await getRegistrationsCollection();
+  if (!ObjectId.isValid(registrationId)) return false;
+
+  const entry: { status: typeof status; sentAt?: Date; error?: string } = { status };
+  if (status === "sent") entry.sentAt = new Date();
+  if (error) entry.error = error;
+
+  const result = await col.updateOne(
+    { _id: new ObjectId(registrationId) },
+    { $set: { [`whatsappSequence.${key}`]: entry } }
+  );
+  return result.matchedCount > 0;
+}
+
+export async function sendWhatsAppSequenceForRegistration(
+  reg: RegistrationDoc,
+  key: WhatsAppSequenceKey,
+  passUrl: string
+): Promise<boolean> {
+  const id = reg._id?.toString();
+  if (!id) return false;
+  const targetNumber = reg.whatsappNumber || reg.mobileNumber || "";
+  if (!targetNumber.trim()) {
+    await updateWhatsAppSequenceStatus(id, key, "failed", "No WhatsApp number on registration");
+    return false;
+  }
+
+  try {
+    const renderCtx = buildSequenceRenderContext({
+      firstName: reg.firstName,
+      eventName: reg.eventName,
+      eventStartDate:
+        reg.eventStartDate instanceof Date
+          ? reg.eventStartDate.toISOString()
+          : String(reg.eventStartDate),
+      eventEndDate:
+        reg.eventEndDate instanceof Date ? reg.eventEndDate.toISOString() : String(reg.eventEndDate),
+      eventTime: reg.eventTime,
+      venue: reg.venue,
+      passUrl,
+      priorityPass: reg.workedWithVineet === true,
+    });
+    const message = await resolveSequenceWhatsAppMessageText(key, renderCtx, reg.eventId);
+    const result = await sendEnablexWhatsAppText({
+      to: targetNumber,
+      message: message.slice(0, 3900),
+    });
+    await updateWhatsAppSequenceStatus(
+      id,
+      key,
+      result.ok ? "sent" : "failed",
+      result.ok ? undefined : result.error || "WhatsApp delivery failed"
+    );
+    return result.ok;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "WhatsApp send failed";
+    await updateWhatsAppSequenceStatus(id, key, "failed", message);
+    return false;
+  }
+}
+
 export async function sendEmailSequenceForRegistration(
   reg: RegistrationDoc,
   key: EmailSequenceKey,
@@ -152,6 +223,7 @@ export async function sendEmailSequenceForRegistration(
     }
 
     const ok = await sendSequenceEmail(data, key, emailAttachments);
+    await sendWhatsAppSequenceForRegistration(reg, key, passUrl);
 
     await updateEmailSequenceStatus(
       id,

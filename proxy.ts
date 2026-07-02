@@ -14,7 +14,7 @@ export async function proxy(request: NextRequest) {
   }
 
   const token = request.cookies.get("admin-token")?.value;
-  const isPublic = pathname === "/admin/login" || pathname === "/admin/signup";
+  const isPublic = pathname === "/admin/login";
 
   let valid = false;
   if (token) {

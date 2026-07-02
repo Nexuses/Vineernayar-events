@@ -1,9 +1,14 @@
 import { getDb } from "../mongodb";
 import { ObjectId, type Filter } from "mongodb";
 import { createInitialEmailSequence, type EmailSequenceStatus } from "../email-sequence";
+import {
+  createInitialWhatsAppSequence,
+  type WhatsAppSequenceStatus,
+} from "../whatsapp-sequence";
 
 export type ParticipationStatus = "registered" | "attended";
 export type AdmissionStatus = "waitlisted" | "confirmed" | "rejected";
+export type AttendanceRsvpStatus = "pending" | "reconfirmed" | "declined";
 export type BlastAudience = "confirmed" | "waitlisted" | "all";
 
 export interface RegistrationDoc {
@@ -19,7 +24,10 @@ export interface RegistrationDoc {
   surname: string;
   email: string;
   organization?: string;
+  currentDesignation?: string;
   designation?: string;
+  whyAttend?: string;
+  signedCopyInterested?: boolean;
   mobileNumber?: string;
   addToWhatsapp: boolean;
   whatsappNumber?: string;
@@ -45,6 +53,9 @@ export interface RegistrationDoc {
   participationStatus?: ParticipationStatus;
   /** When the attendee was marked as attended (via scan or admin) */
   participationTimestamp?: Date;
+  /** RSVP from 7-day / 1-day reminder emails */
+  attendanceRsvpStatus?: AttendanceRsvpStatus;
+  attendanceRsvpAt?: Date;
   /** Waitlist workflow: new registrations start as waitlisted until admin accepts */
   admissionStatus?: AdmissionStatus;
   admissionUpdatedAt?: Date;
@@ -52,6 +63,16 @@ export interface RegistrationDoc {
   adminNotes?: string;
   /** Automated email communication sequence status */
   emailSequence?: EmailSequenceStatus;
+  /** Automated WhatsApp communication sequence status */
+  whatsappSequence?: WhatsAppSequenceStatus;
+  /** Initial waitlist acknowledgement email status (on registration) */
+  waitlistEmailStatus?: "pending" | "sent" | "failed";
+  waitlistEmailSentAt?: Date;
+  waitlistEmailError?: string;
+  /** Initial waitlist acknowledgement WhatsApp status (on registration) */
+  waitlistWhatsAppStatus?: "pending" | "sent" | "failed";
+  waitlistWhatsAppSentAt?: Date;
+  waitlistWhatsAppError?: string;
   /** Set when this registration receives an admin email blast */
   lastEmailBlastAt?: Date;
   createdAt: Date;
@@ -67,11 +88,29 @@ export function isConfirmedRegistration(reg: RegistrationDoc): boolean {
   return getAdmissionStatus(reg) === "confirmed";
 }
 
+export function isActiveConfirmedRegistration(reg: RegistrationDoc): boolean {
+  return isConfirmedRegistration(reg) && reg.attendanceRsvpStatus !== "declined";
+}
+
 function confirmedAdmissionFilter(): Filter<RegistrationDoc> {
   return {
     $or: [
       { admissionStatus: "confirmed" as const },
       { admissionStatus: { $exists: false } },
+    ],
+  };
+}
+
+function activeConfirmedAdmissionFilter(): Filter<RegistrationDoc> {
+  return {
+    $and: [
+      confirmedAdmissionFilter(),
+      {
+        $or: [
+          { attendanceRsvpStatus: { $exists: false } },
+          { attendanceRsvpStatus: { $in: ["pending", "reconfirmed"] as AttendanceRsvpStatus[] } },
+        ],
+      },
     ],
   };
 }
@@ -111,6 +150,7 @@ export async function createRegistration(data: Omit<RegistrationDoc, "_id" | "un
     participationStatus: "registered",
     admissionStatus: data.admissionStatus ?? "waitlisted",
     emailSequence: createInitialEmailSequence(),
+    whatsappSequence: createInitialWhatsAppSequence(),
     createdAt: new Date(),
   };
   const result = await col.insertOne(doc);
@@ -150,6 +190,39 @@ export async function updateRegistrationAdminNotes(
     { $set: { adminNotes: trimmed } }
   );
   return result.matchedCount > 0;
+}
+
+export async function updateWaitlistNotificationStatus(
+  id: string,
+  patch: Partial<
+    Pick<
+      RegistrationDoc,
+      | "waitlistEmailStatus"
+      | "waitlistEmailSentAt"
+      | "waitlistEmailError"
+      | "waitlistWhatsAppStatus"
+      | "waitlistWhatsAppSentAt"
+      | "waitlistWhatsAppError"
+    >
+  >
+): Promise<boolean> {
+  const col = await getRegistrationsCollection();
+  if (!ObjectId.isValid(id)) return false;
+  const result = await col.updateOne({ _id: new ObjectId(id) }, { $set: patch });
+  return result.matchedCount > 0;
+}
+
+export async function updateAttendanceRsvpStatus(
+  id: string,
+  attendanceRsvpStatus: AttendanceRsvpStatus
+): Promise<boolean> {
+  const col = await getRegistrationsCollection();
+  if (!ObjectId.isValid(id)) return false;
+  const result = await col.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: { attendanceRsvpStatus, attendanceRsvpAt: new Date() } }
+  );
+  return result.modifiedCount > 0;
 }
 
 export async function updateRegistrationParticipationStatus(
@@ -197,7 +270,7 @@ function nonRejectedAdmissionFilter(): Filter<RegistrationDoc> {
 }
 
 function audienceFilter(audience: BlastAudience): Filter<RegistrationDoc> {
-  if (audience === "confirmed") return confirmedAdmissionFilter();
+  if (audience === "confirmed") return activeConfirmedAdmissionFilter();
   if (audience === "waitlisted") return waitlistedAdmissionFilter();
   return nonRejectedAdmissionFilter();
 }
@@ -258,7 +331,7 @@ export async function listWaitlistReviewByEventId(eventId: string): Promise<Regi
 
 export async function countRegistrationsByEventId(eventId: string): Promise<number> {
   const col = await getRegistrationsCollection();
-  return col.countDocuments({ eventId, ...confirmedAdmissionFilter() });
+  return col.countDocuments({ eventId, ...activeConfirmedAdmissionFilter() });
 }
 
 export async function countWaitlistedByEventId(eventId: string): Promise<number> {
@@ -275,7 +348,7 @@ export async function getRegistrationCountsByEventIds(
   const col = await getRegistrationsCollection();
   const rows = await col
     .aggregate<{ _id: string; count: number }>([
-      { $match: { eventId: { $in: eventIds }, ...confirmedAdmissionFilter() } },
+      { $match: { eventId: { $in: eventIds }, ...activeConfirmedAdmissionFilter() } },
       { $group: { _id: "$eventId", count: { $sum: 1 } } },
     ])
     .toArray();

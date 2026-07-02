@@ -107,7 +107,7 @@ export function RegistrationHubView({
                 <>
                   <div className="mb-6 border-b border-slate-200 pb-5">
                     <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-[28px]">
-                      Register to get your ticket
+                      Apply for an Invitation
                     </h2>
                     <p className="mt-1.5 text-sm text-slate-500">
                       Enter your invite email to continue registration for {event.eventName}.
@@ -119,10 +119,10 @@ export function RegistrationHubView({
                 <>
                   <div className="mb-6 border-b border-slate-200 pb-5">
                     <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-[28px]">
-                      Register to get your ticket
+                      Apply for an Invitation
                     </h2>
                     <p className="mt-1.5 text-sm text-slate-500">
-                      Complete the form below to request your entry pass for {event.eventName}.
+                      Complete the form below to request your entry pass for What Part of Being Human Will You Never Give Up?
                     </p>
                   </div>
                   <RegisterForm

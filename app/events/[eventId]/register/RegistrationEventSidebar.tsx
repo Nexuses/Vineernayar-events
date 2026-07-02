@@ -86,20 +86,32 @@ export function RegistrationEventSidebar({
               <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-full bg-[#f3e31d]">
                 <MapPinIcon className="h-6 w-6 text-zinc-900" />
               </div>
-              <p className="min-w-0 flex-1 break-words text-base font-bold leading-snug tracking-tight text-zinc-900 sm:text-[18px]">
-                {venue}
-              </p>
-              <a
-                href={buildGoogleMapsDirectionsUrl(venue)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex shrink-0 items-center gap-2 self-center rounded-full bg-[#f3e31d] px-3.5 py-1.5 text-xs font-bold text-zinc-900 no-underline transition hover:brightness-95"
-              >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[rgba(0,0,0,0.08)]">
-                  <MapPinIcon className="h-3.5 w-3.5 text-zinc-900" />
-                </span>
-                Directions
-              </a>
+              <div className="min-w-0 flex-1">
+                <p className="break-words text-base font-bold leading-snug tracking-tight text-zinc-900 sm:text-[18px]">
+                  {venue}
+                </p>
+                <a
+                  href={buildGoogleMapsDirectionsUrl(venue)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex items-center gap-2 rounded-full bg-[#f3e31d] px-3.5 py-1.5 text-xs font-bold text-zinc-900 no-underline transition hover:brightness-95"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[rgba(0,0,0,0.08)]">
+                    <svg
+                      className="h-3.5 w-3.5 text-zinc-900"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2.25}
+                      aria-hidden
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 17 17 7" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h8v8" />
+                    </svg>
+                  </span>
+                  Open in Google Maps
+                </a>
+              </div>
             </div>
           ) : null}
 

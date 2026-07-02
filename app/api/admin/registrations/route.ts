@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { listRegistrationsByEventId } from "@/lib/models/Registration";
 import { serializeEmailSequence } from "@/lib/email-sequence";
+import { serializeWhatsAppSequence } from "@/lib/whatsapp-sequence";
 import {
   assertEventAccess,
   getAdminSession,
@@ -26,7 +27,9 @@ export async function GET(request: Request) {
       surname: r.surname,
       email: r.email,
       organization: r.organization,
-      designation: r.designation,
+      currentDesignation: r.currentDesignation,
+      whyAttend: r.whyAttend,
+      signedCopyInterested: r.signedCopyInterested,
       mobileNumber: r.mobileNumber,
       workedWithVineet: r.workedWithVineet,
       workedWithVineetDetails: r.workedWithVineetDetails,
@@ -41,12 +44,30 @@ export async function GET(request: Request) {
       transportNeeded: r.transportNeeded,
       transportLocation: r.transportLocation,
       participationStatus: r.participationStatus || "registered",
+      attendanceRsvpStatus: r.attendanceRsvpStatus ?? "pending",
+      attendanceRsvpAt:
+        r.attendanceRsvpAt instanceof Date
+          ? r.attendanceRsvpAt.toISOString()
+          : r.attendanceRsvpAt ?? null,
       createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
       participationTimestamp:
         r.participationTimestamp instanceof Date
           ? r.participationTimestamp.toISOString()
           : r.participationTimestamp,
+      waitlistEmailStatus: r.waitlistEmailStatus ?? null,
+      waitlistEmailSentAt:
+        r.waitlistEmailSentAt instanceof Date
+          ? r.waitlistEmailSentAt.toISOString()
+          : r.waitlistEmailSentAt ?? null,
+      waitlistEmailError: r.waitlistEmailError ?? null,
+      waitlistWhatsAppStatus: r.waitlistWhatsAppStatus ?? null,
+      waitlistWhatsAppSentAt:
+        r.waitlistWhatsAppSentAt instanceof Date
+          ? r.waitlistWhatsAppSentAt.toISOString()
+          : r.waitlistWhatsAppSentAt ?? null,
+      waitlistWhatsAppError: r.waitlistWhatsAppError ?? null,
       emailSequence: serializeEmailSequence(r.emailSequence),
+      whatsappSequence: serializeWhatsAppSequence(r.whatsappSequence),
     }));
     return NextResponse.json(serialized);
   } catch (err) {

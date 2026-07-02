@@ -54,6 +54,8 @@ export type SequenceRenderContext = {
   websiteUrl: string;
   calendar: { month: string; day: string; weekday: string };
   isPriorityPass?: boolean;
+  confirmAttendingUrl?: string;
+  confirmDeclinedUrl?: string;
 };
 
 export type SequenceContent = {

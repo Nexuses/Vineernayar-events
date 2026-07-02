@@ -16,6 +16,16 @@ function linkClass(active: boolean, nested = false) {
   }`;
 }
 
+function isSectionActive(pathname: string, item: NavItem): boolean {
+  if (item.href === "/admin") {
+    return pathname === "/admin" || pathname.startsWith("/admin/cities/");
+  }
+  if (pathname === item.href || pathname.startsWith(`${item.href}/`)) return true;
+  return (item.children ?? []).some(
+    (child) => pathname === child.href || pathname.startsWith(`${child.href}/`)
+  );
+}
+
 export function AdminSidebar({
   navItems,
   open = false,
@@ -32,16 +42,21 @@ export function AdminSidebar({
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
-  const isDashboardSection =
-    pathname === "/admin" || pathname.startsWith("/admin/cities/");
-
-  const [dashboardExpanded, setDashboardExpanded] = useState(isDashboardSection);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    setDashboardExpanded(isDashboardSection);
-  }, [isDashboardSection]);
+    setExpandedSections((prev) => {
+      const next = { ...prev };
+      for (const item of navItems) {
+        if ((item.children?.length ?? 0) > 0 && isSectionActive(pathname, item)) {
+          next[item.href] = true;
+        }
+      }
+      return next;
+    });
+  }, [pathname, navItems]);
 
-  const closeNestedNav = () => setDashboardExpanded(false);
+  const closeAllNested = () => setExpandedSections({});
 
   return (
     <>
@@ -55,7 +70,7 @@ export function AdminSidebar({
           <Link
             href="/admin"
             onClick={() => {
-              setDashboardExpanded(true);
+              setExpandedSections((prev) => ({ ...prev, "/admin": true }));
               onClose?.();
             }}
             className="block w-full rounded-md focus:outline-none focus:ring-2 focus:ring-zinc-400"
@@ -72,8 +87,8 @@ export function AdminSidebar({
           <div className="space-y-1.5">
             {navItems.map((item) => {
               const hasChildren = (item.children?.length ?? 0) > 0;
-              const parentActive =
-                item.href === "/admin" ? isDashboardSection : isActive(item.href);
+              const parentActive = isSectionActive(pathname, item);
+              const isExpanded = expandedSections[item.href] ?? false;
 
               if (!hasChildren) {
                 const active = isActive(item.href);
@@ -82,7 +97,7 @@ export function AdminSidebar({
                     key={item.href}
                     href={item.href}
                     onClick={() => {
-                      closeNestedNav();
+                      closeAllNested();
                       onClose?.();
                     }}
                     aria-current={active ? "page" : undefined}
@@ -98,22 +113,22 @@ export function AdminSidebar({
                   <Link
                     href={item.href}
                     onClick={(e) => {
-                      if (dashboardExpanded) {
+                      if (isExpanded && parentActive) {
                         e.preventDefault();
-                        setDashboardExpanded(false);
+                        setExpandedSections((prev) => ({ ...prev, [item.href]: false }));
                       } else {
-                        setDashboardExpanded(true);
+                        setExpandedSections((prev) => ({ ...prev, [item.href]: true }));
                       }
                       onClose?.();
                     }}
-                    aria-current={pathname === "/admin" ? "page" : undefined}
-                    aria-expanded={dashboardExpanded}
+                    aria-current={parentActive && pathname === item.href ? "page" : undefined}
+                    aria-expanded={isExpanded}
                     className={`${linkClass(parentActive)} w-full justify-between`}
                   >
                     <span>{item.label}</span>
                     <svg
                       className={`h-4 w-4 shrink-0 text-zinc-500 transition-transform duration-200 ${
-                        dashboardExpanded ? "rotate-180" : ""
+                        isExpanded ? "rotate-180" : ""
                       }`}
                       fill="none"
                       stroke="currentColor"
@@ -128,7 +143,7 @@ export function AdminSidebar({
                       />
                     </svg>
                   </Link>
-                  {dashboardExpanded ? (
+                  {isExpanded ? (
                     <div className="ml-3 space-y-0.5 border-l border-zinc-200 pl-2">
                       {item.children!.map((child) => {
                         const childActive = isActive(child.href);
@@ -137,7 +152,7 @@ export function AdminSidebar({
                             key={child.href}
                             href={child.href}
                             onClick={() => {
-                              setDashboardExpanded(true);
+                              setExpandedSections((prev) => ({ ...prev, [item.href]: true }));
                               onClose?.();
                             }}
                             aria-current={childActive ? "page" : undefined}

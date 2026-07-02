@@ -10,6 +10,9 @@ import { isMailConfigured, sendAppMail } from "@/lib/mail";
 import { SMTP_REPLY_EMAIL } from "@/lib/smtp";
 import { getEventByEventId } from "@/lib/models/Event";
 import { getEventPassPath } from "@/lib/event-path";
+import { getPublicSiteUrl } from "@/lib/site-url";
+import { sendEnablexWhatsAppText } from "@/lib/enablex-whatsapp";
+import { resolveWhatsAppMessageText } from "@/lib/whatsapp-template-resolve";
 import {
   WAITLIST_REJECTED_HTML,
   WAITLIST_THANK_YOU_HTML,
@@ -18,7 +21,7 @@ import {
 const LOGO_URL = process.env.EMAIL_LOGO_URL || BRAND_LOGO_URL;
 
 async function buildPassUrl(eventId: string, uniqueCode: string): Promise<string> {
-  const base = process.env.SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
+  const base = getPublicSiteUrl();
   const event = await getEventByEventId(eventId);
   if (event) return `${base}${getEventPassPath(event, uniqueCode)}`;
   return `${base}/events/${eventId}/pass/${uniqueCode}`;
@@ -85,6 +88,35 @@ export async function sendWaitlistThankYouEmail(reg: RegistrationDoc): Promise<b
     console.error("Waitlist thank-you email failed:", err);
     return false;
   }
+}
+
+export async function sendWaitlistThankYouWhatsApp(reg: RegistrationDoc): Promise<{
+  ok: boolean;
+  error?: string;
+}> {
+  const number = reg.whatsappNumber || reg.mobileNumber || "";
+  if (!number.trim()) return { ok: false, error: "No WhatsApp number on registration" };
+
+  const passUrl = await buildPassUrl(reg.eventId, reg.uniqueCode);
+  const ctx = buildSequenceRenderContext({
+    firstName: reg.firstName,
+    eventName: reg.eventName,
+    eventStartDate:
+      reg.eventStartDate instanceof Date
+        ? reg.eventStartDate.toISOString()
+        : String(reg.eventStartDate),
+    eventEndDate:
+      reg.eventEndDate instanceof Date
+        ? reg.eventEndDate.toISOString()
+        : String(reg.eventEndDate),
+    eventTime: reg.eventTime,
+    venue: reg.venue,
+    passUrl,
+    priorityPass: reg.workedWithVineet === true,
+  });
+  const text = await resolveWhatsAppMessageText("waitlist_thank_you", ctx, reg.eventId);
+
+  return sendEnablexWhatsAppText({ to: number, message: text.slice(0, 3900) });
 }
 
 export async function sendWaitlistRejectedEmail(reg: RegistrationDoc): Promise<boolean> {

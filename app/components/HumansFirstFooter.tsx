@@ -26,9 +26,8 @@ export const HUMANS_FIRST_FOOTER_CONFIG = {
   quickLinks: [
     { href: "/#cities-cards", label: "Join Us" },
     { href: "/book", label: "More Books" },
-    { href: "/#mosaic", label: "Vineet Nayar in Action" },
+    { href: "/#mosaic", label: "Humans First Conversation" },
     { href: "/#cities-events", label: "The world tour" },
-    { href: "/#wall", label: "The Wall" },
     {
       href: "https://vineetnayar.com/about-us/",
       label: "Learn more about Vineet Nayar",

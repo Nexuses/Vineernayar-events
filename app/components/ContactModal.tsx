@@ -1,14 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { JOIN_CITIES } from "@/lib/join-cities";
 
-type JoinMovementModalProps = {
+type ContactModalProps = {
   open: boolean;
   onClose: () => void;
 };
 
-export function JoinMovementModal({ open, onClose }: JoinMovementModalProps) {
+const inputClass =
+  "w-full rounded-xl border-0 bg-zinc-100 px-4 py-3.5 text-[15px] text-zinc-900 outline-none ring-1 ring-transparent placeholder:text-zinc-400 focus:ring-brand-500";
+
+export function ContactModal({ open, onClose }: ContactModalProps) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
@@ -52,17 +54,18 @@ export function JoinMovementModal({ open, onClose }: JoinMovementModalProps) {
     const data = new FormData(form);
     const name = String(data.get("name") ?? "").trim();
     const email = String(data.get("email") ?? "").trim();
-    const city = String(data.get("city") ?? "").trim();
+    const phone = String(data.get("phone") ?? "").trim();
+    const message = String(data.get("message") ?? "").trim();
 
     setLoading(true);
     setError("");
     setSuccess(false);
 
     try {
-      const res = await fetch("/api/join", {
+      const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, city }),
+        body: JSON.stringify({ name, email, phone, message }),
       });
       const json = (await res.json()) as { error?: string };
       if (!res.ok) {
@@ -94,7 +97,7 @@ export function JoinMovementModal({ open, onClose }: JoinMovementModalProps) {
         className="relative w-full max-w-lg rounded-3xl bg-white px-8 py-9 shadow-xl sm:px-10 sm:py-10"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="join-modal-title"
+        aria-labelledby="contact-modal-title"
       >
         <button
           type="button"
@@ -105,24 +108,21 @@ export function JoinMovementModal({ open, onClose }: JoinMovementModalProps) {
           ×
         </button>
 
-        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500">
-          Join the movement
-        </p>
         <h2
-          id="join-modal-title"
-          className="mt-2 text-3xl font-extrabold uppercase leading-tight tracking-tight text-zinc-900 sm:text-4xl"
+          id="contact-modal-title"
+          className="text-3xl font-extrabold uppercase leading-tight tracking-tight text-zinc-900 sm:text-4xl"
         >
-          Save your seat.
+          Contact Us
         </h2>
         <p className="mt-3 text-[15px] leading-relaxed text-zinc-600">
-          Six cities. Free, public and limited. Tell us where to keep a place for you.
+          Send us a message and we&apos;ll get back to you as soon as we can.
         </p>
 
         <div className="mt-8">
           {loading ? (
             <div className="flex flex-col items-center gap-3 py-10 text-zinc-600" aria-live="polite">
               <span className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-200 border-t-zinc-700" />
-              <p className="text-sm">Reserving your seat…</p>
+              <p className="text-sm">Sending your message…</p>
             </div>
           ) : success ? (
             <div
@@ -133,15 +133,14 @@ export function JoinMovementModal({ open, onClose }: JoinMovementModalProps) {
                 Thank you!
               </p>
               <p className="mt-4 max-w-sm text-[15px] leading-relaxed sm:text-base">
-                You&apos;re on the list. A confirmation email is on its way to your inbox with
-                the details.
+                Your message has been sent. We&apos;ll be in touch soon.
               </p>
             </div>
           ) : (
             <form className="space-y-5" noValidate onSubmit={handleSubmit}>
               <label className="block">
                 <span className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-zinc-600">
-                  Your name
+                  Name
                 </span>
                 <input
                   type="text"
@@ -149,7 +148,7 @@ export function JoinMovementModal({ open, onClose }: JoinMovementModalProps) {
                   required
                   autoComplete="name"
                   placeholder="Full name"
-                  className="w-full rounded-xl border-0 bg-zinc-100 px-4 py-3.5 text-[15px] text-zinc-900 outline-none ring-1 ring-transparent placeholder:text-zinc-400 focus:ring-brand-500"
+                  className={inputClass}
                 />
               </label>
 
@@ -163,29 +162,35 @@ export function JoinMovementModal({ open, onClose }: JoinMovementModalProps) {
                   required
                   autoComplete="email"
                   placeholder="you@example.com"
-                  className="w-full rounded-xl border-0 bg-zinc-100 px-4 py-3.5 text-[15px] text-zinc-900 outline-none ring-1 ring-transparent placeholder:text-zinc-400 focus:ring-brand-500"
+                  className={inputClass}
                 />
               </label>
 
               <label className="block">
                 <span className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-zinc-600">
-                  City
+                  Phone
                 </span>
-                <select
-                  name="city"
+                <input
+                  type="tel"
+                  name="phone"
                   required
-                  defaultValue=""
-                  className="w-full appearance-none rounded-xl border-0 bg-zinc-100 px-4 py-3.5 text-[15px] text-zinc-900 outline-none ring-1 ring-transparent focus:ring-brand-500"
-                >
-                  <option value="" disabled>
-                    Choose a city
-                  </option>
-                  {JOIN_CITIES.map((city) => (
-                    <option key={city} value={city}>
-                      {city}
-                    </option>
-                  ))}
-                </select>
+                  autoComplete="tel"
+                  placeholder="+91 98765 43210"
+                  className={inputClass}
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-zinc-600">
+                  Message
+                </span>
+                <textarea
+                  name="message"
+                  required
+                  rows={4}
+                  placeholder="How can we help?"
+                  className={`${inputClass} resize-y`}
+                />
               </label>
 
               {error ? (
@@ -198,7 +203,7 @@ export function JoinMovementModal({ open, onClose }: JoinMovementModalProps) {
                 type="submit"
                 className="mt-2 w-full rounded-full bg-brand-500 py-4 text-sm font-bold uppercase tracking-wide text-zinc-900 transition hover:bg-brand-600"
               >
-                Reserve my seat
+                Send message
               </button>
             </form>
           )}

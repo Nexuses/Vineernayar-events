@@ -5,6 +5,7 @@ export const REGISTRATION_FIELD_LIMITS = {
   surname: 50,
   email: 100,
   organization: 100,
+  whyAttend: 500,
   mobileLocalDigits: 10,
 } as const;
 

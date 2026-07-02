@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { formatEventDate, getEventTimeDisplay } from "@/lib/date-utils";
 import { DEFAULT_EVENT_BANNER_URL } from "@/lib/constants";
@@ -39,11 +39,35 @@ function effectiveRegistrationStatus(ev: EventItem): ReturnType<typeof getRegist
   return getRegistrationWindowStatus(ev);
 }
 
+const PAGE_SIZE = 9;
+
+function matchesEventSearch(ev: EventItem, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const haystack = [
+    ev.eventName,
+    ev.eventId,
+    ev.venue,
+    ev.speaker,
+    ev.phone,
+    formatEventDate(ev.eventStartDate),
+    getEventTimeDisplay(ev),
+    getRegistrationWindowLabel(effectiveRegistrationStatus(ev)),
+    ev.published === false ? "unpublished" : "published",
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(q);
+}
+
 export default function AllEventsPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [canEdit, setCanEdit] = useState(false);
   const [listLoading, setListLoading] = useState(true);
   const [error, setError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
   async function fetchEvents() {
     setListLoading(true);
@@ -73,9 +97,64 @@ export default function AllEventsPage() {
     fetchEvents();
   }, []);
 
+  const filteredEvents = useMemo(
+    () => events.filter((ev) => matchesEventSearch(ev, searchQuery)),
+    [events, searchQuery]
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filteredEvents.length / PAGE_SIZE));
+
+  const paginatedEvents = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredEvents.slice(start, start + PAGE_SIZE);
+  }, [filteredEvents, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const pageStart = filteredEvents.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const pageEnd = Math.min(currentPage * PAGE_SIZE, filteredEvents.length);
+
   return (
     <div>
-      <h1 className="text-xl font-bold text-zinc-900 sm:text-2xl">All Events</h1>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-zinc-900 sm:text-2xl">All Events</h1>
+          {!listLoading && events.length > 0 ? (
+            <p className="mt-1 text-sm text-zinc-500">
+              {events.length} event{events.length === 1 ? "" : "s"}
+              {searchQuery.trim() ? (
+                <span>
+                  {" "}
+                  · {filteredEvents.length} match{filteredEvents.length === 1 ? "" : "es"}
+                </span>
+              ) : null}
+            </p>
+          ) : null}
+        </div>
+        {!listLoading && events.length > 0 ? (
+          <div className="w-full max-w-sm">
+            <label className="sr-only" htmlFor="events-search">
+              Search events
+            </label>
+            <input
+              id="events-search"
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search name, ID, venue, speaker…"
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+            />
+          </div>
+        ) : null}
+      </div>
       {error ? (
         <p className="mt-3 text-sm text-red-600">{error}</p>
       ) : null}
@@ -84,9 +163,12 @@ export default function AllEventsPage() {
         <p className="mt-4 text-sm text-zinc-500">Loading events…</p>
       ) : events.length === 0 ? (
         <p className="mt-4 text-sm text-zinc-500">No events yet.</p>
+      ) : filteredEvents.length === 0 ? (
+        <p className="mt-4 text-sm text-zinc-500">No events match your search.</p>
       ) : (
+        <>
         <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {events.map((ev) => {
+          {paginatedEvents.map((ev) => {
             const status = effectiveRegistrationStatus(ev);
             const isPublished = ev.published ?? true;
             return (
@@ -166,6 +248,36 @@ export default function AllEventsPage() {
             );
           })}
         </div>
+
+        {filteredEvents.length > PAGE_SIZE ? (
+          <div className="mt-8 flex flex-col items-center justify-between gap-3 border-t border-zinc-200 pt-6 sm:flex-row">
+            <p className="text-sm text-zinc-600">
+              Showing {pageStart}–{pageEnd} of {filteredEvents.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                disabled={currentPage <= 1}
+                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="px-2 text-sm text-zinc-600">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                disabled={currentPage >= totalPages}
+                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        ) : null}
+        </>
       )}
     </div>
   );

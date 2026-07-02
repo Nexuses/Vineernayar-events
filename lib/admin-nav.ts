@@ -9,7 +9,7 @@ export type NavItem = {
   children?: NavItem[];
 };
 
-export const ADMIN_NAV_ITEMS: Omit<NavItem, "children">[] = [
+export const ADMIN_NAV_ITEMS: NavItem[] = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/users", label: "User Management", superadminOnly: true },
   { href: "/admin/events", label: "All Events" },
@@ -17,7 +17,15 @@ export const ADMIN_NAV_ITEMS: Omit<NavItem, "children">[] = [
   { href: "/admin/eligible", label: "Eligible Client" },
   { href: "/admin/waitlist", label: "Waitlist Client" },
   { href: "/admin/registrations", label: "Registered Client" },
-  { href: "/admin/email-flow", label: "Email Flow", superadminOnly: true },
+  {
+    href: "/admin/messaging-flow",
+    label: "Messaging Flow",
+    superadminOnly: true,
+    children: [
+      { href: "/admin/messaging-flow/email", label: "Email Flow" },
+      { href: "/admin/messaging-flow/whatsapp", label: "WhatsApp Flow" },
+    ],
+  },
   { href: "/admin/email-blast", label: "Email Blast" },
   { href: "/admin/scan", label: "QR Scanning" },
 ];

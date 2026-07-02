@@ -10,7 +10,6 @@ import {
 } from "@/lib/phone-countries";
 import {
   REGISTRATION_FIELD_LIMITS,
-  REGISTRATION_PROFILE_OPTIONS,
   trimToFieldLimit,
 } from "@/lib/registration-field-limits";
 
@@ -53,7 +52,9 @@ export function RegisterForm({
   const [countryDial, setCountryDial] = useState(DEFAULT_PHONE_COUNTRY.dial);
   const [mobileLocal, setMobileLocal] = useState("");
   const [organization, setOrganization] = useState("");
-  const [profile, setProfile] = useState("");
+  const [currentDesignation, setCurrentDesignation] = useState("");
+  const [whyAttend, setWhyAttend] = useState("");
+  const [signedCopyChoice, setSignedCopyChoice] = useState<"" | "yes" | "no">("");
   const [workedWithVineetChoice, setWorkedWithVineetChoice] = useState<"" | "yes" | "no">("");
   const [workedWithVineetDetails, setWorkedWithVineetDetails] = useState("");
   const [whatsappNumber, setWhatsappNumber] = useState("");
@@ -84,6 +85,8 @@ export function RegisterForm({
 
   function validateForm(): string | null {
     if (!agreedToPrivacy) return "You must agree to the Privacy Policy to register.";
+    if (!organization.trim()) return "Your current organisation is required.";
+    if (!currentDesignation.trim()) return "Your current designation is required.";
     if (workedWithVineetChoice === "") {
       return "Please answer whether you have worked, studied, or partnered with Vineet Nayar.";
     }
@@ -124,7 +127,9 @@ export function RegisterForm({
       email,
       mobileNumber,
       organization: organization.trim() || undefined,
-      designation: profile || undefined,
+      currentDesignation: currentDesignation.trim() || undefined,
+      whyAttend: whyAttend.trim() || undefined,
+      signedCopyInterested: signedCopyChoice === "" ? undefined : signedCopyChoice === "yes",
       workedWithVineet: workedWithVineetChoice === "yes",
       workedWithVineetDetails:
         workedWithVineetChoice === "yes" ? workedWithVineetDetails.trim() : undefined,
@@ -268,7 +273,6 @@ export function RegisterForm({
   const inputClass =
     "w-full rounded-lg border border-slate-300 bg-white px-4 py-3.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-zinc-900 focus:outline-none focus:ring-[3px] focus:ring-brand-500/40";
   const labelClass = "mb-1.5 block text-[13px] font-semibold text-slate-700";
-  const seatLimit = event.seatLimit && event.seatLimit > 0 ? event.seatLimit : 300;
 
   const selectChevron = (
     <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-500">
@@ -312,7 +316,7 @@ export function RegisterForm({
           >
             2
           </span>
-          Verification pass
+          Invitation pass
         </div>
       </div>
 
@@ -415,6 +419,42 @@ export function RegisterForm({
 
       <div>
         <label className={labelClass}>
+          Your current organisation <span className="text-red-600">*</span>
+        </label>
+        <input
+          type="text"
+          value={organization}
+          onChange={(e) =>
+            setOrganization(trimToFieldLimit(e.target.value, REGISTRATION_FIELD_LIMITS.organization))
+          }
+          maxLength={REGISTRATION_FIELD_LIMITS.organization}
+          required
+          className={inputClass}
+          placeholder="Organisation name"
+        />
+      </div>
+
+      <div>
+        <label className={labelClass}>
+          Your Current Designation <span className="text-red-600">*</span>
+        </label>
+        <input
+          type="text"
+          value={currentDesignation}
+          onChange={(e) =>
+            setCurrentDesignation(
+              trimToFieldLimit(e.target.value, REGISTRATION_FIELD_LIMITS.organization)
+            )
+          }
+          maxLength={REGISTRATION_FIELD_LIMITS.organization}
+          required
+          className={inputClass}
+          placeholder="Your designation"
+        />
+      </div>
+
+      <div>
+        <label className={labelClass}>
           Have you worked, studied, or partnered with Vineet Nayar?{" "}
           <span className="text-red-500">*</span>
         </label>
@@ -457,40 +497,44 @@ export function RegisterForm({
 
       <div>
         <label className={labelClass}>
-          Your current organisation
+          Why would you like to attend this event?
         </label>
-        <input
-          type="text"
-          value={organization}
+        <textarea
+          value={whyAttend}
           onChange={(e) =>
-            setOrganization(trimToFieldLimit(e.target.value, REGISTRATION_FIELD_LIMITS.organization))
+            setWhyAttend(trimToFieldLimit(e.target.value, REGISTRATION_FIELD_LIMITS.whyAttend))
           }
-          maxLength={REGISTRATION_FIELD_LIMITS.organization}
+          maxLength={REGISTRATION_FIELD_LIMITS.whyAttend}
+          rows={3}
           className={inputClass}
-          placeholder="Organisation name"
+          placeholder="Share your reason"
         />
       </div>
 
       <div>
         <label className={labelClass}>
-          Your profile
+          Would you like a signed copy of Humans First, Machines Second?
         </label>
         <div className="relative">
           <select
-            value={profile}
-            onChange={(e) => setProfile(e.target.value)}
+            value={signedCopyChoice}
+            onChange={(e) => setSignedCopyChoice(e.target.value as "" | "yes" | "no")}
             className={`${inputClass} cursor-pointer appearance-none pr-10`}
-            aria-label="Your profile"
+            aria-label="Signed copy preference"
           >
-            <option value="">Select</option>
-            {REGISTRATION_PROFILE_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
+            <option value="" disabled>
+              Select
+            </option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
           </select>
           {selectChevron}
         </div>
+        {signedCopyChoice === "yes" ? (
+          <p className="mt-2 text-sm text-slate-600">
+            Bring your book to the event, and Vineet will sign it for you.
+          </p>
+        ) : null}
       </div>
 
         {whatsappRequired && (
@@ -696,12 +740,12 @@ export function RegisterForm({
         </label>
       </div>
 
-      <div className="flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-[13px] font-semibold text-red-600">
+      <div className="flex items-center justify-center gap-2 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-center text-[13px] font-semibold text-red-600">
         <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
         </svg>
         <span>
-          Limited availability: Only {seatLimit} seats open to preserve networking value.
+          Limited seat Availability
         </span>
       </div>
 
@@ -710,19 +754,8 @@ export function RegisterForm({
         disabled={loading || sendingOtp}
         className="w-full rounded-lg border-2 border-zinc-900 bg-brand-500 px-4 py-4 text-base font-extrabold uppercase tracking-wide text-zinc-900 shadow-[0_4px_0_#0f172a] transition hover:translate-y-0.5 hover:shadow-[0_2px_0_#0f172a] disabled:translate-y-0 disabled:opacity-50 disabled:shadow-[0_4px_0_#0f172a]"
       >
-        {sendingOtp ? "Sending OTP…" : "Apply to Attend"}
+        {sendingOtp ? "Sending OTP…" : "Apply for an Invitation"}
       </button>
-
-      <div className="border-t border-slate-200 pt-6 text-center">
-        <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500">
-          Published & managed in collaboration with
-        </p>
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-sm font-bold text-slate-500">
-          <span>PENGUIN BUSINESS</span>
-          <span aria-hidden>•</span>
-          <span>THE MOVEMENTS TEAM</span>
-        </div>
-      </div>
     </form>
 
       {otpModalOpen && (
