@@ -2,6 +2,7 @@ import Link from "next/link";
 import { formatEventDate, getEventTimeDisplay } from "@/lib/date-utils";
 import { buildGoogleMapsDirectionsUrl } from "@/lib/google-maps";
 import { getCountdownState } from "@/lib/countdown";
+import { REGISTRATION_SIDEBAR_COVER_URL } from "@/lib/constants";
 import { EventCountdown } from "./EventCountdown";
 import { CalendarIcon, ClockIcon, MapPinIcon } from "@/app/events/EventIcons";
 
@@ -38,18 +39,14 @@ export function RegistrationEventSidebar({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_10px_25px_-5px_rgba(0,0,0,0.05)]">
-      <div className="border-b border-slate-200 bg-brand-500 px-6 py-10 text-center sm:px-8">
-          <h1 className="text-[28px] font-black italic leading-tight tracking-tight text-zinc-900 sm:text-[34px]">
-            Humans First
-            <br />
-            <span className="text-[22px] font-light not-italic sm:text-[25px]">
-              machines second
-            </span>
-          </h1>
-          <p className="mt-2.5 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-900">
-            Official Author Event Hub
-          </p>
-        </div>
+      <div className="h-[160px] w-full shrink-0 overflow-hidden bg-zinc-100 sm:h-[168px]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={REGISTRATION_SIDEBAR_COVER_URL}
+          alt="Humans First, Machines Second"
+          className="h-full w-full object-cover object-center"
+        />
+      </div>
 
       <div className="space-y-0 bg-[#f5f5f5] p-4 sm:p-6">
         {countdownStartIso && countdownEndIso && countdownInitial ? (

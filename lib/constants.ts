@@ -2,6 +2,10 @@
 export const DEFAULT_EVENT_BANNER_URL =
   "https://eguardian-uae.s3.us-east-2.amazonaws.com/Screenshot_2026-03-09_at_4.01.53_PM.png";
 
+/** Cover image on the registration page sidebar */
+export const REGISTRATION_SIDEBAR_COVER_URL =
+  "https://hfms-book.s3.us-east-2.amazonaws.com/Banner_01_1783059591894_6a8m.png";
+
 export const BRAND_NAME = "Vineetnayar";
 
 export const DB_NAME = BRAND_NAME.toLowerCase();
