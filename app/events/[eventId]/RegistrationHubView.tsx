@@ -84,7 +84,7 @@ export function RegistrationHubView({
                 Thank You for applying for an invitation.
               </h3>
               <p className="mt-3 text-sm leading-relaxed text-slate-600 sm:text-base">
-                We will review your application and be in touch if your seat is confirmed.
+                You will receive a confirmation mail soon.
               </p>
             </div>
           </div>
