@@ -35,6 +35,9 @@ function getAttendanceRsvpIntroText(key: EmailSequenceKey): string {
   if (key === "seq1") {
     return "As seats are limited, we would appreciate it if you could let us know if your plans change and you're unable to attend.";
   }
+  if (key === "seq2") {
+    return "If your plans change and you're unable to attend, we'd appreciate it if you could let us know so we can offer your place to another guest.";
+  }
   return "We are looking forward to seeing you. Please confirm so we can keep your seat reserved.";
 }
 

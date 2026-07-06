@@ -53,6 +53,7 @@ export type SequenceRenderContext = {
   isPriorityPass?: boolean;
   confirmAttendingUrl?: string;
   confirmDeclinedUrl?: string;
+  directionsUrl?: string;
 };
 
 export type SequenceContent = {

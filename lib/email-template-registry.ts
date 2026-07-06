@@ -63,6 +63,7 @@ const SEQUENCE_PLACEHOLDERS = [
   "{{calendarWeekday}}",
   "{{confirmAttendingUrl}}",
   "{{confirmDeclinedUrl}}",
+  "{{directionsUrl}}",
 ];
 
 export const EMAIL_TEMPLATE_DEFINITIONS: EmailTemplateDefinition[] = [
@@ -152,6 +153,7 @@ export function sequenceContextToVars(ctx: SequenceRenderContext): Record<string
     calendarWeekday: ctx.calendar.weekday,
     confirmAttendingUrl: ctx.confirmAttendingUrl ?? "",
     confirmDeclinedUrl: ctx.confirmDeclinedUrl ?? "",
+    directionsUrl: ctx.directionsUrl ?? "",
   };
 }
 
@@ -178,6 +180,7 @@ export function getPreviewHtml(
         ...sequenceContextToVars(ctx),
         confirmAttendingUrl: ctx.confirmAttendingUrl ?? "",
         confirmDeclinedUrl: ctx.confirmDeclinedUrl ?? "",
+        directionsUrl: ctx.directionsUrl ?? "",
       });
     }
   } else if (key === "join_thank_you" || key === "join_notify") {

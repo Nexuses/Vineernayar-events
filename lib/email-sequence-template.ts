@@ -1,5 +1,6 @@
 import { BRAND_LOGO_URL } from "@/lib/constants";
 import { EVENT_TIMEZONE, formatEventDate, getEventTimeDisplay } from "@/lib/date-utils";
+import { buildGoogleMapsDirectionsUrl } from "@/lib/google-maps";
 import { MARKETING_SITE_URL } from "@/lib/marketing-site";
 import {
   buildAttendanceConfirmUrls,
@@ -105,6 +106,7 @@ export function buildSequenceRenderContext(data: {
     websiteUrl: MARKETING_SITE_URL,
     calendar: getCalendarChip(data.eventStartDate),
     isPriorityPass: data.priorityPass === true,
+    directionsUrl: buildGoogleMapsDirectionsUrl(venue),
     ...confirmUrls,
   };
 }
@@ -221,6 +223,8 @@ const EMAIL_CLOCK_ICON_URL =
   "https://hfms-book.s3.us-east-2.amazonaws.com/clock_1783350643722_qvir.png";
 const EMAIL_MAP_PIN_ICON_URL =
   "https://hfms-book.s3.us-east-2.amazonaws.com/map-pin_1783350643722_dlp8.png";
+const EMAIL_DIRECTIONS_ICON_URL =
+  "https://hfms-book.s3.us-east-2.amazonaws.com/directions_1783352964748_t9qr.png";
 
 function buildEventDetailIconImg(iconUrl: string): string {
   return `<img src="${escapeHtml(iconUrl)}" width="${EMAIL_ICON_SIZE}" height="${EMAIL_ICON_SIZE}" alt="" style="display:block;width:${EMAIL_ICON_SIZE}px;height:${EMAIL_ICON_SIZE}px;border:0;outline:none;text-decoration:none;" />`;
@@ -249,6 +253,28 @@ function buildEventDetailRow(label: string, value: string, iconUrl: string, isLa
         <td valign="middle" style="padding:0 0 ${paddingBottom};">
           <p style="margin:0 0 3px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#71717a;">${escapeHtml(label)}</p>
           <p style="margin:0;font-size:15px;font-weight:600;line-height:1.5;color:#111111;">${escapeHtml(value)}</p>
+        </td>
+      </tr>`;
+}
+
+function buildEventDetailLinkRow(
+  label: string,
+  linkLabel: string,
+  href: string,
+  iconUrl: string,
+  isLast = false
+): string {
+  const paddingBottom = isLast ? "0" : "14px";
+  const iconHtml = buildEventDetailIconImg(iconUrl);
+  const link = href
+    ? `<a href="${escapeHtml(href)}" style="color:${CTA_BLUE};text-decoration:underline;">${escapeHtml(linkLabel)}</a>`
+    : escapeHtml(linkLabel);
+  return `
+      <tr>
+        ${buildEventDetailIconCell(iconHtml, isLast)}
+        <td valign="middle" style="padding:0 0 ${paddingBottom};">
+          <p style="margin:0 0 3px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#71717a;">${escapeHtml(label)}</p>
+          <p style="margin:0;font-size:15px;font-weight:600;line-height:1.5;color:#111111;">${link}</p>
         </td>
       </tr>`;
 }
@@ -306,10 +332,179 @@ function buildSeq1DetailsSplitHtml(ctx: SequenceRenderContext): string {
   return buildSeq1EventDetailsCardHtml(ctx);
 }
 
+function buildReminderEventDetailsCardHtml(ctx: SequenceRenderContext): string {
+  const chip = ctx.calendar;
+  const dateRow = `
+      <tr>
+        <td width="52" valign="top" style="padding:0 12px 14px 0;">
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width:48px;border:1px solid #e0d52b;border-radius:8px;overflow:hidden;text-align:center;background:#ffffff;">
+            <tr>
+              <td style="padding:4px 0;background:#f8e828;font-size:10px;font-weight:700;letter-spacing:0.04em;color:#3f3f46;text-transform:uppercase;">
+                ${escapeHtml(chip.month)}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0 8px;font-size:22px;font-weight:700;line-height:1;color:#111111;">
+                ${escapeHtml(chip.day)}
+              </td>
+            </tr>
+          </table>
+        </td>
+        <td valign="middle" style="padding:0 0 14px;">
+          <p style="margin:0 0 3px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#71717a;">Date</p>
+          <p style="margin:0;font-size:15px;font-weight:600;line-height:1.45;color:#111111;">${escapeHtml(ctx.eventDateLong)}</p>
+        </td>
+      </tr>`;
+
+  return `
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px;">
+      <tr>
+        <td style="background-color:#fffef5;border:2px solid #f8e828;border-radius:14px;padding:20px 22px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 16px;">
+            <tr>
+              <td valign="middle" style="padding:0;">
+                <p style="margin:0;font-size:13px;font-weight:700;line-height:1.3;letter-spacing:0.08em;text-transform:uppercase;color:#9a9100;">Event Details</p>
+              </td>
+              <td align="right" valign="middle" style="padding:0;">
+                <span style="display:inline-block;padding:4px 10px;border-radius:999px;background:#f8e828;border:1px solid #e0d52b;font-size:11px;font-weight:700;letter-spacing:0.04em;color:#3f3f46;text-transform:uppercase;">Confirmed</span>
+              </td>
+            </tr>
+          </table>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+            ${buildEventDetailRow("Venue", ctx.venue, EMAIL_MAP_PIN_ICON_URL)}
+            ${dateRow}
+            ${buildEventDetailRow("Time", `${ctx.eventTime} onwards`, EMAIL_CLOCK_ICON_URL)}
+            ${buildEventDetailLinkRow(
+              "Directions",
+              "Get Directions",
+              ctx.directionsUrl ?? "",
+              EMAIL_DIRECTIONS_ICON_URL,
+              true
+            )}
+          </table>
+        </td>
+      </tr>
+    </table>`;
+}
+
+function buildSeq2EmailHtml(ctx: SequenceRenderContext): string {
+  const title = escapeHtml("The Humans First Series with Vineet Nayar");
+  const attendingUrl = escapeHtml(ctx.confirmAttendingUrl ?? "");
+  const declinedUrl = escapeHtml(ctx.confirmDeclinedUrl ?? "");
+  const preOrderLink = `<a href="${escapeHtml(ctx.preOrderUrl)}" style="color:${CTA_BLUE};text-decoration:underline;">here</a>`;
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${title}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#ffffff;font-family:Roboto,Segoe UI,Helvetica,Arial,sans-serif;color:#111111;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+    <tr>
+      <td align="center" style="padding:28px 16px 40px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:680px;">
+          <tr>
+            <td style="padding:0 0 24px;">
+              ${buildEmailLogoLinkHtml(EMAIL_LOGO)}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0;">
+              <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#111111;">Dear ${escapeHtml(ctx.firstName)},</p>
+              <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#111111;">Just 2 days to go!</p>
+              <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#111111;">We're looking forward to welcoming you to the Humans First, Machines Second event in ${escapeHtml(ctx.eventCity)}.</p>
+              <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#111111;">Here are your event details:</p>
+              ${buildReminderEventDetailsCardHtml(ctx)}
+              <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#111111;">Don't forget to bring your copy of Humans First, Machines Second if you'd like it signed by Vineet Nayar.</p>
+              <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#111111;">Pre-order your copy on Amazon: ${preOrderLink}</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:24px 0 0;">
+                <tr>
+                  <td style="border-top:1px solid #e5e7eb;padding-top:24px;">
+                    <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#111111;">If your plans change and you're unable to attend, we'd appreciate it if you could let us know so we can offer your place to another guest.</p>
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="padding:0 12px 8px 0;">
+                          <a href="${attendingUrl}" style="display:inline-block;padding:12px 18px;border-radius:6px;background:#f4ea30;color:#111111;font-size:14px;font-weight:700;text-decoration:none;">Yes, I am attending</a>
+                        </td>
+                        <td style="padding:0 0 8px;">
+                          <a href="${declinedUrl}" style="display:inline-block;padding:12px 18px;border-radius:6px;background:#f4ea30;color:#111111;font-size:14px;font-weight:700;text-decoration:none;">I can no longer attend</a>
+                        </td>
+                      </tr>
+                    </table>
+                    <p style="margin:16px 0 6px;font-size:15px;line-height:1.6;color:#111111;">Warm regards,</p>
+                    <p style="margin:0;font-size:15px;line-height:1.6;color:#111111;font-weight:600;">Team VN</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+function buildSeq3EmailHtml(ctx: SequenceRenderContext): string {
+  const title = escapeHtml("The Humans First Series with Vineet Nayar");
+  const preOrderLink = `<a href="${escapeHtml(ctx.preOrderUrl)}" style="color:${CTA_BLUE};text-decoration:underline;">here</a>`;
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${title}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#ffffff;font-family:Roboto,Segoe UI,Helvetica,Arial,sans-serif;color:#111111;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+    <tr>
+      <td align="center" style="padding:28px 16px 40px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:680px;">
+          <tr>
+            <td style="padding:0 0 24px;">
+              ${buildEmailLogoLinkHtml(EMAIL_LOGO)}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0;">
+              <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#111111;">Dear ${escapeHtml(ctx.firstName)},</p>
+              <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#111111;">Just 24 hours to go!</p>
+              <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#111111;">We're looking forward to welcoming you to the Humans First, Machines Second event in ${escapeHtml(ctx.eventCity)}.</p>
+              <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#111111;">Here are your event details:</p>
+              ${buildReminderEventDetailsCardHtml(ctx)}
+              <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#111111;">Don't forget to bring your copy of Humans First, Machines Second if you'd like it signed by Vineet Nayar.</p>
+              <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#111111;">Pre-order your copy on Amazon: ${preOrderLink}</p>
+              <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#111111;">If your plans change and you're unable to attend, we'd appreciate it if you could let us know so we can offer your place to another guest.</p>
+              <p style="margin:0 0 6px;font-size:15px;line-height:1.6;color:#111111;">We look forward to seeing you!</p>
+              <p style="margin:16px 0 6px;font-size:15px;line-height:1.6;color:#111111;">Warm regards,</p>
+              <p style="margin:0;font-size:15px;line-height:1.6;color:#111111;font-weight:600;">Team VN</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
 export function buildSequenceEmailHtml(
   key: EmailSequenceKey,
   ctx: SequenceRenderContext
 ): string {
+  if (key === "seq2") {
+    return buildSeq2EmailHtml(ctx);
+  }
+  if (key === "seq3") {
+    return buildSeq3EmailHtml(ctx);
+  }
+
   const content = getSequenceContent(key, ctx);
   const title = escapeHtml(content.headerTitle);
   const subtitle = content.headerSubtitle
@@ -328,7 +523,7 @@ export function buildSequenceEmailHtml(
     : "";
 
   const eventDetails = content.showEventDetails ? buildEventDetailsHtml(ctx) : "";
-  const usePreOrderCard = key === "seq1" || key === "seq2" || key === "seq3";
+  const usePreOrderCard = key === "seq1";
   const preOrder =
     content.preOrderVariant === "default"
       ? buildPreOrderHtml(ctx, "default", usePreOrderCard)
@@ -438,6 +633,66 @@ export function buildSequenceEmailText(
   key: EmailSequenceKey,
   ctx: SequenceRenderContext
 ): string {
+  if (key === "seq2") {
+    const lines = [
+      `Dear ${ctx.firstName},`,
+      "",
+      "Just 2 days to go!",
+      "",
+      `We're looking forward to welcoming you to the Humans First, Machines Second event in ${ctx.eventCity}.`,
+      "",
+      "Here are your event details:",
+      `Venue: ${ctx.venue}`,
+      `Date: ${ctx.eventDateLong}`,
+      `Time: ${ctx.eventTime} onwards`,
+    ];
+    if (ctx.directionsUrl) {
+      lines.push(`Directions: ${ctx.directionsUrl}`);
+    }
+    lines.push(
+      "",
+      "Don't forget to bring your copy of Humans First, Machines Second if you'd like it signed by Vineet Nayar.",
+      `Pre-order your copy on Amazon: ${ctx.preOrderUrl}`,
+      "",
+      "If your plans change and you're unable to attend, we'd appreciate it if you could let us know so we can offer your place to another guest."
+    );
+    const rsvpText = buildAttendanceRsvpFooterText(key, ctx);
+    if (rsvpText) lines.push(rsvpText);
+    lines.push("", "Warm regards,", "Team VN");
+    return lines.join("\n");
+  }
+
+  if (key === "seq3") {
+    const lines = [
+      `Dear ${ctx.firstName},`,
+      "",
+      "Just 24 hours to go!",
+      "",
+      `We're looking forward to welcoming you to the Humans First, Machines Second event in ${ctx.eventCity}.`,
+      "",
+      "Here are your event details:",
+      `Venue: ${ctx.venue}`,
+      `Date: ${ctx.eventDateLong}`,
+      `Time: ${ctx.eventTime} onwards`,
+    ];
+    if (ctx.directionsUrl) {
+      lines.push(`Directions: ${ctx.directionsUrl}`);
+    }
+    lines.push(
+      "",
+      "Don't forget to bring your copy of Humans First, Machines Second if you'd like it signed by Vineet Nayar.",
+      `Pre-order your copy on Amazon: ${ctx.preOrderUrl}`,
+      "",
+      "If your plans change and you're unable to attend, we'd appreciate it if you could let us know so we can offer your place to another guest.",
+      "",
+      "We look forward to seeing you!",
+      "",
+      "Warm regards,",
+      "Team VN"
+    );
+    return lines.join("\n");
+  }
+
   const content = getSequenceContent(key, ctx);
   const lines: string[] = [];
 

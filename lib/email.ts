@@ -99,6 +99,7 @@ export async function sendSequenceEmail(
       passUrl: data.passUrl,
       confirmAttendingUrl: renderCtx.confirmAttendingUrl ?? "",
       confirmDeclinedUrl: renderCtx.confirmDeclinedUrl ?? "",
+      directionsUrl: renderCtx.directionsUrl ?? "",
     };
     const html = appendAttendanceRsvpToEmailHtml(
       customHtml
