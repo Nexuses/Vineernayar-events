@@ -1,6 +1,7 @@
 import { BRAND_LOGO_URL } from "@/lib/constants";
 import { EVENT_TIMEZONE, formatEventDate, getEventTimeDisplay } from "@/lib/date-utils";
 import { MARKETING_SITE_URL } from "@/lib/marketing-site";
+import { toAbsolutePublicUrl } from "@/lib/site-url";
 import {
   buildAttendanceConfirmUrls,
   buildAttendanceRsvpFooterHtml,
@@ -216,31 +217,33 @@ function buildCtaHtml(label: string, href: string): string {
     </table>`;
 }
 
-const EMAIL_ICON_STROKE = "#18181b";
+const EMAIL_ICON_SIZE = 24;
 
-const EMAIL_CLOCK_ICON_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${EMAIL_ICON_STROKE}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
+function buildEventDetailIconImg(assetPath: string): string {
+  const src = toAbsolutePublicUrl(assetPath);
+  return `<img src="${escapeHtml(src)}" width="${EMAIL_ICON_SIZE}" height="${EMAIL_ICON_SIZE}" alt="" style="display:block;width:${EMAIL_ICON_SIZE}px;height:${EMAIL_ICON_SIZE}px;border:0;outline:none;text-decoration:none;" />`;
+}
 
-const EMAIL_MAP_PIN_ICON_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${EMAIL_ICON_STROKE}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>`;
-
-function buildEventDetailIconCell(iconSvg: string, isLast = false): string {
+function buildEventDetailIconCell(iconHtml: string, isLast = false): string {
   const paddingBottom = isLast ? "0" : "14px";
   return `
         <td width="60" valign="top" style="padding:0 12px ${paddingBottom} 0;">
           <table role="presentation" cellspacing="0" cellpadding="0" border="0">
             <tr>
-              <td align="center" valign="middle" style="width:48px;height:48px;border-radius:999px;background:#f3e31d;line-height:0;">
-                ${iconSvg}
+              <td align="center" valign="middle" style="width:48px;height:48px;border-radius:999px;background:#f3e31d;line-height:0;font-size:0;">
+                ${iconHtml}
               </td>
             </tr>
           </table>
         </td>`;
 }
 
-function buildEventDetailRow(label: string, value: string, iconSvg: string, isLast = false): string {
+function buildEventDetailRow(label: string, value: string, iconAssetPath: string, isLast = false): string {
   const paddingBottom = isLast ? "0" : "14px";
+  const iconHtml = buildEventDetailIconImg(iconAssetPath);
   return `
       <tr>
-        ${buildEventDetailIconCell(iconSvg, isLast)}
+        ${buildEventDetailIconCell(iconHtml, isLast)}
         <td valign="middle" style="padding:0 0 ${paddingBottom};">
           <p style="margin:0 0 3px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#71717a;">${escapeHtml(label)}</p>
           <p style="margin:0;font-size:15px;font-weight:600;line-height:1.5;color:#111111;">${escapeHtml(value)}</p>
@@ -289,8 +292,8 @@ function buildSeq1EventDetailsCardHtml(ctx: SequenceRenderContext): string {
           </table>
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
             ${dateRow}
-            ${buildEventDetailRow("Time", ctx.eventTime, EMAIL_CLOCK_ICON_SVG)}
-            ${buildEventDetailRow("Location", ctx.eventLocationFull, EMAIL_MAP_PIN_ICON_SVG, true)}
+            ${buildEventDetailRow("Time", ctx.eventTime, "/assets/email/clock.png")}
+            ${buildEventDetailRow("Location", ctx.eventLocationFull, "/assets/email/map-pin.png", true)}
           </table>
         </td>
       </tr>
