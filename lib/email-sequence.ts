@@ -1,8 +1,8 @@
-import { istCalendarDayDiff } from "./date-utils";
+import { getEventCountdownRange, istCalendarDayDiff } from "./date-utils";
 import { getBannerHighlightLabel } from "./banner-label";
 import type { RegistrationDoc } from "./models/Registration";
 
-export type EmailSequenceKey = "seq1" | "seq2" | "seq3" | "seq4" | "seq5";
+export type EmailSequenceKey = "seq1" | "seq2" | "seq3" | "seq4";
 
 export type EmailSequenceEntry = {
   status: "pending" | "sent" | "failed";
@@ -17,23 +17,20 @@ export const EMAIL_SEQUENCE_ORDER: EmailSequenceKey[] = [
   "seq2",
   "seq3",
   "seq4",
-  "seq5",
 ];
 
 export const EMAIL_SEQUENCE_LABELS: Record<EmailSequenceKey, string> = {
   seq1: "Registration confirmation",
-  seq2: "7-day reminder",
-  seq3: "1-day reminder",
+  seq2: "2-day reminder",
+  seq3: "24 hr reminder",
   seq4: "Post-event thank you",
-  seq5: "30-day follow-up",
 };
 
 export const EMAIL_SEQUENCE_SCHEDULE: Record<EmailSequenceKey, string> = {
   seq1: "On admin acceptance (confirmation + pass)",
-  seq2: "7 days before event",
-  seq3: "1 day before event",
+  seq2: "2 days before event",
+  seq3: "24 hours before event",
   seq4: "1 day after event",
-  seq5: "30 days after event",
 };
 
 export const SERIES_TITLE = "The Humans First Series with Vineet Nayar";
@@ -83,7 +80,6 @@ export function createInitialEmailSequence(): EmailSequenceStatus {
     seq2: { status: "pending" },
     seq3: { status: "pending" },
     seq4: { status: "pending" },
-    seq5: { status: "pending" },
   };
 }
 
@@ -92,13 +88,11 @@ export function getSequenceSubject(key: EmailSequenceKey, _ctx: SequenceTemplate
     case "seq1":
       return "You’re In! Registration Confirmed: Humans First, Machine Second";
     case "seq2":
-      return "One week to go: The Humans First Series";
+      return "Two days to go: The Humans First Series";
     case "seq3":
-      return "Tomorrow: Stay Curious. Stay Inspired.";
+      return "24 hours to go: Stay Curious. Stay Inspired.";
     case "seq4":
       return "Thank you for being part of The Humans First Series";
-    case "seq5":
-      return "A small Humans First reminder";
     default:
       return "The Humans First Series";
   }
@@ -111,7 +105,7 @@ export function getSequenceContent(
   key: EmailSequenceKey,
   ctx: SequenceRenderContext
 ): SequenceContent {
-  const signOffLine = key === "seq5" ? "Warm regards," : "Best regards,";
+  const signOffLine = "Best regards,";
   const signOffTeam = "Team Vineet Nayar";
 
   switch (key) {
@@ -138,11 +132,11 @@ export function getSequenceContent(
     case "seq2":
       return {
         greeting: "Greetings,",
-        headerSubtitle: "One week to go",
+        headerSubtitle: "Two days to go",
         headerTitle: SERIES_TITLE,
         showEventSummary: true,
         paragraphs: [
-          `In one week, we gather for ${SERIES_TITLE}, a conversation about winning in the age of AI without losing what makes us human.`,
+          `In two days, we gather for ${SERIES_TITLE}, a conversation about winning in the age of AI without losing what makes us human.`,
           "Please plan to arrive 30 minutes early to take part in the Humans First Wall. A question to carry with you until then:",
         ],
         humanQuestion: HUMAN_QUESTION,
@@ -155,17 +149,17 @@ export function getSequenceContent(
     case "seq3":
       return {
         greeting: "Greetings,",
-        headerSubtitle: "Tomorrow",
+        headerSubtitle: "24 hours to go",
         headerTitle: SERIES_TITLE,
         showEventSummary: true,
         paragraphs: [
-          `We look forward to seeing you tomorrow at ${SERIES_TITLE}.`,
+          `We look forward to seeing you in 24 hours at ${SERIES_TITLE}.`,
           "Please bring your confirmation and arrive early. The Humans First Wall opens 30 minutes before we begin, and the evening will start on time.",
           "One question will guide the evening:",
         ],
         humanQuestion: HUMAN_QUESTION,
         showEventDetails: false,
-        preOrderVariant: "tomorrow",
+        preOrderVariant: "default",
         signOffLine,
         signOffTeam,
         cta: { label: "Event Page", href: ctx.eventPageUrl },
@@ -184,25 +178,6 @@ export function getSequenceContent(
         signOffLine,
         signOffTeam,
         cta: { label: "Visit Website", href: ctx.websiteUrl },
-      };
-    case "seq5":
-      return {
-        greeting: `Dear ${ctx.firstName},`,
-        headerTitle: "A small Humans First reminder",
-        showEventSummary: false,
-        paragraphs: [
-          `It has been a month since we met at ${SERIES_TITLE}. That evening, we asked one question:`,
-          HUMAN_QUESTION,
-          "We also made a simple promise:",
-          "To help at least two people discover what they are capable of becoming.",
-          "This is a gentle reminder to act on that promise.",
-          "It could be a student, a colleague, a friend, a young professional, a family member or someone who simply needs belief at the right moment.",
-          "You do not need to tell them about the event. You do not need to mention the book.",
-          "Just help them believe in themselves a little more than they did before. That is how the Humans First movement grows.",
-        ],
-        showEventDetails: false,
-        signOffLine,
-        signOffTeam,
       };
     default:
       return {
@@ -251,13 +226,19 @@ export function isSequenceDue(
     case "seq1":
       return true;
     case "seq2":
-      return daysUntilStart === 7;
-    case "seq3":
-      return daysUntilStart === 1;
+      return daysUntilStart === 2;
+    case "seq3": {
+      const range = getEventCountdownRange({
+        eventStartDate: reg.eventStartDate,
+        eventEndDate: reg.eventEndDate ?? reg.eventStartDate,
+        eventTime: reg.eventTime,
+      });
+      if (!range) return false;
+      const reminderAt = range.start.getTime() - 24 * 60 * 60 * 1000;
+      return now.getTime() >= reminderAt && now.getTime() < range.start.getTime();
+    }
     case "seq4":
       return daysSinceEnd === 1;
-    case "seq5":
-      return daysSinceEnd === 30;
     default:
       return false;
   }

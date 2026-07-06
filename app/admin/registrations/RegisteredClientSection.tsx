@@ -28,7 +28,6 @@ type EventItem = {
 type ParticipationStatus = "registered" | "attended";
 
 type StatusFilter = "all" | "registered" | "attended";
-type PriorityFilter = "all" | "priority" | "non-priority";
 type RsvpFilter = "all" | "pending" | "reconfirmed" | "declined";
 
 const PAGE_SIZE = 25;
@@ -87,7 +86,6 @@ function matchesSearch(row: RegistrationItem, query: string): boolean {
     row.attendanceRsvpStatus,
     row.attendanceRsvpStatus === "reconfirmed" ? "reconfirm" : "",
     row.attendanceRsvpStatus === "declined" ? "not able to attend" : "",
-    row.workedWithVineet ? "priority" : "",
   ]
     .filter(Boolean)
     .join(" ")
@@ -98,12 +96,6 @@ function matchesSearch(row: RegistrationItem, query: string): boolean {
 function matchesStatusFilter(row: RegistrationItem, filter: StatusFilter): boolean {
   if (filter === "all") return true;
   return (row.participationStatus || "registered") === filter;
-}
-
-function matchesPriorityFilter(row: RegistrationItem, filter: PriorityFilter): boolean {
-  if (filter === "all") return true;
-  if (filter === "priority") return row.workedWithVineet === true;
-  return row.workedWithVineet !== true;
 }
 
 function getAttendanceRsvpStatus(row: RegistrationItem): AttendanceRsvpStatus {
@@ -234,11 +226,6 @@ function buildRegistrationsCsv(rows: RegistrationItem[]): string {
       hasData: (r) => r.overnightStay != null,
     },
     {
-      header: "Priority Pass",
-      value: (r) => (r.workedWithVineet ? "Yes" : "No"),
-      hasData: (r) => r.workedWithVineet === true,
-    },
-    {
       header: "Connection details",
       value: (r) => r.workedWithVineetDetails || "",
       hasData: (r) => Boolean(r.workedWithVineetDetails?.trim()),
@@ -336,7 +323,6 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
   >({});
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
   const [rsvpFilter, setRsvpFilter] = useState<RsvpFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -356,14 +342,12 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
       setExpandedId(null);
       setSearchQuery("");
       setStatusFilter("all");
-      setPriorityFilter("all");
       setRsvpFilter("all");
       setCurrentPage(1);
       return;
     }
     setSearchQuery("");
     setStatusFilter("all");
-    setPriorityFilter("all");
     setRsvpFilter("all");
     setCurrentPage(1);
     fetchRegistrations();
@@ -380,10 +364,9 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
         (row) =>
           matchesSearch(row, searchQuery) &&
           matchesStatusFilter(row, statusFilter) &&
-          matchesPriorityFilter(row, priorityFilter) &&
           matchesRsvpFilter(row, rsvpFilter)
       ),
-    [registrations, searchQuery, statusFilter, priorityFilter, rsvpFilter]
+    [registrations, searchQuery, statusFilter, rsvpFilter]
   );
 
   const totalPages = Math.max(1, Math.ceil(filteredRegistrations.length / PAGE_SIZE));
@@ -398,8 +381,6 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
       all: registeredClients.length,
       registered: registeredClients.filter((r) => (r.participationStatus || "registered") === "registered").length,
       attended: registeredClients.filter((r) => r.participationStatus === "attended").length,
-      priority: registeredClients.filter((r) => r.workedWithVineet === true).length,
-      nonPriority: registeredClients.filter((r) => r.workedWithVineet !== true).length,
       rsvpPending: registeredClients.filter((r) => getAttendanceRsvpStatus(r) === "pending").length,
       rsvpReconfirmed: registeredClients.filter((r) => getAttendanceRsvpStatus(r) === "reconfirmed").length,
       rsvpDeclined: registrations.filter((r) => getAttendanceRsvpStatus(r) === "declined").length,
@@ -409,7 +390,7 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, priorityFilter, rsvpFilter]);
+  }, [searchQuery, statusFilter, rsvpFilter]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -537,7 +518,7 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-zinc-900">
               Registered clients ({registeredClients.length})
-              {searchQuery.trim() || statusFilter !== "all" || priorityFilter !== "all" || rsvpFilter !== "all" ? (
+              {searchQuery.trim() || statusFilter !== "all" || rsvpFilter !== "all" ? (
                 <span className="ml-2 text-sm font-normal text-zinc-500">
                   · {filteredRegistrations.length} shown
                 </span>
@@ -586,17 +567,6 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
                   <option value="all">All ({statusCounts.all})</option>
                   <option value="registered">Registered ({statusCounts.registered})</option>
                   <option value="attended">Attended ({statusCounts.attended})</option>
-                </FilterSelect>
-
-                <FilterSelect
-                  id="registrations-priority-filter"
-                  label="Priority"
-                  value={priorityFilter}
-                  onChange={(value) => setPriorityFilter(value as PriorityFilter)}
-                >
-                  <option value="all">All ({statusCounts.all})</option>
-                  <option value="priority">Priority ({statusCounts.priority})</option>
-                  <option value="non-priority">Non-priority ({statusCounts.nonPriority})</option>
                 </FilterSelect>
 
                 <FilterSelect
@@ -710,12 +680,6 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
                                     {r.addToWhatsapp ? (r.whatsappNumber || "—") : "—"}
                                   </dd>
                                 </div>
-                                {r.workedWithVineet != null ? (
-                                  <div>
-                                    <dt className="text-zinc-500">Priority Pass</dt>
-                                    <dd className="text-zinc-900">{r.workedWithVineet ? "Yes" : "No"}</dd>
-                                  </div>
-                                ) : null}
                                 {r.workedWithVineet && r.workedWithVineetDetails ? (
                                   <div>
                                     <dt className="text-zinc-500">Connection details</dt>

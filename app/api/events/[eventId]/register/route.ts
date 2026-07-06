@@ -10,6 +10,7 @@ import {
 import { sendWaitlistThankYouEmail, sendWaitlistThankYouWhatsApp } from "@/lib/waitlist-email";
 import { checkOtpCode, normalizePhoneForOtp } from "@/lib/twilio-otp";
 import {
+  isRegistrationProfile,
   REGISTRATION_FIELD_LIMITS,
   validateRegistrationFieldLengths,
 } from "@/lib/registration-field-limits";
@@ -77,6 +78,9 @@ export async function POST(
     }
     if (!currentDesignationTrimmed) {
       return NextResponse.json({ error: "Your current designation is required" }, { status: 400 });
+    }
+    if (!isRegistrationProfile(currentDesignationTrimmed)) {
+      return NextResponse.json({ error: "Please select a valid designation" }, { status: 400 });
     }
     const whyAttendTrimmed = typeof whyAttend === "string" ? whyAttend.trim() : "";
     if (whyAttendTrimmed.length > REGISTRATION_FIELD_LIMITS.whyAttend) {

@@ -6,7 +6,6 @@ import type { EmailBlastLogDoc } from "@/lib/models/EmailBlastLog";
 import {
   BarChartCard,
   DashboardSection,
-  PieChartCard,
   StatCards,
 } from "./DashboardCharts";
 import { EventAnalyticsTable } from "./EventAnalyticsTable";
@@ -82,47 +81,24 @@ export function DashboardView({
             helper: "Awaiting accept or reject",
             accent: "amber",
           },
-          {
-            label: "Priority passes",
-            value: reg.priority,
-            helper: `${reg.nonPriority} standard registrations`,
-          },
         ]}
       />
 
       <DashboardSection title="Charts" description="Visual breakdown of registrations and status.">
-        <div className="space-y-4">
-          <div className="grid gap-4 lg:grid-cols-2">
-            <BarChartCard
-              title="Registrations (last 14 days)"
-              description="Daily sign-ups"
-              data={charts.registrationTrend}
-            />
-            <BarChartCard
-              title="Registration pace"
-              description="Sign-ups in recent periods"
-              data={[
-                { label: "Last 7 days", value: reg.last7Days },
-                { label: "Last 30 days", value: reg.last30Days },
-              ]}
-            />
-          </div>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <PieChartCard
-              title="Waitlist"
-              description="Pending, approved, and rejected"
-              data={[
-                { label: "Pending", value: reg.waitlisted },
-                { label: "Approved", value: reg.confirmed },
-                { label: "Rejected", value: reg.rejected },
-              ].filter((d) => d.value > 0)}
-            />
-            <PieChartCard
-              title="Priority passes"
-              description="Priority vs standard registrations"
-              data={charts.priority}
-            />
-          </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <BarChartCard
+            title="Registrations (last 14 days)"
+            description="Daily sign-ups"
+            data={charts.registrationTrend}
+          />
+          <BarChartCard
+            title="Registration pace"
+            description="Sign-ups in recent periods"
+            data={[
+              { label: "Last 7 days", value: reg.last7Days },
+              { label: "Last 30 days", value: reg.last30Days },
+            ]}
+          />
         </div>
       </DashboardSection>
 

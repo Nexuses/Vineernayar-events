@@ -5,7 +5,7 @@ import { toAbsolutePublicUrl } from "@/lib/site-url";
 export type AttendanceRsvpStatus = "pending" | "reconfirmed" | "declined";
 export type AttendanceRsvpIntent = "attending" | "declined";
 
-const RSVP_SEQUENCE_KEYS = new Set<EmailSequenceKey>(["seq1", "seq2", "seq3"]);
+const RSVP_SEQUENCE_KEYS = new Set<EmailSequenceKey>(["seq2", "seq3"]);
 const RSVP_BUTTON_BG = "#F4EA30";
 const RSVP_BUTTON_TEXT = "#111111";
 

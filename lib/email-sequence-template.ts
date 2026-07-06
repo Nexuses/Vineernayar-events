@@ -212,28 +212,89 @@ function buildCtaHtml(label: string, href: string): string {
     </table>`;
 }
 
-function buildSeq1DetailsSplitHtml(ctx: SequenceRenderContext): string {
+const EMAIL_ICON_STROKE = "#18181b";
+
+const EMAIL_CLOCK_ICON_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${EMAIL_ICON_STROKE}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
+
+const EMAIL_MAP_PIN_ICON_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${EMAIL_ICON_STROKE}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>`;
+
+function buildEventDetailIconCell(iconSvg: string, isLast = false): string {
+  const paddingBottom = isLast ? "0" : "14px";
   return `
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:8px 0 22px;">
+        <td width="60" valign="top" style="padding:0 12px ${paddingBottom} 0;">
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+            <tr>
+              <td align="center" valign="middle" style="width:48px;height:48px;border-radius:999px;background:#f3e31d;line-height:0;">
+                ${iconSvg}
+              </td>
+            </tr>
+          </table>
+        </td>`;
+}
+
+function buildEventDetailRow(label: string, value: string, iconSvg: string, isLast = false): string {
+  const paddingBottom = isLast ? "0" : "14px";
+  return `
       <tr>
-        <td style="border-top:1px solid #9ca3af;font-size:0;line-height:0;">&nbsp;</td>
-      </tr>
-    </table>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px;">
+        ${buildEventDetailIconCell(iconSvg, isLast)}
+        <td valign="middle" style="padding:0 0 ${paddingBottom};">
+          <p style="margin:0 0 3px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#71717a;">${escapeHtml(label)}</p>
+          <p style="margin:0;font-size:15px;font-weight:600;line-height:1.5;color:#111111;">${escapeHtml(value)}</p>
+        </td>
+      </tr>`;
+}
+
+function buildSeq1EventDetailsCardHtml(ctx: SequenceRenderContext): string {
+  const chip = ctx.calendar;
+  const dateRow = `
       <tr>
-        <td valign="top" style="padding:0;">
-          <p style="margin:0 0 12px;font-size:18px;line-height:1.35;font-weight:700;color:#111111;">Event Details</p>
-          <p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#111111;">&#128197; <strong>Date:</strong> ${escapeHtml(ctx.eventDateLong)}</p>
-          <p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#111111;">&#128339; <strong>Time:</strong> ${escapeHtml(ctx.eventTime)}</p>
-          <p style="margin:0;font-size:15px;line-height:1.6;color:#111111;">&#128205; <strong>Location:</strong> ${escapeHtml(ctx.eventLocationFull)}</p>
+        <td width="52" valign="top" style="padding:0 12px 14px 0;">
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width:48px;border:1px solid #e0d52b;border-radius:8px;overflow:hidden;text-align:center;background:#ffffff;">
+            <tr>
+              <td style="padding:4px 0;background:#f8e828;font-size:10px;font-weight:700;letter-spacing:0.04em;color:#3f3f46;text-transform:uppercase;">
+                ${escapeHtml(chip.month)}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0 8px;font-size:22px;font-weight:700;line-height:1;color:#111111;">
+                ${escapeHtml(chip.day)}
+              </td>
+            </tr>
+          </table>
+        </td>
+        <td valign="middle" style="padding:0 0 14px;">
+          <p style="margin:0 0 3px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#71717a;">Date</p>
+          <p style="margin:0;font-size:15px;font-weight:600;line-height:1.45;color:#111111;">${escapeHtml(ctx.eventDateLong)}</p>
+          <p style="margin:4px 0 0;font-size:13px;line-height:1.4;color:#52525b;">${escapeHtml(chip.weekday)}</p>
+        </td>
+      </tr>`;
+
+  return `
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:20px 0 24px;">
+      <tr>
+        <td style="background-color:#fffef5;border:2px solid #f8e828;border-radius:14px;padding:20px 22px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 16px;">
+            <tr>
+              <td valign="middle" style="padding:0;">
+                <p style="margin:0;font-size:13px;font-weight:700;line-height:1.3;letter-spacing:0.08em;text-transform:uppercase;color:#9a9100;">Event Details</p>
+              </td>
+              <td align="right" valign="middle" style="padding:0;">
+                <span style="display:inline-block;padding:4px 10px;border-radius:999px;background:#f8e828;border:1px solid #e0d52b;font-size:11px;font-weight:700;letter-spacing:0.04em;color:#3f3f46;text-transform:uppercase;">Confirmed</span>
+              </td>
+            </tr>
+          </table>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+            ${dateRow}
+            ${buildEventDetailRow("Time", ctx.eventTime, EMAIL_CLOCK_ICON_SVG)}
+            ${buildEventDetailRow("Location", ctx.eventLocationFull, EMAIL_MAP_PIN_ICON_SVG, true)}
+          </table>
         </td>
       </tr>
-    </table>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 22px;">
-      <tr>
-        <td style="border-top:1px solid #9ca3af;font-size:0;line-height:0;">&nbsp;</td>
-      </tr>
     </table>`;
+}
+
+function buildSeq1DetailsSplitHtml(ctx: SequenceRenderContext): string {
+  return buildSeq1EventDetailsCardHtml(ctx);
 }
 
 export function buildSequenceEmailHtml(

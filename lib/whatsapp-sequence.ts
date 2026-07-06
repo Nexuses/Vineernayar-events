@@ -20,7 +20,6 @@ export function createInitialWhatsAppSequence(): WhatsAppSequenceStatus {
     seq2: { status: "pending" },
     seq3: { status: "pending" },
     seq4: { status: "pending" },
-    seq5: { status: "pending" },
   };
 }
 

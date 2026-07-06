@@ -28,7 +28,6 @@ export function EventAnalyticsTable({ rows }: { rows: EventAnalyticsRow[] }) {
             <th className="px-4 py-3 text-right">Waitlist</th>
             <th className="px-4 py-3 text-right">Rejected</th>
             <th className="px-4 py-3 text-right">Attended</th>
-            <th className="px-4 py-3 text-right">Priority</th>
             <th className="px-4 py-3 text-right">Blasted</th>
             <th className="px-4 py-3 text-right">Capacity</th>
           </tr>
@@ -56,7 +55,6 @@ export function EventAnalyticsTable({ rows }: { rows: EventAnalyticsRow[] }) {
               <td className="px-4 py-3 text-right text-amber-700">{row.waitlisted}</td>
               <td className="px-4 py-3 text-right text-red-700">{row.rejected}</td>
               <td className="px-4 py-3 text-right text-zinc-800">{row.attended}</td>
-              <td className="px-4 py-3 text-right text-zinc-800">{row.priority}</td>
               <td className="px-4 py-3 text-right text-zinc-600">
                 {row.blastedCount > 0 ? (
                   <span className="text-emerald-700">

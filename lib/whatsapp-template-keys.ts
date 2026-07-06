@@ -3,7 +3,6 @@ export type WhatsAppTemplateKey =
   | "seq2"
   | "seq3"
   | "seq4"
-  | "seq5"
   | "waitlist_thank_you"
   | "waitlist_rejected";
 
@@ -12,7 +11,6 @@ export const WHATSAPP_TEMPLATE_KEYS: WhatsAppTemplateKey[] = [
   "seq2",
   "seq3",
   "seq4",
-  "seq5",
   "waitlist_thank_you",
   "waitlist_rejected",
 ];

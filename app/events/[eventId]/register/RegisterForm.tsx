@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   buildE164Phone,
@@ -10,6 +10,8 @@ import {
 } from "@/lib/phone-countries";
 import {
   REGISTRATION_FIELD_LIMITS,
+  REGISTRATION_PROFILE_OPTIONS,
+  type RegistrationProfile,
   trimToFieldLimit,
 } from "@/lib/registration-field-limits";
 
@@ -36,6 +38,8 @@ type EventSnap = {
   transportLocations?: string[];
 };
 
+const ALREADY_REGISTERED_MESSAGE = "This email is already registered for this event.";
+
 export function RegisterForm({
   eventId,
   event,
@@ -52,7 +56,7 @@ export function RegisterForm({
   const [countryDial, setCountryDial] = useState(DEFAULT_PHONE_COUNTRY.dial);
   const [mobileLocal, setMobileLocal] = useState("");
   const [organization, setOrganization] = useState("");
-  const [currentDesignation, setCurrentDesignation] = useState("");
+  const [currentDesignation, setCurrentDesignation] = useState<"" | RegistrationProfile>("");
   const [whyAttend, setWhyAttend] = useState("");
   const [signedCopyChoice, setSignedCopyChoice] = useState<"" | "yes" | "no">("");
   const [workedWithVineetChoice, setWorkedWithVineetChoice] = useState<"" | "yes" | "no">("");
@@ -72,12 +76,18 @@ export function RegisterForm({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
+  const errorRef = useRef<HTMLParagraphElement>(null);
 
   const apparelSizes = ["S", "M", "L", "XL", "XXL", "XXXL", "XXXXL", "XXXXXL"];
 
   const transportNeeded = transportChoice === "yes";
 
   const whatsappRequired = !!event.requireWhatsAppNumber;
+
+  useEffect(() => {
+    if (error !== ALREADY_REGISTERED_MESSAGE || !errorRef.current) return;
+    errorRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [error]);
 
   function getFullMobileNumber(): string {
     return buildE164Phone(countryDial, mobileLocal);
@@ -86,7 +96,7 @@ export function RegisterForm({
   function validateForm(): string | null {
     if (!agreedToPrivacy) return "You must agree to the Privacy Policy to register.";
     if (!organization.trim()) return "Your current organisation is required.";
-    if (!currentDesignation.trim()) return "Your current designation is required.";
+    if (!currentDesignation) return "Your current designation is required.";
     if (workedWithVineetChoice === "") {
       return "Please answer whether you have worked, studied, or partnered with Vineet Nayar.";
     }
@@ -179,7 +189,7 @@ export function RegisterForm({
       const data = await res.json();
 
       if (data.alreadyRegistered) {
-        return "This email is already registered for this event.";
+        return ALREADY_REGISTERED_MESSAGE;
       }
       if (data.registrationClosed) {
         return "Registration is closed for this event.";
@@ -256,7 +266,10 @@ export function RegisterForm({
       const data = await res.json();
       if (!res.ok) {
         if (res.status === 409 || data.error === "Already registered") {
-          setOtpModalError("This email is already registered for this event.");
+          setOtpModalOpen(false);
+          setOtpCode("");
+          setOtpModalError("");
+          setError(ALREADY_REGISTERED_MESSAGE);
         } else {
           setOtpModalError(data.error || "Registration failed");
         }
@@ -322,7 +335,11 @@ export function RegisterForm({
 
       <form onSubmit={handleSubmit} className="space-y-5">
       {error && (
-        <p className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p
+          ref={errorRef}
+          className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700"
+          tabIndex={-1}
+        >
           {error}
         </p>
       )}
@@ -438,19 +455,23 @@ export function RegisterForm({
         <label className={labelClass}>
           Your Current Designation <span className="text-red-600">*</span>
         </label>
-        <input
-          type="text"
-          value={currentDesignation}
-          onChange={(e) =>
-            setCurrentDesignation(
-              trimToFieldLimit(e.target.value, REGISTRATION_FIELD_LIMITS.organization)
-            )
-          }
-          maxLength={REGISTRATION_FIELD_LIMITS.organization}
-          required
-          className={inputClass}
-          placeholder="Your designation"
-        />
+        <div className="relative">
+          <select
+            value={currentDesignation}
+            onChange={(e) => setCurrentDesignation(e.target.value as "" | RegistrationProfile)}
+            required
+            className={`${inputClass} cursor-pointer appearance-none pr-10`}
+            aria-label="Your current designation"
+          >
+            <option value="">Select</option>
+            {REGISTRATION_PROFILE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+          {selectChevron}
+        </div>
       </div>
 
       <div>

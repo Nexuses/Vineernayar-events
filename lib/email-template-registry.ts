@@ -12,8 +12,8 @@ import {
 import { JOIN_NOTIFY_HTML, JOIN_THANK_YOU_HTML } from "@/lib/join-email-templates";
 import { WAITLIST_REJECTED_HTML, WAITLIST_THANK_YOU_HTML } from "@/lib/waitlist-email-templates";
 import { BRAND_LOGO_URL } from "@/lib/constants";
-import { MARKETING_SITE_URL } from "@/lib/marketing-site";
 import { getEventPassPath } from "@/lib/event-path";
+import { getPublicSiteUrl } from "@/lib/site-url";
 import type { EmailTemplateKey } from "@/lib/email-template-keys";
 import {
   appendAttendanceRsvpToEmailHtml,
@@ -145,7 +145,7 @@ export function buildSampleSequenceContextFromEvent(event: {
     eventEndDate: end,
     eventTime: event.eventTime || "6:00 PM – 8:30 PM IST",
     venue: event.venue,
-    passUrl: `${MARKETING_SITE_URL}${getEventPassPath(event, "SAMPLE01")}`,
+    passUrl: `${getPublicSiteUrl()}${getEventPassPath(event, "SAMPLE01")}`,
     uniqueCode: "SAMPLE01",
   });
 }

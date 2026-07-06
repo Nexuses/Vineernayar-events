@@ -4,7 +4,7 @@ export const DEFAULT_EVENT_BANNER_URL =
 
 /** Cover image on the registration page sidebar */
 export const REGISTRATION_SIDEBAR_COVER_URL =
-  "https://hfms-book.s3.us-east-2.amazonaws.com/Banner_2_1783062900946_5juq.png";
+  "https://hfms-book.s3.us-east-2.amazonaws.com/Banner_4_1783328395233_op8s.png";
 
 export const BRAND_NAME = "Vineetnayar";
 

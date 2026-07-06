@@ -3,7 +3,6 @@ export type EmailTemplateKey =
   | "seq2"
   | "seq3"
   | "seq4"
-  | "seq5"
   | "join_thank_you"
   | "join_notify"
   | "waitlist_thank_you"

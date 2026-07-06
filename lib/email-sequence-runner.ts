@@ -252,7 +252,7 @@ export async function processDueEmailSequences(now: Date = new Date()): Promise<
   for (const reg of registrations) {
     if (!isConfirmedRegistration(reg)) continue;
 
-    for (const key of ["seq2", "seq3", "seq4", "seq5"] as EmailSequenceKey[]) {
+    for (const key of ["seq2", "seq3", "seq4"] as EmailSequenceKey[]) {
       const current = reg.emailSequence?.[key];
       if (current?.status === "sent") continue;
       if (!isSequenceDue(key, reg, now)) continue;

@@ -1,8 +1,19 @@
 /** Public app base URL for emails, passes, and RSVP links. */
+const EVENTS_HOST = "events.hfmsbook.com";
+const MARKETING_HOSTS = new Set(["hfmsbook.com", "www.hfmsbook.com"]);
+
+function rewriteMarketingHostToEvents(url: URL): void {
+  if (MARKETING_HOSTS.has(url.hostname)) {
+    url.hostname = EVENTS_HOST;
+    url.protocol = "https:";
+  }
+}
+
 export function getPublicSiteUrl(): string {
   const raw = process.env.SITE_URL?.trim().replace(/\/$/, "") || "http://localhost:3000";
   try {
     const url = new URL(raw.includes("://") ? raw : `http://${raw}`);
+    rewriteMarketingHostToEvents(url);
     if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
       url.protocol = "http:";
     }
@@ -18,6 +29,7 @@ export function toAbsolutePublicUrl(pathOrUrl: string): string {
   if (/^https?:\/\//i.test(trimmed)) {
     try {
       const url = new URL(trimmed);
+      rewriteMarketingHostToEvents(url);
       if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
         url.protocol = "http:";
       }

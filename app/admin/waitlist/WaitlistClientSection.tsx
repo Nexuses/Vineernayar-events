@@ -17,7 +17,10 @@ type WaitlistItem = {
   surname: string;
   email: string;
   organization?: string;
+  currentDesignation?: string;
   designation?: string;
+  whyAttend?: string;
+  signedCopyInterested?: boolean;
   mobileNumber?: string;
   workedWithVineet?: boolean;
   workedWithVineetDetails?: string;
@@ -37,7 +40,57 @@ type WaitlistItem = {
 };
 
 type StatusFilter = "all" | "pending" | "accepted" | "rejected";
-type PriorityFilter = "all" | "priority" | "non-priority";
+type VineetConnectionFilter = "all" | "yes" | "no";
+type WhyAttendFilter = "all" | "answered" | "not_answered";
+
+const selectClassName =
+  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500";
+
+function FilterSelect({
+  id,
+  label,
+  value,
+  onChange,
+  children,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0 flex-1 lg:min-w-[180px]">
+      <label htmlFor={id} className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+        {label}
+      </label>
+      <select
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={selectClassName}
+      >
+        {children}
+      </select>
+    </div>
+  );
+}
+
+function matchesVineetConnectionFilter(
+  row: WaitlistItem,
+  filter: VineetConnectionFilter
+): boolean {
+  if (filter === "all") return true;
+  if (filter === "yes") return row.workedWithVineet === true;
+  return row.workedWithVineet !== true;
+}
+
+function matchesWhyAttendFilter(row: WaitlistItem, filter: WhyAttendFilter): boolean {
+  if (filter === "all") return true;
+  const answered = Boolean(row.whyAttend?.trim());
+  if (filter === "answered") return answered;
+  return !answered;
+}
 
 function statusLabel(status?: AdmissionStatus): string {
   if (status === "confirmed") return "Accepted";
@@ -58,61 +111,6 @@ function matchesStatusFilter(row: WaitlistItem, filter: StatusFilter): boolean {
   return row.admissionStatus === "waitlisted" || !row.admissionStatus;
 }
 
-function matchesPriorityFilter(row: WaitlistItem, filter: PriorityFilter): boolean {
-  if (filter === "all") return true;
-  if (filter === "priority") return row.workedWithVineet === true;
-  return row.workedWithVineet !== true;
-}
-
-function FilterPill({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-all sm:px-3 sm:text-sm ${
-        active
-          ? "bg-zinc-900 text-white shadow-sm"
-          : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function FilterGroup({
-  label,
-  align = "start",
-  children,
-}: {
-  label: string;
-  align?: "start" | "end";
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className={`flex min-w-0 flex-wrap items-center gap-2 sm:gap-3 ${
-        align === "end" ? "lg:justify-end" : ""
-      }`}
-    >
-      <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-        {label}
-      </span>
-      <div className="inline-flex max-w-full flex-wrap gap-0.5 rounded-lg border border-zinc-200 bg-white p-1 shadow-sm">
-        {children}
-      </div>
-    </div>
-  );
-}
-
 function formatDate(iso: string) {
   if (!iso) return "—";
   return new Date(iso).toLocaleString("en-IN", {
@@ -123,6 +121,88 @@ function formatDate(iso: string) {
     minute: "2-digit",
     hour12: true,
   });
+}
+
+type DetailField = {
+  label: string;
+  value: string;
+  mono?: boolean;
+};
+
+function buildWaitlistDetailFields(row: WaitlistItem, adminNotes?: string): DetailField[] {
+  const fields: DetailField[] = [];
+  const push = (label: string, value?: string | null, mono?: boolean) => {
+    const text = value?.trim();
+    if (text) fields.push({ label, value: text, mono });
+  };
+  const pushYesNo = (label: string, value?: boolean) => {
+    if (value == null) return;
+    fields.push({ label, value: value ? "Yes" : "No" });
+  };
+
+  push("First Name", row.firstName);
+  push("Surname", row.surname);
+  push("Email", row.email);
+  push("Mobile Number", row.mobileNumber);
+  push(
+    "WhatsApp Number",
+    row.whatsappNumber?.trim() || (row.addToWhatsapp ? row.mobileNumber : undefined)
+  );
+  push("Your Current Organisation", row.organization);
+  push("Your Current Designation", row.currentDesignation || row.designation);
+  pushYesNo("Have you worked, studied, or partnered with Vineet Nayar?", row.workedWithVineet);
+  push("Tell us more about where or how you connected?", row.workedWithVineetDetails);
+  push("Why would you like to attend this event?", row.whyAttend);
+  pushYesNo(
+    "Would you like a signed copy of Humans First, Machines Second?",
+    row.signedCopyInterested
+  );
+  push("Apparel - sizes", row.apparelSize);
+  pushYesNo("Overnight Stay", row.overnightStay);
+  push("Passport/NIC", row.passportNic);
+  if (row.transportNeeded != null) {
+    push("Transport", row.transportNeeded ? "Yes" : "No");
+  }
+  push("Location", row.transportNeeded ? row.transportLocation : undefined);
+  push("Registration code", row.uniqueCode, true);
+  fields.push({ label: "Waitlist status", value: statusLabel(row.admissionStatus) });
+  fields.push({ label: "Registered on", value: formatDate(row.createdAt) });
+  push("Admin notes", adminNotes);
+
+  return fields;
+}
+
+function WaitlistDetailGrid({
+  row,
+  adminNotes,
+}: {
+  row: WaitlistItem;
+  adminNotes?: string;
+}) {
+  const fields = buildWaitlistDetailFields(row, adminNotes);
+  const splitAt = Math.ceil(fields.length / 2);
+  const leftFields = fields.slice(0, splitAt);
+  const rightFields = fields.slice(splitAt);
+
+  function renderColumn(items: DetailField[]) {
+    return (
+      <dl className="space-y-2 text-sm">
+        {items.map((field, index) => (
+          <div key={`${field.label}-${index}`}>
+            <dt className="text-zinc-500 leading-snug">{field.label}</dt>
+            <dd className={`text-zinc-900 ${field.mono ? "font-mono" : ""}`}>{field.value}</dd>
+          </div>
+        ))}
+      </dl>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
+      {renderColumn(leftFields)}
+      {renderColumn(rightFields)}
+    </div>
+  );
 }
 
 function ChevronDown({ className, open }: { className?: string; open: boolean }) {
@@ -156,12 +236,13 @@ function matchesSearch(
     row.whatsappNumber,
     row.uniqueCode,
     row.organization,
+    row.currentDesignation,
     row.designation,
+    row.whyAttend,
     notes[row._id] ?? row.adminNotes,
     row.specialComment,
     row.questionForVineet,
     row.workedWithVineetDetails,
-    row.workedWithVineet ? "priority" : "",
   ]
     .filter(Boolean)
     .join(" ")
@@ -180,7 +261,9 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
+  const [vineetConnectionFilter, setVineetConnectionFilter] =
+    useState<VineetConnectionFilter>("all");
+  const [whyAttendFilter, setWhyAttendFilter] = useState<WhyAttendFilter>("all");
 
   function fetchWaitlist() {
     if (!selectedEventId) return;
@@ -204,12 +287,14 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
       setExpandedId(null);
       setSearchQuery("");
       setStatusFilter("all");
-      setPriorityFilter("all");
+      setVineetConnectionFilter("all");
+      setWhyAttendFilter("all");
       return;
     }
     setSearchQuery("");
     setStatusFilter("all");
-    setPriorityFilter("all");
+    setVineetConnectionFilter("all");
+    setWhyAttendFilter("all");
     fetchWaitlist();
   }, [selectedEventId]);
 
@@ -219,9 +304,10 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
         (row) =>
           matchesSearch(row, searchQuery, notesDraft) &&
           matchesStatusFilter(row, statusFilter) &&
-          matchesPriorityFilter(row, priorityFilter)
+          matchesVineetConnectionFilter(row, vineetConnectionFilter) &&
+          matchesWhyAttendFilter(row, whyAttendFilter)
       ),
-    [rows, searchQuery, notesDraft, statusFilter, priorityFilter]
+    [rows, searchQuery, notesDraft, statusFilter, vineetConnectionFilter, whyAttendFilter]
   );
 
   const statusCounts = useMemo(
@@ -230,8 +316,10 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
       pending: rows.filter((r) => r.admissionStatus === "waitlisted" || !r.admissionStatus).length,
       accepted: rows.filter((r) => r.admissionStatus === "confirmed").length,
       rejected: rows.filter((r) => r.admissionStatus === "rejected").length,
-      priority: rows.filter((r) => r.workedWithVineet === true).length,
-      nonPriority: rows.filter((r) => r.workedWithVineet !== true).length,
+      vineetYes: rows.filter((r) => r.workedWithVineet === true).length,
+      vineetNo: rows.filter((r) => r.workedWithVineet !== true).length,
+      whyAttendAnswered: rows.filter((r) => Boolean(r.whyAttend?.trim())).length,
+      whyAttendNotAnswered: rows.filter((r) => !r.whyAttend?.trim()).length,
     }),
     [rows]
   );
@@ -297,6 +385,12 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
     }
   }
 
+  const hasActiveFilters =
+    searchQuery.trim().length > 0 ||
+    statusFilter !== "all" ||
+    vineetConnectionFilter !== "all" ||
+    whyAttendFilter !== "all";
+
   return (
     <div className="mt-6 space-y-6">
       <div>
@@ -328,7 +422,7 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-zinc-900">
               Waitlist ({rows.length})
-              {searchQuery.trim() || statusFilter !== "all" || priorityFilter !== "all" ? (
+              {hasActiveFilters ? (
                 <span className="ml-2 text-sm font-normal text-zinc-500">
                   · {filteredRows.length} shown
                 </span>
@@ -353,57 +447,44 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
 
           {rows.length > 0 ? (
             <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-gradient-to-b from-zinc-50 to-white p-4 sm:p-5">
-              <div className="grid grid-cols-1 items-center gap-4 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-6">
-                <FilterGroup label="Status">
-                  <FilterPill active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>
-                    All <span className={statusFilter === "all" ? "opacity-80" : "text-zinc-400"}>({statusCounts.all})</span>
-                  </FilterPill>
-                  <FilterPill
-                    active={statusFilter === "pending"}
-                    onClick={() => setStatusFilter("pending")}
-                  >
-                    Pending <span className={statusFilter === "pending" ? "opacity-80" : "text-zinc-400"}>({statusCounts.pending})</span>
-                  </FilterPill>
-                  <FilterPill
-                    active={statusFilter === "accepted"}
-                    onClick={() => setStatusFilter("accepted")}
-                  >
-                    Accepted <span className={statusFilter === "accepted" ? "opacity-80" : "text-zinc-400"}>({statusCounts.accepted})</span>
-                  </FilterPill>
-                  <FilterPill
-                    active={statusFilter === "rejected"}
-                    onClick={() => setStatusFilter("rejected")}
-                  >
-                    Rejected <span className={statusFilter === "rejected" ? "opacity-80" : "text-zinc-400"}>({statusCounts.rejected})</span>
-                  </FilterPill>
-                </FilterGroup>
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+                <FilterSelect
+                  id="waitlist-status-filter"
+                  label="Status"
+                  value={statusFilter}
+                  onChange={(value) => setStatusFilter(value as StatusFilter)}
+                >
+                  <option value="all">All ({statusCounts.all})</option>
+                  <option value="pending">Pending ({statusCounts.pending})</option>
+                  <option value="accepted">Accepted ({statusCounts.accepted})</option>
+                  <option value="rejected">Rejected ({statusCounts.rejected})</option>
+                </FilterSelect>
 
-                <div
-                  className="mx-auto hidden h-8 w-px shrink-0 self-center bg-zinc-200 lg:block"
-                  aria-hidden
-                />
-                <div className="h-px w-full bg-zinc-200 lg:hidden" aria-hidden />
+                <FilterSelect
+                  id="waitlist-vineet-filter"
+                  label="Worked with Vineet Nayar?"
+                  value={vineetConnectionFilter}
+                  onChange={(value) =>
+                    setVineetConnectionFilter(value as VineetConnectionFilter)
+                  }
+                >
+                  <option value="all">All ({statusCounts.all})</option>
+                  <option value="yes">Yes ({statusCounts.vineetYes})</option>
+                  <option value="no">No ({statusCounts.vineetNo})</option>
+                </FilterSelect>
 
-                <FilterGroup label="Priority" align="end">
-                  <FilterPill
-                    active={priorityFilter === "all"}
-                    onClick={() => setPriorityFilter("all")}
-                  >
-                    All <span className={priorityFilter === "all" ? "opacity-80" : "text-zinc-400"}>({statusCounts.all})</span>
-                  </FilterPill>
-                  <FilterPill
-                    active={priorityFilter === "priority"}
-                    onClick={() => setPriorityFilter("priority")}
-                  >
-                    Priority <span className={priorityFilter === "priority" ? "opacity-80" : "text-zinc-400"}>({statusCounts.priority})</span>
-                  </FilterPill>
-                  <FilterPill
-                    active={priorityFilter === "non-priority"}
-                    onClick={() => setPriorityFilter("non-priority")}
-                  >
-                    Non-priority <span className={priorityFilter === "non-priority" ? "opacity-80" : "text-zinc-400"}>({statusCounts.nonPriority})</span>
-                  </FilterPill>
-                </FilterGroup>
+                <FilterSelect
+                  id="waitlist-why-attend-filter"
+                  label="Why attend this event?"
+                  value={whyAttendFilter}
+                  onChange={(value) => setWhyAttendFilter(value as WhyAttendFilter)}
+                >
+                  <option value="all">All ({statusCounts.all})</option>
+                  <option value="answered">Answered ({statusCounts.whyAttendAnswered})</option>
+                  <option value="not_answered">
+                    Not answered ({statusCounts.whyAttendNotAnswered})
+                  </option>
+                </FilterSelect>
               </div>
             </div>
           ) : null}
@@ -423,7 +504,6 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
                     <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Name</th>
                     <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Email</th>
                     <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Status</th>
-                    <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Priority</th>
                     <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Registered</th>
                     <th className="min-w-[180px] px-3 py-3 font-medium text-zinc-700 sm:px-4">Notes</th>
                     <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Actions</th>
@@ -449,15 +529,6 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
                           >
                             {statusLabel(r.admissionStatus)}
                           </span>
-                        </td>
-                        <td className="px-3 py-3 text-zinc-700 sm:px-4">
-                          {r.workedWithVineet ? (
-                            <span className="inline-flex rounded-full bg-zinc-900 px-2 py-0.5 text-xs font-medium text-white">
-                              Priority
-                            </span>
-                          ) : (
-                            "—"
-                          )}
                         </td>
                         <td className="px-3 py-3 text-zinc-600 sm:px-4">{formatDate(r.createdAt)}</td>
                         <td
@@ -509,109 +580,15 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
                       </tr>
                       {expandedId === r._id && (
                         <tr className="bg-zinc-50">
-                          <td colSpan={8} className="px-4 py-4">
+                          <td colSpan={7} className="px-4 py-4">
                             <div className="rounded-lg border border-zinc-200 bg-white p-4">
                               <h3 className="mb-3 text-sm font-semibold text-zinc-700">
                                 Full details
                               </h3>
-                              <dl className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
-                                <div>
-                                  <dt className="text-zinc-500">Code</dt>
-                                  <dd className="font-mono text-zinc-900">{r.uniqueCode}</dd>
-                                </div>
-                                <div>
-                                  <dt className="text-zinc-500">Mobile</dt>
-                                  <dd className="text-zinc-900">{r.mobileNumber || "—"}</dd>
-                                </div>
-                                <div>
-                                  <dt className="text-zinc-500">WhatsApp</dt>
-                                  <dd className="text-zinc-900">
-                                    {r.addToWhatsapp ? (r.whatsappNumber || "—") : "—"}
-                                  </dd>
-                                </div>
-                                {r.workedWithVineet != null ? (
-                                  <div>
-                                    <dt className="text-zinc-500">Priority Pass</dt>
-                                    <dd className="text-zinc-900">{r.workedWithVineet ? "Yes" : "No"}</dd>
-                                  </div>
-                                ) : null}
-                                {r.workedWithVineet && r.workedWithVineetDetails ? (
-                                  <div className="sm:col-span-2">
-                                    <dt className="text-zinc-500">Connection details</dt>
-                                    <dd className="text-zinc-900">{r.workedWithVineetDetails}</dd>
-                                  </div>
-                                ) : null}
-                                {r.organization ? (
-                                  <div>
-                                    <dt className="text-zinc-500">Organization</dt>
-                                    <dd className="text-zinc-900">{r.organization}</dd>
-                                  </div>
-                                ) : null}
-                                {r.designation ? (
-                                  <div>
-                                    <dt className="text-zinc-500">Profile</dt>
-                                    <dd className="text-zinc-900">{r.designation}</dd>
-                                  </div>
-                                ) : null}
-                                {r.identityCardOrPassport ? (
-                                  <div>
-                                    <dt className="text-zinc-500">Identity card / Passport</dt>
-                                    <dd className="text-zinc-900">{r.identityCardOrPassport}</dd>
-                                  </div>
-                                ) : null}
-                                {(r.apparelSize != null && r.apparelSize !== "") ? (
-                                  <div>
-                                    <dt className="text-zinc-500">Apparel size</dt>
-                                    <dd className="text-zinc-900">{r.apparelSize}</dd>
-                                  </div>
-                                ) : null}
-                                {r.overnightStay != null ? (
-                                  <div>
-                                    <dt className="text-zinc-500">Overnight stay</dt>
-                                    <dd className="text-zinc-900">{r.overnightStay ? "Yes" : "No"}</dd>
-                                  </div>
-                                ) : null}
-                                {(r.passportNic != null && r.passportNic !== "") ? (
-                                  <div>
-                                    <dt className="text-zinc-500">Passport/NIC</dt>
-                                    <dd className="text-zinc-900">{r.passportNic}</dd>
-                                  </div>
-                                ) : null}
-                                {r.transportNeeded != null ? (
-                                  <div>
-                                    <dt className="text-zinc-500">Transport needed</dt>
-                                    <dd className="text-zinc-900">
-                                      {r.transportNeeded
-                                        ? r.transportLocation
-                                          ? `Yes — ${r.transportLocation}`
-                                          : "Yes"
-                                        : "No"}
-                                    </dd>
-                                  </div>
-                                ) : null}
-                                <div>
-                                  <dt className="text-zinc-500">Registered</dt>
-                                  <dd className="text-zinc-900">{formatDate(r.createdAt)}</dd>
-                                </div>
-                                {r.specialComment ? (
-                                  <div className="sm:col-span-2">
-                                    <dt className="text-zinc-500">Special comment</dt>
-                                    <dd className="text-zinc-900">{r.specialComment}</dd>
-                                  </div>
-                                ) : null}
-                                {r.questionForVineet ? (
-                                  <div className="sm:col-span-2">
-                                    <dt className="text-zinc-500">Question for Vineet Nayar</dt>
-                                    <dd className="text-zinc-900">{r.questionForVineet}</dd>
-                                  </div>
-                                ) : null}
-                                {(notesDraft[r._id] ?? r.adminNotes) ? (
-                                  <div className="sm:col-span-2">
-                                    <dt className="text-zinc-500">Admin notes</dt>
-                                    <dd className="text-zinc-900">{notesDraft[r._id] ?? r.adminNotes}</dd>
-                                  </div>
-                                ) : null}
-                              </dl>
+                              <WaitlistDetailGrid
+                                row={r}
+                                adminNotes={notesDraft[r._id] ?? r.adminNotes}
+                              />
                             </div>
                           </td>
                         </tr>

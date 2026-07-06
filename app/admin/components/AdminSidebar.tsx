@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { BRAND_LOGO_URL, BRAND_NAME } from "@/lib/constants";
 import type { NavItem } from "@/lib/admin-nav";
@@ -44,18 +44,6 @@ export function AdminSidebar({
 
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    setExpandedSections((prev) => {
-      const next = { ...prev };
-      for (const item of navItems) {
-        if ((item.children?.length ?? 0) > 0 && isSectionActive(pathname, item)) {
-          next[item.href] = true;
-        }
-      }
-      return next;
-    });
-  }, [pathname, navItems]);
-
   const closeAllNested = () => setExpandedSections({});
 
   return (
@@ -70,7 +58,7 @@ export function AdminSidebar({
           <Link
             href="/admin"
             onClick={() => {
-              setExpandedSections((prev) => ({ ...prev, "/admin": true }));
+              closeAllNested();
               onClose?.();
             }}
             className="block w-full rounded-md focus:outline-none focus:ring-2 focus:ring-zinc-400"

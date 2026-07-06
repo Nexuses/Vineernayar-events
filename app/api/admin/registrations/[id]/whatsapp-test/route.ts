@@ -19,7 +19,6 @@ const ALLOWED_SEQUENCE_KEYS = new Set<WhatsAppSequenceKey>([
   "seq2",
   "seq3",
   "seq4",
-  "seq5",
 ]);
 
 function parseSequenceKey(value: unknown): WhatsAppSequenceKey {

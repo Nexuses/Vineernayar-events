@@ -206,7 +206,6 @@ export async function generatePassCardImage(data: FullPassData): Promise<Buffer>
   const venue = data.venue || "—";
   const registered = `Registered ${formatRegisteredDate(data.createdAt)}`;
   const logoBuffer = await fetchLogo();
-  const isPriorityPass = data.priorityPass === true;
 
   const fsHeader = 11 * SCALE;
   const fsWelcome = 12 * SCALE;
@@ -274,31 +273,12 @@ export async function generatePassCardImage(data: FullPassData): Promise<Buffer>
 
   svgParts.push(`<rect width="${W}" height="${cardH}" fill="${C.white}"/>`);
   svgParts.push(`<rect x="0" y="0" width="${W}" height="${HEADER_H}" fill="${C.brand}"/>`);
-  if (isPriorityPass) {
-    const badgeLabel = "PRIORITY PASS";
-    const badgeFs = 8 * SCALE;
-    const badgePadX = 10 * SCALE;
-    const badgePadY = 4 * SCALE;
-    const badgeW = Math.round(badgeLabel.length * badgeFs * 0.55 + badgePadX * 2);
-    const badgeH = badgeFs + badgePadY * 2;
-    const badgeY = Math.round((HEADER_H - badgeH) / 2);
-    svgParts.push(
-      `<rect x="${PAD}" y="${badgeY}" width="${badgeW}" height="${badgeH}" rx="${Math.round(badgeH / 2)}" ry="${Math.round(badgeH / 2)}" fill="${C.black}"/>`
-    );
-    svgParts.push(
-      svgText(PAD + badgePadX, badgeY + badgePadY, badgeLabel, badgeFs, {
-        bold: true,
-        fill: C.white,
-      })
-    );
-  } else {
-    svgParts.push(
-      svgText(PAD, Math.round((HEADER_H - fsHeader) / 2), "Event Pass", fsHeader, {
-        bold: true,
-        letterSpacing: 3.5 * SCALE,
-      })
-    );
-  }
+  svgParts.push(
+    svgText(PAD, Math.round((HEADER_H - fsHeader) / 2), "Event Pass", fsHeader, {
+      bold: true,
+      letterSpacing: 3.5 * SCALE,
+    })
+  );
   svgParts.push(
     svgText(W - PAD, Math.round((HEADER_H - fsHeader) / 2), safeText(data.uniqueCode), fsHeader, {
       bold: true,

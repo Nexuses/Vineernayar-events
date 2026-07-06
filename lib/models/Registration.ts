@@ -53,7 +53,7 @@ export interface RegistrationDoc {
   participationStatus?: ParticipationStatus;
   /** When the attendee was marked as attended (via scan or admin) */
   participationTimestamp?: Date;
-  /** RSVP from 7-day / 1-day reminder emails */
+  /** RSVP from 2-day / 24 hr reminder emails */
   attendanceRsvpStatus?: AttendanceRsvpStatus;
   attendanceRsvpAt?: Date;
   /** Waitlist workflow: new registrations start as waitlisted until admin accepts */

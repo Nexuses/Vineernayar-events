@@ -23,8 +23,6 @@ export type DashboardAnalytics = {
     confirmed: number;
     waitlisted: number;
     rejected: number;
-    priority: number;
-    nonPriority: number;
     attended: number;
     notAttended: number;
     checkInRate: number;
@@ -41,7 +39,6 @@ export type DashboardAnalytics = {
     byEvent: { label: string; value: number }[];
     admissionStatus: { label: string; value: number }[];
     participation: { label: string; value: number }[];
-    priority: { label: string; value: number }[];
     registrationTrend: { label: string; value: number }[];
     eventWindowStatus: { label: string; value: number }[];
   };
@@ -60,7 +57,6 @@ export type EventAnalyticsRow = {
   waitlisted: number;
   rejected: number;
   attended: number;
-  priority: number;
   seatLimit?: number;
   fillPct?: number;
   blastedCount: number;
@@ -185,7 +181,6 @@ export function computeDashboardAnalytics(
   let confirmed = 0;
   let waitlisted = 0;
   let rejected = 0;
-  let priority = 0;
   let attended = 0;
   let whatsappOptIn = 0;
 
@@ -195,7 +190,6 @@ export function computeDashboardAnalytics(
     else if (admission === "waitlisted") waitlisted += 1;
     else if (admission === "rejected") rejected += 1;
 
-    if (r.workedWithVineet === true) priority += 1;
     if (r.participationStatus === "attended") attended += 1;
     if (r.addToWhatsapp) whatsappOptIn += 1;
   }
@@ -233,11 +227,6 @@ export function computeDashboardAnalytics(
     { label: "Not checked in", value: Math.max(0, notAttended) },
   ].filter((d) => d.value > 0);
 
-  const priorityChart = [
-    { label: "Priority pass", value: priority },
-    { label: "Standard", value: registrations.length - priority },
-  ].filter((d) => d.value > 0);
-
   const eventWindowStatus = [
     { label: "Reg. open", value: registrationOpen },
     { label: "Opens soon", value: registrationOpenSoon },
@@ -258,7 +247,6 @@ export function computeDashboardAnalytics(
       let evWaitlisted = 0;
       let evRejected = 0;
       let evAttended = 0;
-      let evPriority = 0;
       let evBlasted = 0;
       for (const r of regs) {
         const a = getAdmissionStatus(r);
@@ -266,7 +254,6 @@ export function computeDashboardAnalytics(
         else if (a === "waitlisted") evWaitlisted += 1;
         else if (a === "rejected") evRejected += 1;
         if (r.participationStatus === "attended") evAttended += 1;
-        if (r.workedWithVineet === true) evPriority += 1;
         if (r.lastEmailBlastAt) evBlasted += 1;
       }
       const seatLimit =
@@ -292,7 +279,6 @@ export function computeDashboardAnalytics(
         waitlisted: evWaitlisted,
         rejected: evRejected,
         attended: evAttended,
-        priority: evPriority,
         seatLimit,
         fillPct,
         blastedCount: evBlasted,
@@ -315,8 +301,6 @@ export function computeDashboardAnalytics(
       confirmed,
       waitlisted,
       rejected,
-      priority,
-      nonPriority: registrations.length - priority,
       attended,
       notAttended: Math.max(0, notAttended),
       checkInRate,
@@ -333,7 +317,6 @@ export function computeDashboardAnalytics(
       byEvent,
       admissionStatus,
       participation,
-      priority: priorityChart,
       registrationTrend: countByDay(registrations, 14),
       eventWindowStatus,
     },

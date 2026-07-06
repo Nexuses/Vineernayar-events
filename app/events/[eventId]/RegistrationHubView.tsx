@@ -81,10 +81,10 @@ export function RegistrationHubView({
                 </span>
               </div>
               <h3 className="text-2xl font-bold tracking-tight text-zinc-900">
-                Welcome to the Humans First Movement!
+                Thank You for applying for an invitation.
               </h3>
               <p className="mt-3 text-sm leading-relaxed text-slate-600 sm:text-base">
-                Kindly await confirmation of your seat at the event based on limited availability.
+                You will receive a confirmation mail soon
               </p>
             </div>
           </div>
