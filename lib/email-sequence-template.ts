@@ -338,7 +338,7 @@ export function buildSequenceEmailHtml(
 
   const cta = content.cta ? buildCtaHtml(content.cta.label, content.cta.href) : "";
   const rsvpFooter = isAttendanceRsvpSequenceKey(key)
-    ? buildAttendanceRsvpFooterHtml(ctx)
+    ? buildAttendanceRsvpFooterHtml(key, ctx)
     : "";
 
   const signOff = `
@@ -378,9 +378,9 @@ export function buildSequenceEmailHtml(
               </p>
               <p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#111111;font-weight:700;">${escapeHtml(content.humanQuestion ?? "")}</p>
               ${buildSeq1DetailsSplitHtml(ctx)}
+              ${rsvpFooter}
               ${seq1SignOff}
               ${cta}
-              ${rsvpFooter}
             </td>
           </tr>
         </table>
@@ -482,7 +482,7 @@ export function buildSequenceEmailText(
   }
   if (content.cta) lines.push("", `${content.cta.label}: ${content.cta.href}`);
   if (isAttendanceRsvpSequenceKey(key)) {
-    const rsvpText = buildAttendanceRsvpFooterText(ctx);
+    const rsvpText = buildAttendanceRsvpFooterText(key, ctx);
     if (rsvpText) lines.push(rsvpText);
   }
   return lines.join("\n");

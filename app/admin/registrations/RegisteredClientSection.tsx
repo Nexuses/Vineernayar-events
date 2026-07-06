@@ -178,6 +178,10 @@ function sequenceStatusClass(status: string): string {
   return "bg-amber-100 text-amber-800";
 }
 
+function emailTestKey(regId: string, sequenceKey: EmailSequenceKey): string {
+  return `${regId}:${sequenceKey}`;
+}
+
 function TrashIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -319,6 +323,10 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [whatsAppTestingId, setWhatsAppTestingId] = useState<string | null>(null);
   const [whatsAppTestNoticeById, setWhatsAppTestNoticeById] = useState<
+    Record<string, { kind: "success" | "error"; text: string }>
+  >({});
+  const [emailTestingKey, setEmailTestingKey] = useState<string | null>(null);
+  const [emailTestNoticeByKey, setEmailTestNoticeByKey] = useState<
     Record<string, { kind: "success" | "error"; text: string }>
   >({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -483,6 +491,47 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
       }));
     } finally {
       setWhatsAppTestingId(null);
+    }
+  }
+
+  async function handleEmailTest(id: string, sequenceKey: EmailSequenceKey) {
+    const testKey = emailTestKey(id, sequenceKey);
+    setEmailTestingKey(testKey);
+    setEmailTestNoticeByKey((prev) => ({ ...prev, [testKey]: { kind: "success", text: "" } }));
+    try {
+      const res = await fetch(`/api/admin/registrations/${id}/email-test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sequenceKey }),
+      });
+      const data = (await res.json()) as { ok?: boolean; message?: string; error?: string };
+      if (!res.ok || !data.ok) {
+        setEmailTestNoticeByKey((prev) => ({
+          ...prev,
+          [testKey]: {
+            kind: "error",
+            text: data.error || data.message || "Email test failed",
+          },
+        }));
+        return;
+      }
+      setEmailTestNoticeByKey((prev) => ({
+        ...prev,
+        [testKey]: {
+          kind: "success",
+          text: data.message || "Test email sent",
+        },
+      }));
+    } catch {
+      setEmailTestNoticeByKey((prev) => ({
+        ...prev,
+        [testKey]: {
+          kind: "error",
+          text: "Unable to send test email right now",
+        },
+      }));
+    } finally {
+      setEmailTestingKey(null);
     }
   }
 
@@ -770,6 +819,26 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
                                 <p className="mb-3 text-xs text-zinc-500">
                                   Sent automatically on schedule. Registration confirmation goes out immediately when someone registers.
                                 </p>
+                                {EMAIL_SEQUENCE_ORDER.some((key) => emailTestNoticeByKey[emailTestKey(r._id, key)]?.text) ? (
+                                  <div className="mb-3 space-y-2">
+                                    {EMAIL_SEQUENCE_ORDER.map((key) => {
+                                      const notice = emailTestNoticeByKey[emailTestKey(r._id, key)];
+                                      if (!notice?.text) return null;
+                                      return (
+                                        <p
+                                          key={key}
+                                          className={`rounded-md px-3 py-2 text-xs ${
+                                            notice.kind === "success"
+                                              ? "bg-emerald-50 text-emerald-700"
+                                              : "bg-red-50 text-red-700"
+                                          }`}
+                                        >
+                                          {EMAIL_SEQUENCE_LABELS[key]}: {notice.text}
+                                        </p>
+                                      );
+                                    })}
+                                  </div>
+                                ) : null}
                                 <div className="overflow-x-auto">
                                   <table className="min-w-full text-sm">
                                     <thead>
@@ -777,7 +846,8 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
                                         <th className="pb-2 pr-4 font-medium">Email</th>
                                         <th className="pb-2 pr-4 font-medium">Schedule</th>
                                         <th className="pb-2 pr-4 font-medium">Status</th>
-                                        <th className="pb-2 font-medium">Sent at</th>
+                                        <th className="pb-2 pr-4 font-medium">Sent at</th>
+                                        <th className="pb-2 font-medium">Test</th>
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -803,10 +873,12 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
                                         <td className="py-2 text-zinc-600">
                                           {r.waitlistEmailSentAt ? formatDate(r.waitlistEmailSentAt) : "—"}
                                         </td>
+                                        <td className="py-2 text-zinc-400">—</td>
                                       </tr>
                                       {EMAIL_SEQUENCE_ORDER.map((key) => {
                                         const entry = r.emailSequence?.[key];
                                         const status = entry?.status ?? "pending";
+                                        const testKey = emailTestKey(r._id, key);
                                         return (
                                           <tr key={key} className="border-b border-zinc-100">
                                             <td className="py-2 pr-4 font-medium text-zinc-800">
@@ -825,8 +897,21 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
                                                 <p className="mt-1 text-xs text-red-600">{entry.error}</p>
                                               ) : null}
                                             </td>
-                                            <td className="py-2 text-zinc-600">
+                                            <td className="py-2 pr-4 text-zinc-600">
                                               {entry?.sentAt ? formatDate(entry.sentAt) : "—"}
+                                            </td>
+                                            <td className="py-2">
+                                              <button
+                                                type="button"
+                                                disabled={emailTestingKey === testKey}
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleEmailTest(r._id, key);
+                                                }}
+                                                className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                                              >
+                                                {emailTestingKey === testKey ? "Sending…" : "Test"}
+                                              </button>
                                             </td>
                                           </tr>
                                         );

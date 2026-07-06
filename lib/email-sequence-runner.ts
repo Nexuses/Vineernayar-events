@@ -239,6 +239,32 @@ export async function sendEmailSequenceForRegistration(
   }
 }
 
+export async function sendTestEmailSequenceForRegistration(
+  reg: RegistrationDoc,
+  key: EmailSequenceKey
+): Promise<{ ok: boolean; error?: string; sentTo?: string }> {
+  const passUrl = await buildPassUrl(reg.eventId, reg.uniqueCode);
+  const data = toPassEmailData(reg, passUrl);
+
+  try {
+    let emailAttachments: SequenceEmailAttachments | undefined;
+
+    if (SEQUENCES_WITH_PASS_ATTACHMENTS.has(key)) {
+      emailAttachments = await buildPassEmailAttachments(reg, passUrl);
+    }
+
+    const ok = await sendSequenceEmail(data, key, emailAttachments);
+    if (!ok) {
+      return { ok: false, error: "Email delivery failed. Check mail configuration." };
+    }
+
+    return { ok: true, sentTo: reg.email };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Send failed";
+    return { ok: false, error: message };
+  }
+}
+
 export async function processDueEmailSequences(now: Date = new Date()): Promise<{
   processed: number;
   sent: number;

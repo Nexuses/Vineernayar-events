@@ -5,7 +5,7 @@ import { toAbsolutePublicUrl } from "@/lib/site-url";
 export type AttendanceRsvpStatus = "pending" | "reconfirmed" | "declined";
 export type AttendanceRsvpIntent = "attending" | "declined";
 
-const RSVP_SEQUENCE_KEYS = new Set<EmailSequenceKey>(["seq2"]);
+const RSVP_SEQUENCE_KEYS = new Set<EmailSequenceKey>(["seq1", "seq2"]);
 const RSVP_BUTTON_BG = "#F4EA30";
 const RSVP_BUTTON_TEXT = "#111111";
 
@@ -31,17 +31,33 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] || c);
 }
 
-export function buildAttendanceRsvpFooterHtml(ctx: SequenceRenderContext): string {
+function getAttendanceRsvpIntroText(key: EmailSequenceKey): string {
+  if (key === "seq1") {
+    return "As seats are limited, we would appreciate it if you could let us know if your plans change and you're unable to attend.";
+  }
+  return "We are looking forward to seeing you. Please confirm so we can keep your seat reserved.";
+}
+
+export function buildAttendanceRsvpFooterHtml(
+  key: EmailSequenceKey,
+  ctx: SequenceRenderContext
+): string {
   const attendingUrl = ctx.confirmAttendingUrl ?? "";
   const declinedUrl = ctx.confirmDeclinedUrl ?? "";
   if (!attendingUrl || !declinedUrl) return "";
 
+  const intro = getAttendanceRsvpIntroText(key);
+  const sectionStyle =
+    key === "seq1"
+      ? "margin:20px 0 0;"
+      : "margin:24px 0 0;border-top:1px solid #e5e7eb;padding-top:24px;";
+
   return `
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:24px 0 0;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="${sectionStyle}">
       <tr>
-        <td style="border-top:1px solid #e5e7eb;padding-top:24px;">
+        <td>
           <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#111111;">
-            We are looking forward to seeing you. Please confirm so we can keep your seat reserved.
+            ${escapeHtml(intro)}
           </p>
           <table role="presentation" cellspacing="0" cellpadding="0" border="0">
             <tr>
@@ -62,14 +78,14 @@ export function buildAttendanceRsvpFooterHtml(ctx: SequenceRenderContext): strin
     </table>`;
 }
 
-export function buildAttendanceRsvpFooterText(ctx: SequenceRenderContext): string {
+export function buildAttendanceRsvpFooterText(key: EmailSequenceKey, ctx: SequenceRenderContext): string {
   const attendingUrl = ctx.confirmAttendingUrl ?? "";
   const declinedUrl = ctx.confirmDeclinedUrl ?? "";
   if (!attendingUrl || !declinedUrl) return "";
 
   return [
     "",
-    "We are looking forward to seeing you. Please confirm so we can keep your seat reserved.",
+    getAttendanceRsvpIntroText(key),
     `Yes, I am attending: ${attendingUrl}`,
     `I can no longer attend: ${declinedUrl}`,
   ].join("\n");
@@ -81,7 +97,7 @@ export function appendAttendanceRsvpToEmailHtml(
   ctx: SequenceRenderContext
 ): string {
   if (!isAttendanceRsvpSequenceKey(key)) return html;
-  const footer = buildAttendanceRsvpFooterHtml(ctx);
+  const footer = buildAttendanceRsvpFooterHtml(key, ctx);
   if (!footer) return html;
   if (html.includes("Yes, I am attending")) return html;
   if (/<\/body>/i.test(html)) {
@@ -96,7 +112,7 @@ export function appendAttendanceRsvpToEmailText(
   ctx: SequenceRenderContext
 ): string {
   if (!isAttendanceRsvpSequenceKey(key)) return text;
-  const footer = buildAttendanceRsvpFooterText(ctx);
+  const footer = buildAttendanceRsvpFooterText(key, ctx);
   if (!footer || text.includes("Yes, I am attending:")) return text;
   return `${text}${footer}`;
 }
