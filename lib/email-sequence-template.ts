@@ -1,7 +1,6 @@
 import { BRAND_LOGO_URL } from "@/lib/constants";
 import { EVENT_TIMEZONE, formatEventDate, getEventTimeDisplay } from "@/lib/date-utils";
 import { MARKETING_SITE_URL } from "@/lib/marketing-site";
-import { toAbsolutePublicUrl } from "@/lib/site-url";
 import {
   buildAttendanceConfirmUrls,
   buildAttendanceRsvpFooterHtml,
@@ -218,10 +217,13 @@ function buildCtaHtml(label: string, href: string): string {
 }
 
 const EMAIL_ICON_SIZE = 24;
+const EMAIL_CLOCK_ICON_URL =
+  "https://hfms-book.s3.us-east-2.amazonaws.com/clock_1783350643722_qvir.png";
+const EMAIL_MAP_PIN_ICON_URL =
+  "https://hfms-book.s3.us-east-2.amazonaws.com/map-pin_1783350643722_dlp8.png";
 
-function buildEventDetailIconImg(assetPath: string): string {
-  const src = toAbsolutePublicUrl(assetPath);
-  return `<img src="${escapeHtml(src)}" width="${EMAIL_ICON_SIZE}" height="${EMAIL_ICON_SIZE}" alt="" style="display:block;width:${EMAIL_ICON_SIZE}px;height:${EMAIL_ICON_SIZE}px;border:0;outline:none;text-decoration:none;" />`;
+function buildEventDetailIconImg(iconUrl: string): string {
+  return `<img src="${escapeHtml(iconUrl)}" width="${EMAIL_ICON_SIZE}" height="${EMAIL_ICON_SIZE}" alt="" style="display:block;width:${EMAIL_ICON_SIZE}px;height:${EMAIL_ICON_SIZE}px;border:0;outline:none;text-decoration:none;" />`;
 }
 
 function buildEventDetailIconCell(iconHtml: string, isLast = false): string {
@@ -238,9 +240,9 @@ function buildEventDetailIconCell(iconHtml: string, isLast = false): string {
         </td>`;
 }
 
-function buildEventDetailRow(label: string, value: string, iconAssetPath: string, isLast = false): string {
+function buildEventDetailRow(label: string, value: string, iconUrl: string, isLast = false): string {
   const paddingBottom = isLast ? "0" : "14px";
-  const iconHtml = buildEventDetailIconImg(iconAssetPath);
+  const iconHtml = buildEventDetailIconImg(iconUrl);
   return `
       <tr>
         ${buildEventDetailIconCell(iconHtml, isLast)}
@@ -292,8 +294,8 @@ function buildSeq1EventDetailsCardHtml(ctx: SequenceRenderContext): string {
           </table>
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
             ${dateRow}
-            ${buildEventDetailRow("Time", ctx.eventTime, "/assets/email/clock.png")}
-            ${buildEventDetailRow("Location", ctx.eventLocationFull, "/assets/email/map-pin.png", true)}
+            ${buildEventDetailRow("Time", ctx.eventTime, EMAIL_CLOCK_ICON_URL)}
+            ${buildEventDetailRow("Location", ctx.eventLocationFull, EMAIL_MAP_PIN_ICON_URL, true)}
           </table>
         </td>
       </tr>
