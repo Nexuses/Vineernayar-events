@@ -4,9 +4,7 @@ export type EmailTemplateKey =
   | "seq3"
   | "seq4"
   | "join_thank_you"
-  | "join_notify"
-  | "waitlist_thank_you"
-  | "waitlist_rejected";
+  | "join_notify";
 
 export const GLOBAL_EMAIL_TEMPLATE_KEYS = new Set<EmailTemplateKey>([
   "join_thank_you",

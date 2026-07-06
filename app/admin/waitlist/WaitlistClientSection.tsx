@@ -366,7 +366,7 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
       setMessage(
         action === "accept"
           ? "Accepted. Confirmation email with event pass has been sent."
-          : "Rejected. Rejection email has been sent."
+          : "Rejected."
       );
       setRows((prev) =>
         prev.map((row) =>

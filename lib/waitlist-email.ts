@@ -1,24 +1,9 @@
-import { BRAND_LOGO_URL } from "@/lib/constants";
-import {
-  applyEmailTemplate,
-  sequenceContextToVars,
-} from "@/lib/email-template-registry";
 import { buildSequenceRenderContext } from "@/lib/email-sequence-template";
-import { getEmailTemplateOverride } from "@/lib/models/EmailTemplate";
 import type { RegistrationDoc } from "@/lib/models/Registration";
-import { isMailConfigured, sendAppMail } from "@/lib/mail";
-import { SMTP_REPLY_EMAIL } from "@/lib/smtp";
 import { getEventByEventId } from "@/lib/models/Event";
 import { getEventPassPath } from "@/lib/event-path";
 import { getPublicSiteUrl } from "@/lib/site-url";
 import { sendEnablexWhatsAppText } from "@/lib/enablex-whatsapp";
-import { resolveWhatsAppMessageText } from "@/lib/whatsapp-template-resolve";
-import {
-  WAITLIST_REJECTED_HTML,
-  WAITLIST_THANK_YOU_HTML,
-} from "@/lib/waitlist-email-templates";
-
-const LOGO_URL = process.env.EMAIL_LOGO_URL || BRAND_LOGO_URL;
 
 async function buildPassUrl(eventId: string, uniqueCode: string): Promise<string> {
   const base = getPublicSiteUrl();
@@ -27,8 +12,7 @@ async function buildPassUrl(eventId: string, uniqueCode: string): Promise<string
   return `${base}/events/${eventId}/pass/${uniqueCode}`;
 }
 
-async function buildTemplateVars(reg: RegistrationDoc): Promise<Record<string, string>> {
-  const passUrl = await buildPassUrl(reg.eventId, reg.uniqueCode);
+function buildWaitlistThankYouWhatsAppText(reg: RegistrationDoc, passUrl: string): string {
   const ctx = buildSequenceRenderContext({
     firstName: reg.firstName,
     eventName: reg.eventName,
@@ -46,48 +30,19 @@ async function buildTemplateVars(reg: RegistrationDoc): Promise<Record<string, s
     priorityPass: reg.workedWithVineet === true,
   });
 
-  return {
-    ...sequenceContextToVars(ctx),
-    logoUrl: LOGO_URL,
-  };
-}
-
-export async function sendWaitlistThankYouEmail(reg: RegistrationDoc): Promise<boolean> {
-  if (!isMailConfigured()) return false;
-
-  const vars = await buildTemplateVars(reg);
-  const customHtml = await getEmailTemplateOverride("waitlist_thank_you", reg.eventId);
-  const html = applyEmailTemplate(customHtml || WAITLIST_THANK_YOU_HTML, vars);
-  const text = [
-    `Hi ${vars.firstName},`,
+  return [
+    `Hi ${ctx.firstName},`,
     "",
-    `Thank you for registering for ${vars.eventName}.`,
+    `Thank you for registering for ${ctx.eventName}.`,
+    "You are currently on the waitlist.",
+    "We will notify you as soon as your seat is confirmed.",
     "",
-    "You are on the waitlist. We will email you as soon as your seat is confirmed with your event pass and details.",
+    `Date: ${ctx.eventDateLong}`,
+    `Time: ${ctx.eventTime}`,
+    `Location: ${ctx.eventLocationFull}`,
     "",
-    "Event Details:",
-    `Date: ${vars.eventDateLong}`,
-    `Time: ${vars.eventTime}`,
-    `Location: ${vars.eventLocationFull}`,
-    "",
-    "Warm regards,",
     "Team HFMS",
   ].join("\n");
-
-  try {
-    await sendAppMail({
-      to: reg.email,
-      toName: `${reg.firstName} ${reg.surname}`.trim(),
-      replyTo: SMTP_REPLY_EMAIL,
-      subject: `Thank you for registering — you're on the waitlist | ${reg.eventName}`,
-      html,
-      text,
-    });
-    return true;
-  } catch (err) {
-    console.error("Waitlist thank-you email failed:", err);
-    return false;
-  }
 }
 
 export async function sendWaitlistThankYouWhatsApp(reg: RegistrationDoc): Promise<{
@@ -98,56 +53,7 @@ export async function sendWaitlistThankYouWhatsApp(reg: RegistrationDoc): Promis
   if (!number.trim()) return { ok: false, error: "No WhatsApp number on registration" };
 
   const passUrl = await buildPassUrl(reg.eventId, reg.uniqueCode);
-  const ctx = buildSequenceRenderContext({
-    firstName: reg.firstName,
-    eventName: reg.eventName,
-    eventStartDate:
-      reg.eventStartDate instanceof Date
-        ? reg.eventStartDate.toISOString()
-        : String(reg.eventStartDate),
-    eventEndDate:
-      reg.eventEndDate instanceof Date
-        ? reg.eventEndDate.toISOString()
-        : String(reg.eventEndDate),
-    eventTime: reg.eventTime,
-    venue: reg.venue,
-    passUrl,
-    priorityPass: reg.workedWithVineet === true,
-  });
-  const text = await resolveWhatsAppMessageText("waitlist_thank_you", ctx, reg.eventId);
+  const text = buildWaitlistThankYouWhatsAppText(reg, passUrl);
 
   return sendEnablexWhatsAppText({ to: number, message: text.slice(0, 3900) });
-}
-
-export async function sendWaitlistRejectedEmail(reg: RegistrationDoc): Promise<boolean> {
-  if (!isMailConfigured()) return false;
-
-  const vars = await buildTemplateVars(reg);
-  const customHtml = await getEmailTemplateOverride("waitlist_rejected", reg.eventId);
-  const html = applyEmailTemplate(customHtml || WAITLIST_REJECTED_HTML, vars);
-  const text = [
-    `Hi ${vars.firstName},`,
-    "",
-    `Thank you for your interest in ${vars.eventName}.`,
-    "",
-    "Unfortunately, we are unable to confirm your seat for this event at this time.",
-    "",
-    "Warm regards,",
-    "Team HFMS",
-  ].join("\n");
-
-  try {
-    await sendAppMail({
-      to: reg.email,
-      toName: `${reg.firstName} ${reg.surname}`.trim(),
-      replyTo: SMTP_REPLY_EMAIL,
-      subject: `Update on your registration | ${reg.eventName}`,
-      html,
-      text,
-    });
-    return true;
-  } catch (err) {
-    console.error("Waitlist rejected email failed:", err);
-    return false;
-  }
 }

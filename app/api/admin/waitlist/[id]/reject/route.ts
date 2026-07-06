@@ -4,7 +4,6 @@ import {
   getRegistrationById,
   updateAdmissionStatus,
 } from "@/lib/models/Registration";
-import { sendWaitlistRejectedEmail } from "@/lib/waitlist-email";
 import {
   assertEventAccess,
   getAdminSession,
@@ -33,18 +32,9 @@ export async function POST(
       return NextResponse.json({ error: "Unable to update registration" }, { status: 500 });
     }
 
-    const rejectedReg = { ...reg, admissionStatus: "rejected" as const };
-    let emailSent = false;
-    try {
-      emailSent = await sendWaitlistRejectedEmail(rejectedReg);
-    } catch (err) {
-      console.error("Rejection email failed:", err);
-    }
-
     return NextResponse.json({
       ok: true,
       admissionStatus: "rejected",
-      emailSent,
     });
   } catch (err) {
     console.error(err);

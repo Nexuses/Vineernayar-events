@@ -10,8 +10,6 @@ import {
   buildSequenceRenderContext,
 } from "@/lib/email-sequence-template";
 import { JOIN_NOTIFY_HTML, JOIN_THANK_YOU_HTML } from "@/lib/join-email-templates";
-import { WAITLIST_REJECTED_HTML, WAITLIST_THANK_YOU_HTML } from "@/lib/waitlist-email-templates";
-import { BRAND_LOGO_URL } from "@/lib/constants";
 import { getEventPassPath } from "@/lib/event-path";
 import { getPublicSiteUrl } from "@/lib/site-url";
 import type { EmailTemplateKey } from "@/lib/email-template-keys";
@@ -89,20 +87,6 @@ export const EMAIL_TEMPLATE_DEFINITIONS: EmailTemplateDefinition[] = [
     group: "Join movement emails",
     placeholders: JOIN_PLACEHOLDERS,
   },
-  {
-    key: "waitlist_thank_you",
-    label: "Waitlist — thank you",
-    schedule: "When someone registers (waitlisted)",
-    group: "Waitlist emails",
-    placeholders: [...SEQUENCE_PLACEHOLDERS, "{{logoUrl}}"],
-  },
-  {
-    key: "waitlist_rejected",
-    label: "Waitlist — rejected",
-    schedule: "When admin rejects a waitlisted registration",
-    group: "Waitlist emails",
-    placeholders: [...SEQUENCE_PLACEHOLDERS, "{{logoUrl}}"],
-  },
 ];
 
 export function getSampleSequenceContext(): SequenceRenderContext {
@@ -174,8 +158,6 @@ export function sequenceContextToVars(ctx: SequenceRenderContext): Record<string
 export function getDefaultTemplateHtml(key: EmailTemplateKey): string {
   if (key === "join_thank_you") return JOIN_THANK_YOU_HTML;
   if (key === "join_notify") return JOIN_NOTIFY_HTML;
-  if (key === "waitlist_thank_you") return WAITLIST_THANK_YOU_HTML;
-  if (key === "waitlist_rejected") return WAITLIST_REJECTED_HTML;
   return buildSequenceEmailHtml(key as EmailSequenceKey, getSampleSequenceContext());
 }
 
@@ -191,11 +173,6 @@ export function getPreviewHtml(
   if (html) {
     if (key === "join_thank_you" || key === "join_notify") {
       rendered = applyEmailTemplate(html, getSampleJoinVars());
-    } else if (key === "waitlist_thank_you" || key === "waitlist_rejected") {
-      rendered = applyEmailTemplate(html, {
-        ...sequenceContextToVars(ctx),
-        logoUrl: process.env.EMAIL_LOGO_URL || BRAND_LOGO_URL,
-      });
     } else {
       rendered = applyEmailTemplate(html, {
         ...sequenceContextToVars(ctx),
@@ -205,11 +182,6 @@ export function getPreviewHtml(
     }
   } else if (key === "join_thank_you" || key === "join_notify") {
     rendered = getDefaultTemplateHtml(key);
-  } else if (key === "waitlist_thank_you" || key === "waitlist_rejected") {
-    rendered = applyEmailTemplate(getDefaultTemplateHtml(key), {
-      ...sequenceContextToVars(ctx),
-      logoUrl: process.env.EMAIL_LOGO_URL || BRAND_LOGO_URL,
-    });
   } else {
     rendered = buildSequenceEmailHtml(key as EmailSequenceKey, ctx);
   }

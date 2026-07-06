@@ -7,7 +7,7 @@ import {
   getAdmissionStatus,
   updateWaitlistNotificationStatus,
 } from "@/lib/models/Registration";
-import { sendWaitlistThankYouEmail, sendWaitlistThankYouWhatsApp } from "@/lib/waitlist-email";
+import { sendWaitlistThankYouWhatsApp } from "@/lib/waitlist-email";
 import { checkOtpCode, normalizePhoneForOtp } from "@/lib/twilio-otp";
 import {
   isRegistrationProfile,
@@ -204,18 +204,11 @@ export async function POST(
           : undefined,
       agreedToPrivacy: true,
       admissionStatus: "waitlisted",
-      waitlistEmailStatus: "pending",
       waitlistWhatsAppStatus: "pending",
     });
 
-    let emailSent = false;
     let whatsappSent = false;
     let whatsappError: string | undefined;
-    try {
-      emailSent = await sendWaitlistThankYouEmail(reg);
-    } catch (err) {
-      console.error("Waitlist thank-you email failed:", err);
-    }
     try {
       const wa = await sendWaitlistThankYouWhatsApp(reg);
       whatsappSent = wa.ok;
@@ -227,9 +220,6 @@ export async function POST(
 
     if (reg._id) {
       await updateWaitlistNotificationStatus(reg._id.toString(), {
-        waitlistEmailStatus: emailSent ? "sent" : "failed",
-        waitlistEmailSentAt: emailSent ? new Date() : undefined,
-        waitlistEmailError: emailSent ? undefined : "Waitlist email delivery failed",
         waitlistWhatsAppStatus: whatsappSent ? "sent" : "failed",
         waitlistWhatsAppSentAt: whatsappSent ? new Date() : undefined,
         waitlistWhatsAppError: whatsappSent ? undefined : whatsappError || "Waitlist WhatsApp delivery failed",
@@ -239,16 +229,9 @@ export async function POST(
     return NextResponse.json({
       success: true,
       waitlisted: true,
-      emailSent,
       whatsappSent,
       uniqueCode: reg.uniqueCode,
       registrationId: reg._id?.toString(),
-      ...(emailSent
-        ? {}
-        : {
-            emailWarning:
-              "Registration saved, but the waitlist email could not be sent. Contact the organizer if you do not receive it.",
-          }),
     });
   } catch (err) {
     console.error(err);
