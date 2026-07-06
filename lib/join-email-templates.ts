@@ -71,7 +71,9 @@ ${JOIN_EMAIL_NAV_HTML}
                     </p>
                   </td>
                   <td align="right" valign="middle" width="152" style="width:152px;padding-left:20px;vertical-align:middle;text-align:right;">
-                    <img src="{{logoUrl}}" alt="Humans First" width="132" style="display:block;width:132px;max-width:132px;height:auto;border:0;outline:none;text-decoration:none;margin:0 0 0 auto;" />
+                    <a href="{{homeUrl}}" style="text-decoration:none;display:inline-block;">
+                      <img src="{{logoUrl}}" alt="Humans First" width="132" style="display:block;width:132px;max-width:132px;height:auto;border:0;outline:none;text-decoration:none;margin:0 0 0 auto;" />
+                    </a>
                   </td>
                 </tr>
               </table>

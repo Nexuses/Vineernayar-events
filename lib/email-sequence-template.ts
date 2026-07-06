@@ -17,6 +17,10 @@ const PRE_ORDER_URL =
 const EMAIL_LOGO = process.env.EMAIL_LOGO_URL || BRAND_LOGO_URL;
 const CTA_BLUE = "#1d4ed8";
 
+function buildEmailLogoLinkHtml(logoSrc: string, width = 160): string {
+  return `<a href="${escapeHtml(MARKETING_SITE_URL)}" style="text-decoration:none;display:inline-block;"><img src="${escapeHtml(logoSrc)}" alt="Humans First" width="${width}" style="display:block;width:${width}px;max-width:${width}px;height:auto;border:0;" /></a>`;
+}
+
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] || c);
 }
@@ -357,7 +361,7 @@ export function buildSequenceEmailHtml(
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:680px;">
           <tr>
             <td style="padding:0 0 24px;">
-              <img src="${escapeHtml(EMAIL_LOGO)}" alt="Humans First" width="160" style="display:block;width:160px;max-width:160px;height:auto;border:0;" />
+              ${buildEmailLogoLinkHtml(EMAIL_LOGO)}
             </td>
           </tr>
           <tr>
@@ -397,7 +401,7 @@ export function buildSequenceEmailHtml(
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;">
           <tr>
             <td style="padding:0 0 24px;">
-              <img src="${escapeHtml(EMAIL_LOGO)}" alt="Humans First" width="160" style="display:block;width:160px;max-width:160px;height:auto;border:0;" />
+              ${buildEmailLogoLinkHtml(EMAIL_LOGO)}
             </td>
           </tr>
           <tr>

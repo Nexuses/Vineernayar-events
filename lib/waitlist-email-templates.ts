@@ -12,7 +12,9 @@ export const WAITLIST_THANK_YOU_HTML = `<!DOCTYPE html>
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:680px;">
           <tr>
             <td style="padding:0 0 24px;">
-              <img src="{{logoUrl}}" alt="Humans First" width="160" style="display:block;width:160px;max-width:160px;height:auto;border:0;" />
+              <a href="{{websiteUrl}}" style="text-decoration:none;display:inline-block;">
+                <img src="{{logoUrl}}" alt="Humans First" width="160" style="display:block;width:160px;max-width:160px;height:auto;border:0;" />
+              </a>
             </td>
           </tr>
           <tr>
@@ -54,7 +56,9 @@ export const WAITLIST_REJECTED_HTML = `<!DOCTYPE html>
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:680px;">
           <tr>
             <td style="padding:0 0 24px;">
-              <img src="{{logoUrl}}" alt="Humans First" width="160" style="display:block;width:160px;max-width:160px;height:auto;border:0;" />
+              <a href="{{websiteUrl}}" style="text-decoration:none;display:inline-block;">
+                <img src="{{logoUrl}}" alt="Humans First" width="160" style="display:block;width:160px;max-width:160px;height:auto;border:0;" />
+              </a>
             </td>
           </tr>
           <tr>
