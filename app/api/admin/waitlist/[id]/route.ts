@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {
+  deleteRegistrationById,
   getAdmissionStatus,
   getRegistrationById,
   updateRegistrationAdminNotes,
@@ -36,6 +37,30 @@ export async function PATCH(
       ok: true,
       adminNotes: adminNotes.trim() || "",
     });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getAdminSession();
+  if (!session) return unauthorizedResponse();
+
+  try {
+    const { id } = await params;
+    const reg = await getRegistrationById(id);
+    if (!reg) return NextResponse.json({ error: "Registration not found" }, { status: 404 });
+    const denied = assertEventAccess(session, reg.eventId);
+    if (denied) return denied;
+
+    const ok = await deleteRegistrationById(id);
+    if (!ok) return NextResponse.json({ error: "Unable to delete registration" }, { status: 500 });
+
+    return NextResponse.json({ ok: true });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 });

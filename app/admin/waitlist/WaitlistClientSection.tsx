@@ -220,6 +220,19 @@ function ChevronDown({ className, open }: { className?: string; open: boolean })
   );
 }
 
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+      />
+    </svg>
+  );
+}
+
 function matchesSearch(
   row: WaitlistItem,
   query: string,
@@ -256,6 +269,7 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
   const [loading, setLoading] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [savingNotesId, setSavingNotesId] = useState<string | null>(null);
   const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
@@ -385,6 +399,34 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
     }
   }
 
+  async function handleDelete(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!window.confirm("Delete this registration? This cannot be undone.")) return;
+
+    setDeletingId(id);
+    setMessage("");
+    try {
+      const res = await fetch(`/api/admin/waitlist/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(data.error || "Unable to delete registration");
+        return;
+      }
+      setRows((prev) => prev.filter((row) => row._id !== id));
+      setNotesDraft((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      if (expandedId === id) setExpandedId(null);
+      setMessage("Deleted.");
+    } catch {
+      setMessage("Unable to delete registration");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   const hasActiveFilters =
     searchQuery.trim().length > 0 ||
     statusFilter !== "all" ||
@@ -507,6 +549,7 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
                     <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Registered</th>
                     <th className="min-w-[180px] px-3 py-3 font-medium text-zinc-700 sm:px-4">Notes</th>
                     <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Actions</th>
+                    <th className="w-10 px-2 py-3" aria-label="Delete" />
                   </tr>
                 </thead>
                 <tbody>
@@ -577,10 +620,22 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
                             <span className="text-xs text-zinc-500">—</span>
                           )}
                         </td>
+                        <td className="px-2 py-3" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={(e) => handleDelete(r._id, e)}
+                            disabled={deletingId === r._id}
+                            className="rounded p-1.5 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                            title="Delete registration"
+                            aria-label="Delete registration"
+                          >
+                            <TrashIcon className="h-5 w-5" />
+                          </button>
+                        </td>
                       </tr>
                       {expandedId === r._id && (
                         <tr className="bg-zinc-50">
-                          <td colSpan={7} className="px-4 py-4">
+                          <td colSpan={8} className="px-4 py-4">
                             <div className="rounded-lg border border-zinc-200 bg-white p-4">
                               <h3 className="mb-3 text-sm font-semibold text-zinc-700">
                                 Full details
