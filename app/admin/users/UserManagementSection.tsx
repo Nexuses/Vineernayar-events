@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 
 type EventItem = { eventId: string; eventName: string };
 
@@ -36,6 +38,135 @@ function TrashIcon({ className }: { className?: string }) {
   );
 }
 
+function DotsVerticalIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path d="M12 8a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z" />
+    </svg>
+  );
+}
+
+const ACTIONS_MENU_WIDTH = 176;
+
+function getActionsMenuHeight(user: AdminUser): number {
+  return user.role === "superadmin" ? 44 : 88;
+}
+
+function UserRowActionsMenu({
+  user,
+  isOpen,
+  disabled,
+  deleting,
+  onToggle,
+  onClose,
+  onChangePassword,
+  onDelete,
+}: {
+  user: AdminUser;
+  isOpen: boolean;
+  disabled: boolean;
+  deleting: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+  onChangePassword: () => void;
+  onDelete: () => void;
+}) {
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuStyle, setMenuStyle] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || !buttonRef.current) {
+      setMenuStyle(null);
+      return;
+    }
+
+    function updatePosition() {
+      const button = buttonRef.current;
+      if (!button) return;
+
+      const rect = button.getBoundingClientRect();
+      const menuHeight = getActionsMenuHeight(user);
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const openUp = spaceBelow < menuHeight + 8 && rect.top > menuHeight + 8;
+      const top = openUp ? rect.top - menuHeight - 4 : rect.bottom + 4;
+      const left = Math.min(
+        window.innerWidth - ACTIONS_MENU_WIDTH - 8,
+        Math.max(8, rect.right - ACTIONS_MENU_WIDTH)
+      );
+
+      setMenuStyle({ top, left });
+    }
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [isOpen, user.role]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      onClose();
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen, onClose]);
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={onToggle}
+        disabled={disabled}
+        className="rounded p-1.5 text-zinc-600 hover:bg-zinc-100 disabled:opacity-50"
+        aria-label={`Actions for ${user.name}`}
+        aria-expanded={isOpen}
+      >
+        <DotsVerticalIcon className="h-5 w-5" />
+      </button>
+
+      {isOpen && menuStyle
+        ? createPortal(
+            <div
+              ref={menuRef}
+              className="fixed z-[100] w-44 rounded-md border border-zinc-200 bg-white py-1 shadow-lg"
+              style={{ top: menuStyle.top, left: menuStyle.left }}
+            >
+              <button
+                type="button"
+                onClick={onChangePassword}
+                className="block w-full px-3 py-2 text-left text-sm text-zinc-800 hover:bg-zinc-50"
+              >
+                Change password
+              </button>
+              {user.role !== "superadmin" ? (
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  disabled={deleting}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                  Delete user
+                </button>
+              ) : null}
+            </div>,
+            document.body
+          )
+        : null}
+    </>
+  );
+}
+
 function hasUserChanges(user: AdminUser, draft: UserDraft): boolean {
   if (draft.name.trim() !== user.name) return true;
   if (draft.role !== user.role) return true;
@@ -55,7 +186,133 @@ function draftFromUser(user: AdminUser): UserDraft {
   };
 }
 
-export function UserManagementSection({ events }: { events: EventItem[] }) {
+function ChangePasswordModal({
+  user,
+  onClose,
+  onSubmit,
+  submitting,
+  error,
+}: {
+  user: AdminUser;
+  onClose: () => void;
+  onSubmit: (password: string, confirmPassword: string) => void;
+  submitting: boolean;
+  error: string;
+}) {
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    onSubmit(password, confirmPassword);
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="change-password-title"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 id="change-password-title" className="text-lg font-semibold text-zinc-900">
+          Change password
+        </h3>
+        <p className="mt-1 text-sm text-zinc-600">
+          Update password for <span className="font-medium text-zinc-800">{user.name}</span> (
+          {user.email})
+        </p>
+
+        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-700">Current password</label>
+            <input
+              type="password"
+              value="••••••••"
+              readOnly
+              disabled
+              className="w-full cursor-not-allowed rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-zinc-500"
+              aria-label="Current password (hidden)"
+            />
+            <p className="mt-1 text-xs text-zinc-500">
+              Existing passwords are stored securely and cannot be displayed.
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="new-password" className="mb-1 block text-sm font-medium text-zinc-700">
+              New password
+            </label>
+            <input
+              id="new-password"
+              type="password"
+              required
+              minLength={6}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
+              autoComplete="new-password"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="confirm-password"
+              className="mb-1 block text-sm font-medium text-zinc-700"
+            >
+              Confirm password
+            </label>
+            <input
+              id="confirm-password"
+              type="password"
+              required
+              minLength={6}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
+              autoComplete="new-password"
+            />
+          </div>
+
+          {error ? (
+            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+              {error}
+            </p>
+          ) : null}
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
+            >
+              {submitting ? "Saving…" : "Update password"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export function UserManagementSection({
+  events,
+}: {
+  events: EventItem[];
+}) {
+  const router = useRouter();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -63,6 +320,10 @@ export function UserManagementSection({ events }: { events: EventItem[] }) {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [passwordModalUser, setPasswordModalUser] = useState<AdminUser | null>(null);
+  const [passwordModalError, setPasswordModalError] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
 
   const [createForm, setCreateForm] = useState({
     name: "",
@@ -181,6 +442,7 @@ export function UserManagementSection({ events }: { events: EventItem[] }) {
     setDeletingId(id);
     setError("");
     setMessage("");
+    setMenuOpenId(null);
     try {
       const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
       const data = await res.json();
@@ -194,6 +456,46 @@ export function UserManagementSection({ events }: { events: EventItem[] }) {
       setError("Unable to delete user");
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function handleChangePassword(password: string, confirmPassword: string) {
+    if (!passwordModalUser) return;
+    if (password.length < 6) {
+      setPasswordModalError("Password must be at least 6 characters");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setPasswordModalError("Passwords do not match");
+      return;
+    }
+
+    setChangingPassword(true);
+    setPasswordModalError("");
+    try {
+      const res = await fetch(`/api/admin/users/${passwordModalUser.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPasswordModalError(data.error || "Unable to change password");
+        return;
+      }
+
+      setPasswordModalUser(null);
+      setMessage(`Password updated for ${passwordModalUser.name}.`);
+
+      if (data.requiresLogout) {
+        router.push("/admin/login");
+        router.refresh();
+        return;
+      }
+    } catch {
+      setPasswordModalError("Unable to change password");
+    } finally {
+      setChangingPassword(false);
     }
   }
 
@@ -334,12 +636,13 @@ export function UserManagementSection({ events }: { events: EventItem[] }) {
                 <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Role</th>
                 <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Events</th>
                 <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Created</th>
-                <th className="w-10 px-2 py-3" aria-label="Delete" />
+                <th className="w-10 px-2 py-3" aria-label="Actions" />
               </tr>
             </thead>
             <tbody>
               {users.map((user) => {
                 const draft = editDraft[user.id] ?? draftFromUser(user);
+                const menuOpen = menuOpenId === user.id;
                 return (
                   <tr key={user.id} className="border-b border-zinc-100 align-top">
                     <td className="px-3 py-3 sm:px-4">
@@ -414,18 +717,20 @@ export function UserManagementSection({ events }: { events: EventItem[] }) {
                     </td>
                     <td className="px-3 py-3 text-zinc-600 sm:px-4">{formatDate(user.createdAt)}</td>
                     <td className="px-2 py-3">
-                      {user.role !== "superadmin" ? (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteUser(user.id)}
-                          disabled={deletingId === user.id || savingId === user.id}
-                          className="rounded p-1.5 text-red-600 hover:bg-red-50 disabled:opacity-50"
-                          title="Delete user"
-                          aria-label="Delete user"
-                        >
-                          <TrashIcon className="h-5 w-5" />
-                        </button>
-                      ) : null}
+                      <UserRowActionsMenu
+                        user={user}
+                        isOpen={menuOpen}
+                        disabled={deletingId === user.id || savingId === user.id}
+                        deleting={deletingId === user.id}
+                        onToggle={() => setMenuOpenId(menuOpen ? null : user.id)}
+                        onClose={() => setMenuOpenId(null)}
+                        onChangePassword={() => {
+                          setMenuOpenId(null);
+                          setPasswordModalError("");
+                          setPasswordModalUser(user);
+                        }}
+                        onDelete={() => handleDeleteUser(user.id)}
+                      />
                     </td>
                   </tr>
                 );
@@ -434,6 +739,21 @@ export function UserManagementSection({ events }: { events: EventItem[] }) {
           </table>
         </div>
       )}
+
+      {passwordModalUser ? (
+        <ChangePasswordModal
+          user={passwordModalUser}
+          onClose={() => {
+            if (!changingPassword) {
+              setPasswordModalUser(null);
+              setPasswordModalError("");
+            }
+          }}
+          onSubmit={handleChangePassword}
+          submitting={changingPassword}
+          error={passwordModalError}
+        />
+      ) : null}
     </div>
   );
 }

@@ -15,6 +15,8 @@ export interface AdminDoc {
   assignedEventIds?: string[];
   createdAt: Date;
   createdBy?: ObjectIdType;
+  /** Set when password changes so existing JWTs can be invalidated. */
+  passwordChangedAt?: Date;
 }
 
 const COLLECTION = "admins";
@@ -101,6 +103,7 @@ export async function updateAdmin(
     role?: AdminRole;
     assignedEventIds?: string[];
     passwordHash?: string;
+    passwordChangedAt?: Date;
   }
 ): Promise<boolean> {
   if (!ObjectId.isValid(id)) return false;
@@ -108,7 +111,10 @@ export async function updateAdmin(
   const update: Partial<AdminDoc> = {};
 
   if (data.name !== undefined) update.name = data.name.trim();
-  if (data.passwordHash !== undefined) update.passwordHash = data.passwordHash;
+  if (data.passwordHash !== undefined) {
+    update.passwordHash = data.passwordHash;
+    update.passwordChangedAt = data.passwordChangedAt ?? new Date();
+  }
   if (data.role !== undefined) {
     update.role = data.role;
     if (data.role === "superadmin") {

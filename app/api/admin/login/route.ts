@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { findAdminByEmail } from "@/lib/models/Admin";
+import { getAdminPasswordVersion } from "@/lib/admin-access";
 import { createToken, setAuthCookie } from "@/lib/auth";
 
 export async function POST(request: Request) {
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
     const token = await createToken({
       id: admin._id!.toString(),
       email: admin.email,
+      pwdAt: getAdminPasswordVersion(admin),
     });
     await setAuthCookie(token);
 

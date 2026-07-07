@@ -16,6 +16,7 @@ import {
   serializeAdminPublic,
   unauthorizedResponse,
 } from "@/lib/admin-access";
+import { removeAuthCookie } from "@/lib/auth";
 
 export async function PATCH(
   request: Request,
@@ -90,7 +91,18 @@ export async function PATCH(
     if (!updated) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
-    return NextResponse.json(serializeAdminPublic(updated));
+
+    const passwordChanged = passwordHash !== undefined;
+    const targetIsCurrentSession = session._id.toString() === id;
+    if (passwordChanged && targetIsCurrentSession) {
+      await removeAuthCookie();
+    }
+
+    return NextResponse.json({
+      ...serializeAdminPublic(updated),
+      passwordChanged,
+      requiresLogout: passwordChanged && targetIsCurrentSession,
+    });
   } catch (err) {
     console.error("Update admin user error:", err);
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 });

@@ -9,10 +9,13 @@ const SECRET = new TextEncoder().encode(
 export interface AdminPayload {
   id: string;
   email: string;
+  pwdAt: number;
   exp: number;
 }
 
-export async function createToken(payload: Omit<AdminPayload, "exp">): Promise<string> {
+export async function createToken(
+  payload: Omit<AdminPayload, "exp">
+): Promise<string> {
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime("7d")

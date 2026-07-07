@@ -16,11 +16,22 @@ export type AdminSession = AdminDoc & { _id: ObjectId };
 export { getAdminRole, isSuperAdmin };
 export { isSubManager };
 
+export function getAdminPasswordVersion(admin: AdminDoc): number {
+  if (admin.passwordChangedAt instanceof Date) {
+    return admin.passwordChangedAt.getTime();
+  }
+  return 0;
+}
+
 export async function getAdminSession(): Promise<AdminSession | null> {
   const payload = await getAdminFromCookie();
   if (!payload?.id) return null;
   const admin = await findAdminById(payload.id);
   if (!admin?._id) return null;
+
+  const tokenPwdAt = payload.pwdAt ?? 0;
+  if (tokenPwdAt !== getAdminPasswordVersion(admin)) return null;
+
   return admin as AdminSession;
 }
 
