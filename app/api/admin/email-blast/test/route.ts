@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import {
   assertEventAccess,
   getAdminSession,
+  isSubManager,
+  forbiddenResponse,
   unauthorizedResponse,
 } from "@/lib/admin-access";
 import {
@@ -22,6 +24,7 @@ function parseAudience(value: unknown): BlastAudience {
 export async function POST(request: Request) {
   const session = await getAdminSession();
   if (!session) return unauthorizedResponse();
+  if (isSubManager(session)) return forbiddenResponse("Sub managers cannot access email blast");
 
   if (!isMailConfigured()) {
     return NextResponse.json({ error: "Email is not configured" }, { status: 503 });

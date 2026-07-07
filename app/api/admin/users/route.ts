@@ -57,15 +57,16 @@ export async function POST(request: Request) {
       );
     }
 
-    const adminRole: AdminRole = role === "superadmin" ? "superadmin" : "manager";
+    const adminRole: AdminRole =
+      role === "superadmin" || role === "sub_manager" ? role : "manager";
     const events =
-      adminRole === "manager"
+      adminRole !== "superadmin"
         ? (assignedEventIds ?? []).map((id) => String(id).trim()).filter(Boolean)
         : [];
 
-    if (adminRole === "manager" && events.length === 0) {
+    if (adminRole !== "superadmin" && events.length === 0) {
       return NextResponse.json(
-        { error: "Assign at least one event for managers" },
+        { error: "Assign at least one event for this role" },
         { status: 400 }
       );
     }

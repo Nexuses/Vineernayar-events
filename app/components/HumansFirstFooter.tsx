@@ -24,7 +24,6 @@ export const HUMANS_FIRST_FOOTER_CONFIG = {
   copyright: "© 2026 Humans First. All rights reserved.",
   highlightImage: "/assets/figma/Vector.png",
   quickLinks: [
-    { href: "/#cities-cards", label: "Join Us" },
     { href: "/book", label: "More Books" },
     { href: "/#mosaic", label: "Humans First Conversation" },
     { href: "/#cities-events", label: "The world tour" },

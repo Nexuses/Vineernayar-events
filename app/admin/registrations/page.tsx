@@ -1,4 +1,4 @@
-import { getAdminSession, listEventsForAdmin } from "@/lib/admin-access";
+import { getAdminRole, getAdminSession, listEventsForAdmin } from "@/lib/admin-access";
 import { redirect } from "next/navigation";
 import { formatEventDropdownLabel } from "@/lib/event-option-label";
 import { RegisteredClientSection } from "./RegisteredClientSection";
@@ -6,6 +6,7 @@ import { RegisteredClientSection } from "./RegisteredClientSection";
 export default async function RegisteredClientPage() {
   const session = await getAdminSession();
   if (!session) redirect("/admin/login");
+  const readOnly = getAdminRole(session) === "sub_manager";
 
   const events = await listEventsForAdmin(session);
   const eventList = events.map((e) => ({
@@ -22,7 +23,7 @@ export default async function RegisteredClientPage() {
       <p className="mt-1 text-sm text-zinc-600">
         View confirmed registrations event-wise. Select an event to see accepted attendees and their details.
       </p>
-      <RegisteredClientSection events={eventList} />
+      <RegisteredClientSection events={eventList} readOnly={readOnly} />
     </div>
   );
 }

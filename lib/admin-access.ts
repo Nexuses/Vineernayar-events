@@ -5,6 +5,7 @@ import {
   type AdminDoc,
   findAdminById,
   getAdminRole,
+  isSubManager,
   isSuperAdmin,
 } from "@/lib/models/Admin";
 import { listEvents } from "@/lib/models/Event";
@@ -13,6 +14,7 @@ import type { EventDoc } from "@/lib/models/Event";
 export type AdminSession = AdminDoc & { _id: ObjectId };
 
 export { getAdminRole, isSuperAdmin };
+export { isSubManager };
 
 export async function getAdminSession(): Promise<AdminSession | null> {
   const payload = await getAdminFromCookie();
@@ -29,6 +31,17 @@ export function canAccessEvent(admin: AdminDoc, eventId: string): boolean {
 
 export function canEditEvents(admin: AdminDoc): boolean {
   return isSuperAdmin(admin);
+}
+
+export function isReadOnlyAdmin(admin: AdminDoc): boolean {
+  return isSubManager(admin);
+}
+
+export function assertCanModifyAdminData(admin: AdminDoc): NextResponse | null {
+  if (isReadOnlyAdmin(admin)) {
+    return forbiddenResponse("Sub managers have view-only access");
+  }
+  return null;
 }
 
 export function assertCanEditEvents(admin: AdminDoc): NextResponse | null {

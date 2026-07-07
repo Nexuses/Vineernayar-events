@@ -1,7 +1,7 @@
 import { getDb } from "../mongodb";
 import { ObjectId, type ObjectId as ObjectIdType } from "mongodb";
 
-export type AdminRole = "superadmin" | "manager";
+export type AdminRole = "superadmin" | "manager" | "sub_manager";
 
 /** Legacy DB value before role rename */
 type LegacyAdminRole = "event_user";
@@ -21,6 +21,7 @@ const COLLECTION = "admins";
 
 export function normalizeAdminRole(role?: string): AdminRole {
   if (role === "superadmin") return "superadmin";
+  if (role === "sub_manager") return "sub_manager";
   if (role === "manager" || role === "event_user") return "manager";
   return "superadmin";
 }
@@ -35,6 +36,10 @@ export function isSuperAdmin(admin: AdminDoc): boolean {
 
 export function isManager(admin: AdminDoc): boolean {
   return getAdminRole(admin) === "manager";
+}
+
+export function isSubManager(admin: AdminDoc): boolean {
+  return getAdminRole(admin) === "sub_manager";
 }
 
 export async function getAdminsCollection() {

@@ -9,6 +9,7 @@ import { sendEnablexWhatsAppText } from "@/lib/enablex-whatsapp";
 import { buildSequenceRenderContext } from "@/lib/email-sequence-template";
 import { resolveSequenceWhatsAppMessageText } from "@/lib/whatsapp-template-resolve";
 import {
+  assertCanModifyAdminData,
   assertEventAccess,
   getAdminSession,
   unauthorizedResponse,
@@ -39,6 +40,8 @@ export async function POST(
 ) {
   const session = await getAdminSession();
   if (!session) return unauthorizedResponse();
+  const blocked = assertCanModifyAdminData(session);
+  if (blocked) return blocked;
 
   try {
     const { id } = await params;

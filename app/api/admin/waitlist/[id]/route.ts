@@ -6,6 +6,7 @@ import {
   updateRegistrationAdminNotes,
 } from "@/lib/models/Registration";
 import {
+  assertCanModifyAdminData,
   assertEventAccess,
   getAdminSession,
   unauthorizedResponse,
@@ -17,6 +18,8 @@ export async function PATCH(
 ) {
   const session = await getAdminSession();
   if (!session) return unauthorizedResponse();
+  const blocked = assertCanModifyAdminData(session);
+  if (blocked) return blocked;
 
   try {
     const { id } = await params;
@@ -49,6 +52,8 @@ export async function DELETE(
 ) {
   const session = await getAdminSession();
   if (!session) return unauthorizedResponse();
+  const blocked = assertCanModifyAdminData(session);
+  if (blocked) return blocked;
 
   try {
     const { id } = await params;

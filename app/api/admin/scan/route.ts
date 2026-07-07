@@ -5,6 +5,7 @@ import {
   updateRegistrationParticipationStatus,
 } from "@/lib/models/Registration";
 import {
+  assertCanModifyAdminData,
   assertEventAccess,
   getAdminSession,
   unauthorizedResponse,
@@ -13,6 +14,8 @@ import {
 export async function POST(request: Request) {
   const session = await getAdminSession();
   if (!session) return unauthorizedResponse();
+  const blocked = assertCanModifyAdminData(session);
+  if (blocked) return blocked;
   try {
     const body = await request.json();
     const code = typeof body?.code === "string" ? body.code.trim().toUpperCase() : "";

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import {
   assertEventAccess,
   getAdminSession,
+  isSubManager,
+  forbiddenResponse,
   unauthorizedResponse,
 } from "@/lib/admin-access";
 import type { BlastAudience } from "@/lib/models/Registration";
@@ -19,6 +21,7 @@ function parseAudience(value: string | null): BlastAudience {
 export async function GET(request: Request) {
   const session = await getAdminSession();
   if (!session) return unauthorizedResponse();
+  if (isSubManager(session)) return forbiddenResponse("Sub managers cannot access email blast");
 
   const { searchParams } = new URL(request.url);
   const eventId = searchParams.get("eventId")?.trim();

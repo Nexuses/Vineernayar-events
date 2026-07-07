@@ -210,50 +210,30 @@ function buildRegistrationsCsv(rows: RegistrationItem[]): string {
     hasData: (r: RegistrationItem) => boolean;
   }[] = [
     {
-      header: "Apparel Size",
-      value: (r) => r.apparelSize || "",
-      hasData: (r) => Boolean(r.apparelSize?.trim()),
-    },
-    {
-      header: "Overnight Stay",
-      value: (r) => (r.overnightStay == null ? "" : r.overnightStay ? "Yes" : "No"),
-      hasData: (r) => r.overnightStay != null,
-    },
-    {
-      header: "Connection details",
+      header: "Tell us more about where or how you connected?",
       value: (r) => r.workedWithVineetDetails || "",
       hasData: (r) => Boolean(r.workedWithVineetDetails?.trim()),
     },
     {
-      header: "Question for Vineet Nayar",
-      value: (r) => r.questionForVineet || "",
-      hasData: (r) => Boolean(r.questionForVineet?.trim()),
-    },
-    {
-      header: "Organization",
+      header: "Your Current Organisation",
       value: (r) => r.organization || "",
       hasData: (r) => Boolean(r.organization?.trim()),
     },
     {
-      header: "Current Designation",
+      header: "Your Current Designation",
       value: (r) => r.currentDesignation || "",
       hasData: (r) => Boolean(r.currentDesignation?.trim()),
     },
     {
-      header: "Why attend",
+      header: "Why would you like to attend this event?",
       value: (r) => r.whyAttend || "",
       hasData: (r) => Boolean(r.whyAttend?.trim()),
     },
     {
-      header: "Signed Copy Interested",
+      header: "Would you like a signed copy of Humans First, Machines Second?",
       value: (r) =>
         r.signedCopyInterested == null ? "" : r.signedCopyInterested ? "Yes" : "No",
       hasData: (r) => r.signedCopyInterested != null,
-    },
-    {
-      header: "Passport/NIC",
-      value: (r) => r.passportNic || "",
-      hasData: (r) => Boolean(r.passportNic?.trim()),
     },
   ];
 
@@ -266,13 +246,9 @@ function buildRegistrationsCsv(rows: RegistrationItem[]): string {
     "Surname",
     "Email",
     "Mobile Number",
-    "WhatsApp Number",
     ...activeOptional.map((col) => col.header),
-    "Code",
-    "Participation Status",
-    "Registered",
-    "Participation Time",
-    "Special Comment",
+    "Status",
+    "RSVP Status",
   ];
 
   const headerLine = headers.map(escapeCsvCell).join(",");
@@ -282,13 +258,9 @@ function buildRegistrationsCsv(rows: RegistrationItem[]): string {
       r.surname,
       r.email,
       r.mobileNumber || "",
-      r.addToWhatsapp ? r.whatsappNumber || "" : "",
       ...activeOptional.map((col) => col.value(r)),
-      r.uniqueCode,
-      r.participationStatus || "registered",
-      formatDate(r.createdAt),
-      r.participationTimestamp ? formatDate(r.participationTimestamp) : "",
-      r.specialComment || "",
+      (r.participationStatus || "registered") === "attended" ? "Attended" : "Registered",
+      attendanceRsvpLabel(getAttendanceRsvpStatus(r)),
     ].map(escapeCsvCell).join(",")
   );
   return [headerLine, ...dataLines].join("\r\n");
@@ -304,7 +276,13 @@ function downloadCsv(csv: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export function RegisteredClientSection({ events }: { events: EventItem[] }) {
+export function RegisteredClientSection({
+  events,
+  readOnly = false,
+}: {
+  events: EventItem[];
+  readOnly?: boolean;
+}) {
   const [selectedEventId, setSelectedEventId] = useState("");
   const [registrations, setRegistrations] = useState<RegistrationItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -393,6 +371,7 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
   const pageEnd = Math.min(currentPage * PAGE_SIZE, filteredRegistrations.length);
 
   async function handleStatusChange(id: string, participationStatus: ParticipationStatus) {
+    if (readOnly) return;
     setUpdatingId(id);
     try {
       const res = await fetch(`/api/admin/registrations/${id}`, {
@@ -420,6 +399,7 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
   }
 
   async function handleDelete(id: string, e: React.MouseEvent) {
+    if (readOnly) return;
     e.stopPropagation();
     if (!confirm("Delete this registration? This cannot be undone.")) return;
     setDeletingId(id);
@@ -553,7 +533,7 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
                     <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Email</th>
                     <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Status</th>
                     <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Code</th>
-                    <th className="w-10 px-2 py-3" aria-label="Delete" />
+                    {!readOnly ? <th className="w-10 px-2 py-3" aria-label="Delete" /> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -584,35 +564,41 @@ export function RegisteredClientSection({ events }: { events: EventItem[] }) {
                         </td>
                         <td className="px-3 py-3 text-zinc-700 sm:px-4">{r.email}</td>
                         <td className="px-3 py-3 sm:px-4" onClick={(e) => e.stopPropagation()}>
-                          <select
-                            value={r.participationStatus || "registered"}
-                            onChange={(e) => handleStatusChange(r._id, e.target.value as ParticipationStatus)}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            onClick={(e) => e.stopPropagation()}
-                            disabled={updatingId === r._id}
-                            className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 disabled:opacity-50"
-                          >
-                            <option value="registered">Registered</option>
-                            <option value="attended">Attended</option>
-                          </select>
+                          {readOnly ? (
+                            <span className="text-zinc-700">{r.participationStatus || "registered"}</span>
+                          ) : (
+                            <select
+                              value={r.participationStatus || "registered"}
+                              onChange={(e) => handleStatusChange(r._id, e.target.value as ParticipationStatus)}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
+                              disabled={updatingId === r._id}
+                              className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 disabled:opacity-50"
+                            >
+                              <option value="registered">Registered</option>
+                              <option value="attended">Attended</option>
+                            </select>
+                          )}
                         </td>
                         <td className="px-3 py-3 font-mono text-zinc-700 sm:px-4">{r.uniqueCode}</td>
-                        <td className="px-2 py-3" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            onClick={(e) => handleDelete(r._id, e)}
-                            disabled={deletingId === r._id}
-                            className="rounded p-1.5 text-red-600 hover:bg-red-50 disabled:opacity-50"
-                            title="Delete registration"
-                            aria-label="Delete registration"
-                          >
-                            <TrashIcon className="h-5 w-5" />
-                          </button>
-                        </td>
+                        {!readOnly ? (
+                          <td className="px-2 py-3" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={(e) => handleDelete(r._id, e)}
+                              disabled={deletingId === r._id}
+                              className="rounded p-1.5 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                              title="Delete registration"
+                              aria-label="Delete registration"
+                            >
+                              <TrashIcon className="h-5 w-5" />
+                            </button>
+                          </td>
+                        ) : null}
                       </tr>
                       {expandedId === r._id && (
                         <tr key={`${r._id}-details`} className="bg-zinc-50">
-                          <td colSpan={6} className="px-4 py-4">
+                          <td colSpan={readOnly ? 5 : 6} className="px-4 py-4">
                             <div className="rounded-lg border border-zinc-200 bg-white p-4">
                               <h3 className="mb-3 text-sm font-semibold text-zinc-700">
                                 Full details

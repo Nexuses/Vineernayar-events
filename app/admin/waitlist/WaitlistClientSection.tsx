@@ -123,6 +123,58 @@ function formatDate(iso: string) {
   });
 }
 
+function escapeCsvCell(value: string): string {
+  const s = String(value ?? "").trim();
+  if (s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+function buildWaitlistCsv(rows: WaitlistItem[]): string {
+  const headers = [
+    "First Name",
+    "Surname",
+    "Email",
+    "Mobile Number",
+    "Your Current Organisation",
+    "Your Current Designation",
+    "Why would you like to attend this event?",
+    "Have you worked, studied, or partnered with Vineet Nayar?",
+    "Tell us more about where or how you connected?",
+    "Would you like a signed copy of Humans First, Machines Second?",
+    "Status",
+  ];
+
+  const lines = rows.map((r) =>
+    [
+      r.firstName,
+      r.surname,
+      r.email,
+      r.mobileNumber || "",
+      r.organization || "",
+      r.currentDesignation || r.designation || "",
+      r.whyAttend || "",
+      r.workedWithVineet == null ? "" : r.workedWithVineet ? "Yes" : "No",
+      r.workedWithVineetDetails || "",
+      r.signedCopyInterested == null ? "" : r.signedCopyInterested ? "Yes" : "No",
+      statusLabel(r.admissionStatus),
+    ].map(escapeCsvCell).join(",")
+  );
+
+  return [headers.map(escapeCsvCell).join(","), ...lines].join("\r\n");
+}
+
+function downloadCsv(csv: string, filename: string) {
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 type DetailField = {
   label: string;
   value: string;
@@ -263,7 +315,13 @@ function matchesSearch(
   return haystack.includes(q);
 }
 
-export function WaitlistClientSection({ events }: { events: EventItem[] }) {
+export function WaitlistClientSection({
+  events,
+  readOnly = false,
+}: {
+  events: EventItem[];
+  readOnly?: boolean;
+}) {
   const [selectedEventId, setSelectedEventId] = useState("");
   const [rows, setRows] = useState<WaitlistItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -339,6 +397,7 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
   );
 
   async function handleSaveNotes(id: string) {
+    if (readOnly) return;
     const adminNotes = notesDraft[id] ?? "";
     const existing = rows.find((r) => r._id === id)?.adminNotes ?? "";
     if (adminNotes === existing) return;
@@ -364,6 +423,7 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
   }
 
   async function handleAction(id: string, action: "accept" | "reject", e: React.MouseEvent) {
+    if (readOnly) return;
     e.stopPropagation();
     const label = action === "accept" ? "accept" : "reject";
     if (!window.confirm(`Are you sure you want to ${label} this registration?`)) return;
@@ -400,6 +460,7 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
   }
 
   async function handleDelete(id: string, e: React.MouseEvent) {
+    if (readOnly) return;
     e.stopPropagation();
     if (!window.confirm("Delete this registration? This cannot be undone.")) return;
 
@@ -425,6 +486,18 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
     } finally {
       setDeletingId(null);
     }
+  }
+
+  function handleExportCsv() {
+    const csv = buildWaitlistCsv(filteredRows);
+    const selected = events.find((ev) => ev.eventId === selectedEventId);
+    const eventLabel = selected?.dropdownLabel || selected?.eventName || "waitlist";
+    const safe = eventLabel
+      .replace(/[^\w\s-]/g, "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .toLowerCase();
+    downloadCsv(csv, `${safe || "waitlist"}-clients.csv`);
   }
 
   const hasActiveFilters =
@@ -471,18 +544,27 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
               ) : null}
             </h2>
             {rows.length > 0 ? (
-              <div className="w-full max-w-sm">
-                <label className="sr-only" htmlFor="waitlist-search">
-                  Search waitlist
-                </label>
-                <input
-                  id="waitlist-search"
-                  type="search"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search name, email, code, mobile, notes…"
-                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-                />
+              <div className="flex w-full flex-wrap items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportCsv}
+                  className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-700 hover:bg-zinc-50"
+                >
+                  Export CSV
+                </button>
+                <div className="w-full max-w-sm">
+                  <label className="sr-only" htmlFor="waitlist-search">
+                    Search waitlist
+                  </label>
+                  <input
+                    id="waitlist-search"
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search name, email, code, mobile, notes…"
+                    className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                  />
+                </div>
               </div>
             ) : null}
           </div>
@@ -548,8 +630,8 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
                     <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Status</th>
                     <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Registered</th>
                     <th className="min-w-[180px] px-3 py-3 font-medium text-zinc-700 sm:px-4">Notes</th>
-                    <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Actions</th>
-                    <th className="w-10 px-2 py-3" aria-label="Delete" />
+                    {!readOnly ? <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Actions</th> : null}
+                    {!readOnly ? <th className="w-10 px-2 py-3" aria-label="Delete" /> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -578,64 +660,72 @@ export function WaitlistClientSection({ events }: { events: EventItem[] }) {
                           className="px-3 py-3 sm:px-4"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <input
-                            type="text"
-                            value={notesDraft[r._id] ?? ""}
-                            onChange={(e) =>
-                              setNotesDraft((prev) => ({ ...prev, [r._id]: e.target.value }))
-                            }
-                            onBlur={() => handleSaveNotes(r._id)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                (e.target as HTMLInputElement).blur();
-                              }
-                            }}
-                            disabled={savingNotesId === r._id}
-                            placeholder="Add notes…"
-                            className="w-full min-w-[140px] rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 placeholder:text-zinc-400 disabled:opacity-50"
-                          />
-                        </td>
-                        <td className="px-3 py-3 sm:px-4" onClick={(e) => e.stopPropagation()}>
-                          {r.admissionStatus === "waitlisted" || !r.admissionStatus ? (
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                disabled={actionId === r._id}
-                                onClick={(e) => handleAction(r._id, "accept", e)}
-                                className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-                              >
-                                Accept
-                              </button>
-                              <button
-                                type="button"
-                                disabled={actionId === r._id}
-                                onClick={(e) => handleAction(r._id, "reject", e)}
-                                className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-                              >
-                                Reject
-                              </button>
-                            </div>
+                          {readOnly ? (
+                            <span className="text-zinc-700">{(notesDraft[r._id] ?? "").trim() || "—"}</span>
                           ) : (
-                            <span className="text-xs text-zinc-500">—</span>
+                            <input
+                              type="text"
+                              value={notesDraft[r._id] ?? ""}
+                              onChange={(e) =>
+                                setNotesDraft((prev) => ({ ...prev, [r._id]: e.target.value }))
+                              }
+                              onBlur={() => handleSaveNotes(r._id)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  (e.target as HTMLInputElement).blur();
+                                }
+                              }}
+                              disabled={savingNotesId === r._id}
+                              placeholder="Add notes…"
+                              className="w-full min-w-[140px] rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 placeholder:text-zinc-400 disabled:opacity-50"
+                            />
                           )}
                         </td>
-                        <td className="px-2 py-3" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            onClick={(e) => handleDelete(r._id, e)}
-                            disabled={deletingId === r._id}
-                            className="rounded p-1.5 text-red-600 hover:bg-red-50 disabled:opacity-50"
-                            title="Delete registration"
-                            aria-label="Delete registration"
-                          >
-                            <TrashIcon className="h-5 w-5" />
-                          </button>
-                        </td>
+                        {!readOnly ? (
+                          <>
+                            <td className="px-3 py-3 sm:px-4" onClick={(e) => e.stopPropagation()}>
+                              {r.admissionStatus === "waitlisted" || !r.admissionStatus ? (
+                                <div className="flex flex-wrap gap-2">
+                                  <button
+                                    type="button"
+                                    disabled={actionId === r._id}
+                                    onClick={(e) => handleAction(r._id, "accept", e)}
+                                    className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                                  >
+                                    Accept
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={actionId === r._id}
+                                    onClick={(e) => handleAction(r._id, "reject", e)}
+                                    className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-zinc-500">—</span>
+                              )}
+                            </td>
+                            <td className="px-2 py-3" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={(e) => handleDelete(r._id, e)}
+                                disabled={deletingId === r._id}
+                                className="rounded p-1.5 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                                title="Delete registration"
+                                aria-label="Delete registration"
+                              >
+                                <TrashIcon className="h-5 w-5" />
+                              </button>
+                            </td>
+                          </>
+                        ) : null}
                       </tr>
                       {expandedId === r._id && (
                         <tr className="bg-zinc-50">
-                          <td colSpan={8} className="px-4 py-4">
+                          <td colSpan={readOnly ? 6 : 8} className="px-4 py-4">
                             <div className="rounded-lg border border-zinc-200 bg-white p-4">
                               <h3 className="mb-3 text-sm font-semibold text-zinc-700">
                                 Full details

@@ -6,6 +6,7 @@ import {
 } from "@/lib/models/Registration";
 import type { ParticipationStatus } from "@/lib/models/Registration";
 import {
+  assertCanModifyAdminData,
   assertEventAccess,
   getAdminSession,
   unauthorizedResponse,
@@ -29,6 +30,8 @@ export async function PATCH(
     const { id } = await params;
     const access = await ensureRegistrationAccess(id);
     if (access.error) return access.error;
+    const blocked = assertCanModifyAdminData(access.session);
+    if (blocked) return blocked;
 
     const body = await request.json();
     const { participationStatus } = body as { participationStatus?: string };
@@ -56,6 +59,8 @@ export async function DELETE(
     const { id } = await params;
     const access = await ensureRegistrationAccess(id);
     if (access.error) return access.error;
+    const blocked = assertCanModifyAdminData(access.session);
+    if (blocked) return blocked;
 
     const ok = await deleteRegistrationById(id);
     if (!ok) return NextResponse.json({ error: "Registration not found" }, { status: 404 });

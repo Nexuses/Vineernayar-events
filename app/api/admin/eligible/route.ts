@@ -6,6 +6,7 @@ import {
   removeEligibleEmail,
 } from "@/lib/models/EligibleEmail";
 import {
+  assertCanModifyAdminData,
   assertEventAccess,
   getAdminSession,
   unauthorizedResponse,
@@ -14,6 +15,8 @@ import {
 export async function GET(request: Request) {
   const session = await getAdminSession();
   if (!session) return unauthorizedResponse();
+  const blocked = assertCanModifyAdminData(session);
+  if (blocked) return blocked;
   try {
     const { searchParams } = new URL(request.url);
     const eventId = searchParams.get("eventId");
@@ -34,6 +37,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const session = await getAdminSession();
   if (!session) return unauthorizedResponse();
+  const blocked = assertCanModifyAdminData(session);
+  if (blocked) return blocked;
   try {
     const body = await request.json();
     const { eventId, email, emails: emailsBulk } = body as {

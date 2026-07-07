@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   HumansFirstNavbar,
@@ -8,7 +7,6 @@ import {
   HUMANS_FIRST_NAVBAR_CONFIG,
   type HumansFirstNavbarConfig,
 } from "@/app/components/HumansFirstNavbar";
-import { JoinMovementModal } from "@/app/components/JoinMovementModal";
 import { MARKETING_SITE_URL } from "@/lib/marketing-site";
 
 function marketingHref(path: string): string {
@@ -25,7 +23,7 @@ function buildEventsNavbarConfig(): HumansFirstNavbarConfig {
   return {
     ...HUMANS_FIRST_NAVBAR_CONFIG,
     homeHref: MARKETING_SITE_URL,
-    ctaHref: marketingHref(HUMANS_FIRST_NAVBAR_CONFIG.ctaHref),
+    ctaHref: MARKETING_SITE_URL,
     leftLinks: mapLinks(HUMANS_FIRST_NAVBAR_CONFIG.leftLinks),
     rightLinks: mapLinks(HUMANS_FIRST_NAVBAR_CONFIG.rightLinks),
     exploreItems: mapLinks(HUMANS_FIRST_NAVBAR_CONFIG.exploreItems),
@@ -36,17 +34,10 @@ const EVENTS_NAVBAR_CONFIG = buildEventsNavbarConfig();
 
 export function HeaderBar() {
   const pathname = usePathname() ?? "/";
-  const [joinOpen, setJoinOpen] = useState(false);
-  const openJoin = useCallback(() => setJoinOpen(true), []);
 
   return (
     <>
-      <JoinMovementModal open={joinOpen} onClose={() => setJoinOpen(false)} />
-      <HumansFirstNavbar
-        currentPath={pathname}
-        config={EVENTS_NAVBAR_CONFIG}
-        onCtaClick={openJoin}
-      />
+      <HumansFirstNavbar currentPath={pathname} config={EVENTS_NAVBAR_CONFIG} />
       <HumansFirstNavbarSpacer />
     </>
   );

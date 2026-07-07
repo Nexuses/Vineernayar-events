@@ -5,6 +5,7 @@ import {
   updateAdmissionStatus,
 } from "@/lib/models/Registration";
 import {
+  assertCanModifyAdminData,
   assertEventAccess,
   getAdminSession,
   unauthorizedResponse,
@@ -16,6 +17,8 @@ export async function POST(
 ) {
   const session = await getAdminSession();
   if (!session) return unauthorizedResponse();
+  const blocked = assertCanModifyAdminData(session);
+  if (blocked) return blocked;
 
   try {
     const { id } = await params;

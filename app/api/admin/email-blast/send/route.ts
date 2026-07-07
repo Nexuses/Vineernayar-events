@@ -3,6 +3,8 @@ import { ObjectId } from "mongodb";
 import {
   assertEventAccess,
   getAdminSession,
+  isSubManager,
+  forbiddenResponse,
   unauthorizedResponse,
 } from "@/lib/admin-access";
 import { getEventCityLabel } from "@/lib/event-option-label";
@@ -24,6 +26,7 @@ function parseAudience(value: unknown): BlastAudience {
 export async function POST(request: Request) {
   const session = await getAdminSession();
   if (!session) return unauthorizedResponse();
+  if (isSubManager(session)) return forbiddenResponse("Sub managers cannot access email blast");
 
   if (!isMailConfigured()) {
     return NextResponse.json({ error: "Email is not configured" }, { status: 503 });

@@ -8,14 +8,14 @@ type AdminUser = {
   id: string;
   email: string;
   name: string;
-  role: "superadmin" | "manager";
+  role: "superadmin" | "manager" | "sub_manager";
   assignedEventIds: string[];
   createdAt: string;
 };
 
 type UserDraft = {
   name: string;
-  role: "superadmin" | "manager";
+  role: "superadmin" | "manager" | "sub_manager";
   assignedEventIds: string[];
 };
 
@@ -39,7 +39,7 @@ function TrashIcon({ className }: { className?: string }) {
 function hasUserChanges(user: AdminUser, draft: UserDraft): boolean {
   if (draft.name.trim() !== user.name) return true;
   if (draft.role !== user.role) return true;
-  if (draft.role === "manager") {
+  if (draft.role !== "superadmin") {
     const next = [...draft.assignedEventIds].sort().join(",");
     const current = [...user.assignedEventIds].sort().join(",");
     if (next !== current) return true;
@@ -68,7 +68,7 @@ export function UserManagementSection({ events }: { events: EventItem[] }) {
     name: "",
     email: "",
     password: "",
-    role: "manager" as "superadmin" | "manager",
+    role: "manager" as "superadmin" | "manager" | "sub_manager",
     assignedEventIds: [] as string[],
   });
 
@@ -265,19 +265,20 @@ export function UserManagementSection({ events }: { events: EventItem[] }) {
                 onChange={(e) =>
                   setCreateForm((f) => ({
                     ...f,
-                    role: e.target.value as "superadmin" | "manager",
+                    role: e.target.value as "superadmin" | "manager" | "sub_manager",
                     assignedEventIds: e.target.value === "superadmin" ? [] : f.assignedEventIds,
                   }))
                 }
                 className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
               >
                 <option value="manager">Manager</option>
+                <option value="sub_manager">Sub Manager</option>
                 <option value="superadmin">Super Admin</option>
               </select>
             </div>
           </div>
 
-          {createForm.role === "manager" ? (
+          {createForm.role !== "superadmin" ? (
             <div className="mt-4">
               <p className="mb-2 text-sm font-medium text-zinc-700">Assigned events</p>
               <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border border-zinc-200 p-3">
@@ -359,7 +360,7 @@ export function UserManagementSection({ events }: { events: EventItem[] }) {
                       <select
                         value={draft.role}
                         onChange={(e) => {
-                          const role = e.target.value as "superadmin" | "manager";
+                          const role = e.target.value as "superadmin" | "manager" | "sub_manager";
                           updateDraft(
                             user.id,
                             {
@@ -373,6 +374,7 @@ export function UserManagementSection({ events }: { events: EventItem[] }) {
                         className="rounded border border-zinc-300 px-2 py-1 disabled:opacity-50"
                       >
                         <option value="manager">Manager</option>
+                        <option value="sub_manager">Sub Manager</option>
                         <option value="superadmin">Super Admin</option>
                       </select>
                     </td>
@@ -412,7 +414,7 @@ export function UserManagementSection({ events }: { events: EventItem[] }) {
                     </td>
                     <td className="px-3 py-3 text-zinc-600 sm:px-4">{formatDate(user.createdAt)}</td>
                     <td className="px-2 py-3">
-                      {user.role === "manager" ? (
+                      {user.role !== "superadmin" ? (
                         <button
                           type="button"
                           onClick={() => handleDeleteUser(user.id)}

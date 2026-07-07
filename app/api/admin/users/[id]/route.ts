@@ -41,26 +41,26 @@ export async function PATCH(
     };
 
     const nextRole: AdminRole | undefined =
-      role === "superadmin" || role === "manager" ? role : undefined;
+      role === "superadmin" || role === "manager" || role === "sub_manager" ? role : undefined;
     const events =
       assignedEventIds !== undefined
         ? assignedEventIds.map((eid) => String(eid).trim()).filter(Boolean)
         : undefined;
 
-    if (nextRole === "manager" && events && events.length === 0) {
+    if (nextRole && nextRole !== "superadmin" && events && events.length === 0) {
       return NextResponse.json(
-        { error: "Assign at least one event for managers" },
+        { error: "Assign at least one event for this role" },
         { status: 400 }
       );
     }
 
     if (
-      getEffectiveRole(target, nextRole) === "manager" &&
+      getEffectiveRole(target, nextRole) !== "superadmin" &&
       events === undefined &&
       (target.assignedEventIds ?? []).length === 0
     ) {
       return NextResponse.json(
-        { error: "Assign at least one event for managers" },
+        { error: "Assign at least one event for this role" },
         { status: 400 }
       );
     }

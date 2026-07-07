@@ -1,11 +1,9 @@
 "use client";
 
-import { useCallback, useState } from "react";
 import {
   HumansFirstFooter,
   HUMANS_FIRST_FOOTER_CONFIG,
 } from "@/app/components/HumansFirstFooter";
-import { ContactModal } from "@/app/components/ContactModal";
 import { MARKETING_SITE_URL } from "@/lib/marketing-site";
 
 const footerConfig = {
@@ -17,14 +15,9 @@ const footerConfig = {
 };
 
 export function Footer() {
-  const [contactOpen, setContactOpen] = useState(false);
-  const openContact = useCallback(() => setContactOpen(true), []);
-  const closeContact = useCallback(() => setContactOpen(false), []);
-
   return (
     <>
-      <ContactModal open={contactOpen} onClose={closeContact} />
-      <HumansFirstFooter config={footerConfig} onContactClick={openContact} />
+      <HumansFirstFooter config={footerConfig} contactHref={MARKETING_SITE_URL} />
     </>
   );
 }

@@ -1,10 +1,11 @@
-import { getAdminSession, listEventsForAdmin } from "@/lib/admin-access";
+import { getAdminSession, isSubManager, listEventsForAdmin } from "@/lib/admin-access";
 import { redirect } from "next/navigation";
 import { EmailBlastSection } from "./EmailBlastSection";
 
 export default async function EmailBlastPage() {
   const session = await getAdminSession();
   if (!session) redirect("/admin/login");
+  if (isSubManager(session)) redirect("/admin");
 
   const events = await listEventsForAdmin(session);
   const eventList = events.map((e) => ({ eventId: e.eventId, eventName: e.eventName }));
