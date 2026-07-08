@@ -172,6 +172,90 @@ function sequenceStatusClass(status: string): string {
   return "bg-amber-100 text-amber-800";
 }
 
+type DetailField = {
+  label: string;
+  value: string;
+  mono?: boolean;
+};
+
+function buildRegistrationDetailFields(row: RegistrationItem): DetailField[] {
+  const fields: DetailField[] = [];
+  const push = (label: string, value?: string | null, mono?: boolean) => {
+    const text = value?.trim();
+    if (text) fields.push({ label, value: text, mono });
+  };
+  const pushYesNo = (label: string, value?: boolean) => {
+    if (value == null) return;
+    fields.push({ label, value: value ? "Yes" : "No" });
+  };
+
+  push("First Name", row.firstName);
+  push("Surname", row.surname);
+  push("Email", row.email);
+  push("Mobile Number", row.mobileNumber);
+  push(
+    "WhatsApp Number",
+    row.addToWhatsapp ? row.whatsappNumber?.trim() || row.mobileNumber : undefined
+  );
+  push("Your Current Organisation", row.organization);
+  push("Your Current Designation", row.currentDesignation);
+  pushYesNo("Have you worked, studied, or partnered with Vineet Nayar?", row.workedWithVineet);
+  push("Tell us more about where or how you connected?", row.workedWithVineetDetails);
+  push("Why would you like to attend this event?", row.whyAttend);
+  pushYesNo(
+    "Would you like a signed copy of Humans First, Machines Second?",
+    row.signedCopyInterested
+  );
+  push("Apparel - sizes", row.apparelSize);
+  pushYesNo("Overnight Stay", row.overnightStay);
+  push("Passport/NIC", row.passportNic);
+  if (row.transportNeeded != null) {
+    push("Transport", row.transportNeeded ? "Yes" : "No");
+  }
+  push("Location", row.transportNeeded ? row.transportLocation : undefined);
+  push("Registration code", row.uniqueCode, true);
+  fields.push({
+    label: "Status",
+    value: (row.participationStatus || "registered") === "attended" ? "Attended" : "Registered",
+  });
+  fields.push({ label: "Registered on", value: formatDate(row.createdAt) });
+  fields.push({
+    label: "RSVP status",
+    value: `${attendanceRsvpLabel(getAttendanceRsvpStatus(row))}${
+      row.attendanceRsvpAt ? ` · ${formatDate(row.attendanceRsvpAt)}` : ""
+    }`,
+  });
+
+  return fields;
+}
+
+function RegistrationDetailGrid({ row }: { row: RegistrationItem }) {
+  const fields = buildRegistrationDetailFields(row);
+  const splitAt = Math.ceil(fields.length / 2);
+  const leftFields = fields.slice(0, splitAt);
+  const rightFields = fields.slice(splitAt);
+
+  function renderColumn(items: DetailField[]) {
+    return (
+      <dl className="space-y-2 text-sm">
+        {items.map((field, index) => (
+          <div key={`${field.label}-${index}`}>
+            <dt className="text-zinc-500 leading-snug">{field.label}</dt>
+            <dd className={`text-zinc-900 ${field.mono ? "font-mono" : ""}`}>{field.value}</dd>
+          </div>
+        ))}
+      </dl>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
+      {renderColumn(leftFields)}
+      {renderColumn(rightFields)}
+    </div>
+  );
+}
+
 function TrashIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -603,99 +687,7 @@ export function RegisteredClientSection({
                               <h3 className="mb-3 text-sm font-semibold text-zinc-700">
                                 Full details
                               </h3>
-                              <dl className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
-                                <div>
-                                  <dt className="text-zinc-500">Mobile</dt>
-                                  <dd className="text-zinc-900">{r.mobileNumber || "—"}</dd>
-                                </div>
-                                <div>
-                                  <dt className="text-zinc-500">WhatsApp</dt>
-                                  <dd className="text-zinc-900">
-                                    {r.addToWhatsapp ? (r.whatsappNumber || "—") : "—"}
-                                  </dd>
-                                </div>
-                                {r.workedWithVineet && r.workedWithVineetDetails ? (
-                                  <div>
-                                    <dt className="text-zinc-500">Connection details</dt>
-                                    <dd className="text-zinc-900">{r.workedWithVineetDetails}</dd>
-                                  </div>
-                                ) : null}
-                                {r.organization ? (
-                                  <div>
-                                    <dt className="text-zinc-500">Organization</dt>
-                                    <dd className="text-zinc-900">{r.organization}</dd>
-                                  </div>
-                                ) : null}
-                                {r.currentDesignation ? (
-                                  <div>
-                                    <dt className="text-zinc-500">Current Designation</dt>
-                                    <dd className="text-zinc-900">{r.currentDesignation}</dd>
-                                  </div>
-                                ) : null}
-                                {r.signedCopyInterested != null ? (
-                                  <div>
-                                    <dt className="text-zinc-500">Signed Copy Interested</dt>
-                                    <dd className="text-zinc-900">
-                                      {r.signedCopyInterested ? "Yes" : "No"}
-                                    </dd>
-                                  </div>
-                                ) : null}
-                                {(r.apparelSize != null && r.apparelSize !== "") ? (
-                                  <div>
-                                    <dt className="text-zinc-500">Apparel size</dt>
-                                    <dd className="text-zinc-900">{r.apparelSize}</dd>
-                                  </div>
-                                ) : null}
-                                {r.overnightStay != null ? (
-                                  <div>
-                                    <dt className="text-zinc-500">Overnight Stay</dt>
-                                    <dd className="text-zinc-900">{r.overnightStay ? "Yes" : "No"}</dd>
-                                  </div>
-                                ) : null}
-                                {(r.passportNic != null && r.passportNic !== "") ? (
-                                  <div>
-                                    <dt className="text-zinc-500">Passport/NIC</dt>
-                                    <dd className="text-zinc-900">{r.passportNic}</dd>
-                                  </div>
-                                ) : null}
-                                <div>
-                                  <dt className="text-zinc-500">Registered</dt>
-                                  <dd className="text-zinc-900">{formatDate(r.createdAt)}</dd>
-                                </div>
-                                <div>
-                                  <dt className="text-zinc-500">Participation time</dt>
-                                  <dd className="text-zinc-900">
-                                    {r.participationTimestamp
-                                      ? formatDate(r.participationTimestamp)
-                                      : "—"}
-                                  </dd>
-                                </div>
-                                <div>
-                                  <dt className="text-zinc-500">RSVP status</dt>
-                                  <dd className="text-zinc-900">
-                                    {attendanceRsvpLabel(getAttendanceRsvpStatus(r))}
-                                    {r.attendanceRsvpAt ? ` · ${formatDate(r.attendanceRsvpAt)}` : ""}
-                                  </dd>
-                                </div>
-                                {r.specialComment ? (
-                                  <div className="sm:col-span-2">
-                                    <dt className="text-zinc-500">Special comment</dt>
-                                    <dd className="text-zinc-900">{r.specialComment}</dd>
-                                  </div>
-                                ) : null}
-                                {r.questionForVineet ? (
-                                  <div className="sm:col-span-2">
-                                    <dt className="text-zinc-500">Question for Vineet Nayar</dt>
-                                    <dd className="text-zinc-900">{r.questionForVineet}</dd>
-                                  </div>
-                                ) : null}
-                                {r.whyAttend ? (
-                                  <div className="sm:col-span-2">
-                                    <dt className="text-zinc-500">Why attend</dt>
-                                    <dd className="text-zinc-900">{r.whyAttend}</dd>
-                                  </div>
-                                ) : null}
-                              </dl>
+                              <RegistrationDetailGrid row={r} />
 
                               <div className="mt-6 border-t border-zinc-200 pt-4">
                                 <h4 className="mb-1 text-sm font-semibold text-zinc-700">

@@ -39,7 +39,7 @@ type WaitlistItem = {
   createdAt: string;
 };
 
-type StatusFilter = "all" | "pending" | "accepted" | "rejected";
+type StatusFilter = "all" | "pending" | "rejected";
 type VineetConnectionFilter = "all" | "yes" | "no";
 type WhyAttendFilter = "all" | "answered" | "not_answered";
 
@@ -106,7 +106,6 @@ function statusBadgeClass(status?: AdmissionStatus): string {
 
 function matchesStatusFilter(row: WaitlistItem, filter: StatusFilter): boolean {
   if (filter === "all") return true;
-  if (filter === "accepted") return row.admissionStatus === "confirmed";
   if (filter === "rejected") return row.admissionStatus === "rejected";
   return row.admissionStatus === "waitlisted" || !row.admissionStatus;
 }
@@ -370,30 +369,34 @@ export function WaitlistClientSection({
     fetchWaitlist();
   }, [selectedEventId]);
 
+  const visibleRows = useMemo(
+    () => rows.filter((row) => row.admissionStatus !== "confirmed"),
+    [rows]
+  );
+
   const filteredRows = useMemo(
     () =>
-      rows.filter(
+      visibleRows.filter(
         (row) =>
           matchesSearch(row, searchQuery, notesDraft) &&
           matchesStatusFilter(row, statusFilter) &&
           matchesVineetConnectionFilter(row, vineetConnectionFilter) &&
           matchesWhyAttendFilter(row, whyAttendFilter)
       ),
-    [rows, searchQuery, notesDraft, statusFilter, vineetConnectionFilter, whyAttendFilter]
+    [visibleRows, searchQuery, notesDraft, statusFilter, vineetConnectionFilter, whyAttendFilter]
   );
 
   const statusCounts = useMemo(
     () => ({
-      all: rows.length,
-      pending: rows.filter((r) => r.admissionStatus === "waitlisted" || !r.admissionStatus).length,
-      accepted: rows.filter((r) => r.admissionStatus === "confirmed").length,
-      rejected: rows.filter((r) => r.admissionStatus === "rejected").length,
-      vineetYes: rows.filter((r) => r.workedWithVineet === true).length,
-      vineetNo: rows.filter((r) => r.workedWithVineet !== true).length,
-      whyAttendAnswered: rows.filter((r) => Boolean(r.whyAttend?.trim())).length,
-      whyAttendNotAnswered: rows.filter((r) => !r.whyAttend?.trim()).length,
+      all: visibleRows.length,
+      pending: visibleRows.filter((r) => r.admissionStatus === "waitlisted" || !r.admissionStatus).length,
+      rejected: visibleRows.filter((r) => r.admissionStatus === "rejected").length,
+      vineetYes: visibleRows.filter((r) => r.workedWithVineet === true).length,
+      vineetNo: visibleRows.filter((r) => r.workedWithVineet !== true).length,
+      whyAttendAnswered: visibleRows.filter((r) => Boolean(r.whyAttend?.trim())).length,
+      whyAttendNotAnswered: visibleRows.filter((r) => !r.whyAttend?.trim()).length,
     }),
-    [rows]
+    [visibleRows]
   );
 
   async function handleSaveNotes(id: string) {
@@ -536,14 +539,14 @@ export function WaitlistClientSection({
         <div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-zinc-900">
-              Waitlist ({rows.length})
+              Waitlist ({visibleRows.length})
               {hasActiveFilters ? (
                 <span className="ml-2 text-sm font-normal text-zinc-500">
                   · {filteredRows.length} shown
                 </span>
               ) : null}
             </h2>
-            {rows.length > 0 ? (
+            {visibleRows.length > 0 ? (
               <div className="flex w-full flex-wrap items-center justify-end gap-2">
                 <button
                   type="button"
@@ -569,7 +572,7 @@ export function WaitlistClientSection({
             ) : null}
           </div>
 
-          {rows.length > 0 ? (
+          {visibleRows.length > 0 ? (
             <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-gradient-to-b from-zinc-50 to-white p-4 sm:p-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
                 <FilterSelect
@@ -580,7 +583,6 @@ export function WaitlistClientSection({
                 >
                   <option value="all">All ({statusCounts.all})</option>
                   <option value="pending">Pending ({statusCounts.pending})</option>
-                  <option value="accepted">Accepted ({statusCounts.accepted})</option>
                   <option value="rejected">Rejected ({statusCounts.rejected})</option>
                 </FilterSelect>
 
@@ -615,7 +617,7 @@ export function WaitlistClientSection({
 
           {loading ? (
             <p className="mt-2 text-sm text-zinc-500">Loading…</p>
-          ) : rows.length === 0 ? (
+          ) : visibleRows.length === 0 ? (
             <p className="mt-2 text-sm text-zinc-500">No waitlist registrations for this event.</p>
           ) : filteredRows.length === 0 ? (
             <p className="mt-2 text-sm text-zinc-500">No registrations match your filters.</p>
