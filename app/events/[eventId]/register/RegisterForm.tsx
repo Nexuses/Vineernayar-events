@@ -10,8 +10,9 @@ import {
 } from "@/lib/phone-countries";
 import {
   REGISTRATION_FIELD_LIMITS,
-  REGISTRATION_PROFILE_OPTIONS,
-  type RegistrationProfile,
+  REGISTRATION_DESIGNATION_OTHER,
+  REGISTRATION_DESIGNATION_SELECT_OPTIONS,
+  type RegistrationDesignationSelection,
   trimToFieldLimit,
 } from "@/lib/registration-field-limits";
 
@@ -56,7 +57,8 @@ export function RegisterForm({
   const [countryDial, setCountryDial] = useState(DEFAULT_PHONE_COUNTRY.dial);
   const [mobileLocal, setMobileLocal] = useState("");
   const [organization, setOrganization] = useState("");
-  const [currentDesignation, setCurrentDesignation] = useState<"" | RegistrationProfile>("");
+  const [currentDesignation, setCurrentDesignation] = useState<"" | RegistrationDesignationSelection>("");
+  const [designationOther, setDesignationOther] = useState("");
   const [whyAttend, setWhyAttend] = useState("");
   const [signedCopyChoice, setSignedCopyChoice] = useState<"" | "yes" | "no">("");
   const [workedWithVineetChoice, setWorkedWithVineetChoice] = useState<"" | "yes" | "no">("");
@@ -97,6 +99,9 @@ export function RegisterForm({
     if (!agreedToPrivacy) return "You must agree to the Privacy Policy to register.";
     if (!organization.trim()) return "Your current organisation is required.";
     if (!currentDesignation) return "Your current designation is required.";
+    if (currentDesignation === REGISTRATION_DESIGNATION_OTHER && !designationOther.trim()) {
+      return "Please specify your designation.";
+    }
     if (workedWithVineetChoice === "") {
       return "Please answer whether you have worked, studied, or partnered with Vineet Nayar.";
     }
@@ -138,6 +143,10 @@ export function RegisterForm({
       mobileNumber,
       organization: organization.trim() || undefined,
       currentDesignation: currentDesignation.trim() || undefined,
+      designation:
+        currentDesignation === REGISTRATION_DESIGNATION_OTHER
+          ? designationOther.trim() || undefined
+          : undefined,
       whyAttend: whyAttend.trim() || undefined,
       signedCopyInterested: signedCopyChoice === "" ? undefined : signedCopyChoice === "yes",
       workedWithVineet: workedWithVineetChoice === "yes",
@@ -458,13 +467,17 @@ export function RegisterForm({
         <div className="relative">
           <select
             value={currentDesignation}
-            onChange={(e) => setCurrentDesignation(e.target.value as "" | RegistrationProfile)}
+            onChange={(e) => {
+              const value = e.target.value as "" | RegistrationDesignationSelection;
+              setCurrentDesignation(value);
+              if (value !== REGISTRATION_DESIGNATION_OTHER) setDesignationOther("");
+            }}
             required
             className={`${inputClass} cursor-pointer appearance-none pr-10`}
             aria-label="Your current designation"
           >
             <option value="">Select</option>
-            {REGISTRATION_PROFILE_OPTIONS.map((option) => (
+            {REGISTRATION_DESIGNATION_SELECT_OPTIONS.map((option) => (
               <option key={option} value={option}>
                 {option}
               </option>
@@ -472,6 +485,22 @@ export function RegisterForm({
           </select>
           {selectChevron}
         </div>
+        {currentDesignation === REGISTRATION_DESIGNATION_OTHER ? (
+          <input
+            type="text"
+            value={designationOther}
+            onChange={(e) =>
+              setDesignationOther(
+                trimToFieldLimit(e.target.value, REGISTRATION_FIELD_LIMITS.designation)
+              )
+            }
+            maxLength={REGISTRATION_FIELD_LIMITS.designation}
+            required
+            className={`${inputClass} mt-3`}
+            placeholder="Please specify your designation"
+            aria-label="Please specify your designation"
+          />
+        ) : null}
       </div>
 
       <div>

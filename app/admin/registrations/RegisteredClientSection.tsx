@@ -18,6 +18,10 @@ import {
   attendanceRsvpLabel,
   type AttendanceRsvpStatus,
 } from "@/lib/attendance-rsvp";
+import {
+  getEffectiveDesignation,
+  REGISTRATION_DESIGNATION_OTHER,
+} from "@/lib/registration-field-limits";
 
 type EventItem = {
   eventId: string;
@@ -130,6 +134,7 @@ type RegistrationItem = {
   email: string;
   organization?: string;
   currentDesignation?: string;
+  designation?: string;
   whyAttend?: string;
   signedCopyInterested?: boolean;
   mobileNumber?: string;
@@ -198,7 +203,15 @@ function buildRegistrationDetailFields(row: RegistrationItem): DetailField[] {
     row.addToWhatsapp ? row.whatsappNumber?.trim() || row.mobileNumber : undefined
   );
   push("Your Current Organisation", row.organization);
-  push("Your Current Designation", row.currentDesignation);
+  const profile = row.currentDesignation?.trim();
+  if (profile) {
+    push("Your Current Designation", profile);
+    if (profile === REGISTRATION_DESIGNATION_OTHER) {
+      push("Please specify your designation", row.designation);
+    }
+  } else {
+    push("Your Current Designation", row.designation);
+  }
   pushYesNo("Have you worked, studied, or partnered with Vineet Nayar?", row.workedWithVineet);
   push("Tell us more about where or how you connected?", row.workedWithVineetDetails);
   push("Why would you like to attend this event?", row.whyAttend);
@@ -305,8 +318,8 @@ function buildRegistrationsCsv(rows: RegistrationItem[]): string {
     },
     {
       header: "Your Current Designation",
-      value: (r) => r.currentDesignation || "",
-      hasData: (r) => Boolean(r.currentDesignation?.trim()),
+      value: (r) => getEffectiveDesignation(r),
+      hasData: (r) => Boolean(getEffectiveDesignation(r).trim()),
     },
     {
       header: "Why would you like to attend this event?",

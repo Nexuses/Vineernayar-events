@@ -1,6 +1,10 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import {
+  getEffectiveDesignation,
+  REGISTRATION_DESIGNATION_OTHER,
+} from "@/lib/registration-field-limits";
 
 type EventItem = {
   eventId: string;
@@ -152,7 +156,7 @@ function buildWaitlistCsv(rows: WaitlistItem[]): string {
       r.email,
       r.mobileNumber || "",
       r.organization || "",
-      r.currentDesignation || r.designation || "",
+      getEffectiveDesignation(r),
       r.whyAttend || "",
       r.workedWithVineet == null ? "" : r.workedWithVineet ? "Yes" : "No",
       r.workedWithVineetDetails || "",
@@ -200,7 +204,15 @@ function buildWaitlistDetailFields(row: WaitlistItem, adminNotes?: string): Deta
     row.whatsappNumber?.trim() || (row.addToWhatsapp ? row.mobileNumber : undefined)
   );
   push("Your Current Organisation", row.organization);
-  push("Your Current Designation", row.currentDesignation || row.designation);
+  const profile = row.currentDesignation?.trim();
+  if (profile) {
+    push("Your Current Designation", profile);
+    if (profile === REGISTRATION_DESIGNATION_OTHER) {
+      push("Please specify your designation", row.designation);
+    }
+  } else {
+    push("Your Current Designation", row.designation);
+  }
   pushYesNo("Have you worked, studied, or partnered with Vineet Nayar?", row.workedWithVineet);
   push("Tell us more about where or how you connected?", row.workedWithVineetDetails);
   push("Why would you like to attend this event?", row.whyAttend);

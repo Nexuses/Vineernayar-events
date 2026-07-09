@@ -28,6 +28,7 @@ export async function GET(request: Request) {
       email: r.email,
       organization: r.organization,
       currentDesignation: r.currentDesignation,
+      designation: r.designation,
       whyAttend: r.whyAttend,
       signedCopyInterested: r.signedCopyInterested,
       mobileNumber: r.mobileNumber,

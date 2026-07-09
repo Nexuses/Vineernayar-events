@@ -5,6 +5,7 @@ export const REGISTRATION_FIELD_LIMITS = {
   surname: 50,
   email: 100,
   organization: 100,
+  designation: 100,
   whyAttend: 500,
   mobileLocalDigits: 10,
 } as const;
@@ -16,10 +17,49 @@ export const REGISTRATION_PROFILE_OPTIONS = [
   "Senior Manager",
 ] as const;
 
+export const REGISTRATION_DESIGNATION_OTHER = "Other" as const;
+
+export const REGISTRATION_DESIGNATION_SELECT_OPTIONS = [
+  ...REGISTRATION_PROFILE_OPTIONS,
+  REGISTRATION_DESIGNATION_OTHER,
+] as const;
+
 export type RegistrationProfile = (typeof REGISTRATION_PROFILE_OPTIONS)[number];
+export type RegistrationDesignationSelection =
+  (typeof REGISTRATION_DESIGNATION_SELECT_OPTIONS)[number];
 
 export function isRegistrationProfile(value: string): value is RegistrationProfile {
   return (REGISTRATION_PROFILE_OPTIONS as readonly string[]).includes(value);
+}
+
+export function isRegistrationDesignationSelection(
+  value: string
+): value is RegistrationDesignationSelection {
+  return (REGISTRATION_DESIGNATION_SELECT_OPTIONS as readonly string[]).includes(value);
+}
+
+export function getEffectiveDesignation(row: {
+  currentDesignation?: string;
+  designation?: string;
+}): string {
+  const profile = row.currentDesignation?.trim();
+  if (!profile) return row.designation?.trim() || "";
+  if (profile === REGISTRATION_DESIGNATION_OTHER) {
+    return row.designation?.trim() || REGISTRATION_DESIGNATION_OTHER;
+  }
+  return profile;
+}
+
+export function isValidDesignationSelection(
+  currentDesignation: string,
+  customDesignation?: string
+): boolean {
+  if (!isRegistrationDesignationSelection(currentDesignation)) return false;
+  if (currentDesignation === REGISTRATION_DESIGNATION_OTHER) {
+    const custom = customDesignation?.trim() || "";
+    return custom.length > 0 && custom.length <= REGISTRATION_FIELD_LIMITS.designation;
+  }
+  return true;
 }
 
 export function trimToFieldLimit(value: string, max: number): string {

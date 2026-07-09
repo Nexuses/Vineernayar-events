@@ -10,7 +10,8 @@ import {
 import { sendWaitlistThankYouWhatsApp } from "@/lib/waitlist-email";
 import { checkOtpCode, normalizePhoneForOtp } from "@/lib/twilio-otp";
 import {
-  isRegistrationProfile,
+  isValidDesignationSelection,
+  REGISTRATION_DESIGNATION_OTHER,
   REGISTRATION_FIELD_LIMITS,
   validateRegistrationFieldLengths,
 } from "@/lib/registration-field-limits";
@@ -38,6 +39,7 @@ export async function POST(
       mobileNumber,
       organization,
       currentDesignation,
+      designation,
       whyAttend,
       signedCopyInterested,
       workedWithVineet,
@@ -73,13 +75,15 @@ export async function POST(
       typeof organization === "string" ? organization.trim() : "";
     const currentDesignationTrimmed =
       typeof currentDesignation === "string" ? currentDesignation.trim() : "";
+    const designationTrimmed =
+      typeof designation === "string" ? designation.trim() : "";
     if (!organizationTrimmed) {
       return NextResponse.json({ error: "Your current organisation is required" }, { status: 400 });
     }
     if (!currentDesignationTrimmed) {
       return NextResponse.json({ error: "Your current designation is required" }, { status: 400 });
     }
-    if (!isRegistrationProfile(currentDesignationTrimmed)) {
+    if (!isValidDesignationSelection(currentDesignationTrimmed, designationTrimmed)) {
       return NextResponse.json({ error: "Please select a valid designation" }, { status: 400 });
     }
     const whyAttendTrimmed = typeof whyAttend === "string" ? whyAttend.trim() : "";
@@ -183,6 +187,10 @@ export async function POST(
       mobileNumber: mobileNormalized,
       organization: organizationTrimmed || undefined,
       currentDesignation: currentDesignationTrimmed || undefined,
+      designation:
+        currentDesignationTrimmed === REGISTRATION_DESIGNATION_OTHER
+          ? designationTrimmed || undefined
+          : undefined,
       whyAttend: whyAttendTrimmed || undefined,
       signedCopyInterested: signedCopyInterestedValue,
       workedWithVineet: workedWithVineetValue,
