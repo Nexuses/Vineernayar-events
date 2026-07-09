@@ -29,8 +29,12 @@ export async function POST(
     if (!reg) return NextResponse.json({ error: "Registration not found" }, { status: 404 });
     const denied = assertEventAccess(session, reg.eventId);
     if (denied) return denied;
-    if (getAdmissionStatus(reg) !== "waitlisted") {
-      return NextResponse.json({ error: "Registration is not on the waitlist" }, { status: 400 });
+    const admissionStatus = getAdmissionStatus(reg);
+    if (admissionStatus !== "waitlisted" && admissionStatus !== "rejected") {
+      return NextResponse.json(
+        { error: "Only pending or rejected waitlist entries can be accepted" },
+        { status: 400 }
+      );
     }
 
     const event = await getEventByEventId(reg.eventId);

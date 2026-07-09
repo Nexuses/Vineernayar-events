@@ -1,9 +1,9 @@
 import { getAdminRole, getAdminSession, listEventsForAdmin } from "@/lib/admin-access";
 import { redirect } from "next/navigation";
 import { formatEventDropdownLabel } from "@/lib/event-option-label";
-import { WaitlistClientSection } from "./WaitlistClientSection";
+import { WaitlistClientSection } from "../waitlist/WaitlistClientSection";
 
-export default async function WaitlistPage() {
+export default async function RejectedClientPage() {
   const session = await getAdminSession();
   if (!session) redirect("/admin/login");
   const readOnly = getAdminRole(session) === "sub_manager";
@@ -17,12 +17,12 @@ export default async function WaitlistPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-zinc-900 sm:text-2xl">Waitlist Client</h1>
+      <h1 className="text-xl font-bold text-zinc-900 sm:text-2xl">Rejected Client</h1>
       <p className="mt-1 text-sm text-zinc-600">
-        Review pending waitlist registrations by event. Accept or reject entries — accepted attendees
-        appear in Registered Client. Rejected entries appear in Rejected Client.
+        Review rejected waitlist registrations by event. Re-accept a client to move them to Registered
+        Client and send the confirmation email.
       </p>
-      <WaitlistClientSection events={eventList} readOnly={readOnly} />
+      <WaitlistClientSection events={eventList} readOnly={readOnly} mode="rejected" />
     </div>
   );
 }
