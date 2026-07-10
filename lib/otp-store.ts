@@ -38,22 +38,26 @@ async function ensureOtpIndexes() {
 
   const db = await getDb();
   const collection = db.collection<OtpDocument>("otps");
-  const indexes = await collection.indexes();
 
-  for (const index of indexes) {
-    if (index.name === "_id_") {
-      continue;
-    }
+  const existingCollections = await db.listCollections({ name: "otps" }).toArray();
+  if (existingCollections.length > 0) {
+    const indexes = await collection.indexes();
 
-    const isPhoneIndex = index.key?.phone === 1;
-    const isExpiresAtIndex = index.key?.expiresAt === 1;
+    for (const index of indexes) {
+      if (index.name === "_id_") {
+        continue;
+      }
 
-    if (isPhoneIndex && index.name !== "otps_phone_unique") {
-      await collection.dropIndex(index.name!);
-    }
+      const isPhoneIndex = index.key?.phone === 1;
+      const isExpiresAtIndex = index.key?.expiresAt === 1;
 
-    if (isExpiresAtIndex && index.name !== "otps_expires_at_pending_ttl") {
-      await collection.dropIndex(index.name!);
+      if (isPhoneIndex && index.name !== "otps_phone_unique") {
+        await collection.dropIndex(index.name!);
+      }
+
+      if (isExpiresAtIndex && index.name !== "otps_expires_at_pending_ttl") {
+        await collection.dropIndex(index.name!);
+      }
     }
   }
 
