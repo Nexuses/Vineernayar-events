@@ -1,43 +1,41 @@
 import "server-only";
 
-import Twilio from "twilio";
+import {
+  canResendOtp,
+  generateOtp,
+  getOtpTtlMinutes,
+  normalizePhoneForOtp,
+  saveOtp,
+  verifyOtp,
+} from "@/lib/otp-store";
+import { sendOtpSms } from "@/lib/twilio";
 
-const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
-const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
-const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID?.trim();
+export { getOtpTtlMinutes, normalizePhoneForOtp };
 
-function getClient() {
-  if (!accountSid || !authToken || !verifyServiceSid) {
-    throw new Error(
-      "Twilio OTP is not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_VERIFY_SERVICE_SID."
-    );
+export class OtpResendCooldownError extends Error {
+  retryAfterSeconds: number;
+
+  constructor(retryAfterSeconds: number) {
+    super(`Please wait ${retryAfterSeconds} seconds before requesting a new OTP`);
+    this.name = "OtpResendCooldownError";
+    this.retryAfterSeconds = retryAfterSeconds;
   }
-  return Twilio(accountSid, authToken);
-}
-
-export function normalizePhoneForOtp(raw: string): string {
-  const trimmed = raw.trim();
-  if (!trimmed) return "";
-  if (!trimmed.startsWith("+")) {
-    return "";
-  }
-  const normalized = `+${trimmed.slice(1).replace(/[^\d]/g, "")}`;
-  return /^\+\d{8,15}$/.test(normalized) ? normalized : "";
 }
 
 export async function sendOtpCode(phone: string): Promise<void> {
-  const client = getClient();
-  await client.verify.v2.services(verifyServiceSid!).verifications.create({
-    to: phone,
-    channel: "sms",
-  });
+  const resendCheck = await canResendOtp(phone);
+  if (!resendCheck.allowed) {
+    throw new OtpResendCooldownError(resendCheck.retryAfterSeconds ?? 60);
+  }
+
+  const otp = generateOtp();
+  await saveOtp(phone, otp);
+  await sendOtpSms(phone, otp);
 }
 
 export async function checkOtpCode(phone: string, code: string): Promise<boolean> {
-  const client = getClient();
-  const check = await client.verify.v2.services(verifyServiceSid!).verificationChecks.create({
-    to: phone,
-    code: code.trim(),
-  });
-  return check.status === "approved";
+  const result = await verifyOtp(phone, code);
+  return result.success;
 }
+
+export { verifyOtp };

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPublishedEventByParam, getPublicRegistrationStatus } from "@/lib/models/Event";
-import { normalizePhoneForOtp, sendOtpCode } from "@/lib/twilio-otp";
+import { getOtpTtlMinutes, normalizePhoneForOtp, OtpResendCooldownError, sendOtpCode } from "@/lib/twilio-otp";
 
 export async function POST(
   request: Request,
@@ -24,8 +24,15 @@ export async function POST(
     }
 
     await sendOtpCode(phone);
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      expiresInMinutes: getOtpTtlMinutes(),
+    });
   } catch (err) {
+    if (err instanceof OtpResendCooldownError) {
+      return NextResponse.json({ error: err.message }, { status: 429 });
+    }
+
     console.error("Send OTP error:", err);
     const message = err instanceof Error ? err.message : "Unable to send OTP";
     return NextResponse.json({ error: message }, { status: 500 });

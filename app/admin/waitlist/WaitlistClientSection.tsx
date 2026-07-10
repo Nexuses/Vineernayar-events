@@ -138,7 +138,7 @@ function buildWaitlistCsv(rows: WaitlistItem[]): string {
     "Why would you like to attend this event?",
     "Have you worked, studied, or partnered with Vineet Nayar?",
     "Tell us more about where or how you connected?",
-    "Would you like a signed copy of Humans First, Machines Second?",
+    "Would you like to have your copy of Humans First, Machines Second signed by Vineet Nayar?",
     "Status",
   ];
 
@@ -210,7 +210,7 @@ function buildWaitlistDetailFields(row: WaitlistItem, adminNotes?: string): Deta
   push("Tell us more about where or how you connected?", row.workedWithVineetDetails);
   push("Why would you like to attend this event?", row.whyAttend);
   pushYesNo(
-    "Would you like a signed copy of Humans First, Machines Second?",
+    "Would you like to have your copy of Humans First, Machines Second signed by Vineet Nayar?",
     row.signedCopyInterested
   );
   push("Apparel - sizes", row.apparelSize);

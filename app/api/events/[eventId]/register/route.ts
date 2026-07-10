@@ -8,7 +8,7 @@ import {
   updateWaitlistNotificationStatus,
 } from "@/lib/models/Registration";
 import { sendWaitlistThankYouWhatsApp } from "@/lib/waitlist-email";
-import { checkOtpCode, normalizePhoneForOtp } from "@/lib/twilio-otp";
+import { normalizePhoneForOtp, verifyOtp } from "@/lib/twilio-otp";
 import {
   isValidDesignationSelection,
   REGISTRATION_DESIGNATION_OTHER,
@@ -121,9 +121,18 @@ export async function POST(
     if (!otpTrimmed) {
       return NextResponse.json({ error: "OTP is required" }, { status: 400 });
     }
-    const otpOk = await checkOtpCode(mobileNormalized, otpTrimmed);
-    if (!otpOk) {
-      return NextResponse.json({ error: "Invalid or expired OTP" }, { status: 400 });
+    if (!/^\d{6}$/.test(otpTrimmed)) {
+      return NextResponse.json({ error: "OTP must be a 6-digit code" }, { status: 400 });
+    }
+    const otpResult = await verifyOtp(mobileNormalized, otpTrimmed);
+    if (!otpResult.success) {
+      const messages = {
+        not_found: "No OTP found for this number. Request a new code.",
+        expired: "OTP has expired. Request a new code.",
+        too_many_attempts: "Too many failed attempts. Request a new code.",
+        invalid: "Invalid OTP. Please try again.",
+      };
+      return NextResponse.json({ error: messages[otpResult.reason] }, { status: 400 });
     }
     if (!agreedToPrivacy) {
       return NextResponse.json({ error: "You must agree to the Privacy Policy" }, { status: 400 });

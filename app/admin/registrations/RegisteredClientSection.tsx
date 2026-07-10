@@ -216,7 +216,7 @@ function buildRegistrationDetailFields(row: RegistrationItem): DetailField[] {
   push("Tell us more about where or how you connected?", row.workedWithVineetDetails);
   push("Why would you like to attend this event?", row.whyAttend);
   pushYesNo(
-    "Would you like a signed copy of Humans First, Machines Second?",
+    "Would you like to have your copy of Humans First, Machines Second signed by Vineet Nayar?",
     row.signedCopyInterested
   );
   push("Apparel - sizes", row.apparelSize);
@@ -327,7 +327,7 @@ function buildRegistrationsCsv(rows: RegistrationItem[]): string {
       hasData: (r) => Boolean(r.whyAttend?.trim()),
     },
     {
-      header: "Would you like a signed copy of Humans First, Machines Second?",
+      header: "Would you like to have your copy of Humans First, Machines Second signed by Vineet Nayar?",
       value: (r) =>
         r.signedCopyInterested == null ? "" : r.signedCopyInterested ? "Yes" : "No",
       hasData: (r) => r.signedCopyInterested != null,

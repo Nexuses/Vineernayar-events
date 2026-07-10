@@ -563,7 +563,7 @@ export function RegisterForm({
 
       <div>
         <label className={labelClass}>
-          Would you like a signed copy of Humans First, Machines Second?
+          Would you like to have your copy of Humans First, Machines Second signed by Vineet Nayar?
         </label>
         <div className="relative">
           <select
