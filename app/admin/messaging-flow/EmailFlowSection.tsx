@@ -16,6 +16,7 @@ type TemplateItem = {
   key: string;
   label: string;
   schedule: string;
+  subject: string;
   group: string;
   placeholders: string[];
   defaultHtml: string;
@@ -161,12 +162,25 @@ function TemplateGroup({
                     ) : null}
                   </div>
                   <p className="mt-1 text-sm text-zinc-500">{item.schedule}</p>
+                  {item.subject ? (
+                    <p className="mt-1 text-sm text-zinc-600">
+                      <span className="font-medium text-zinc-700">Subject:</span> {item.subject}
+                    </p>
+                  ) : null}
                 </div>
                 <ChevronIcon open={isOpen} />
               </button>
 
               {isOpen ? (
                 <div className="border-t border-zinc-200 px-4 py-4">
+                  {item.subject ? (
+                    <div className="mb-3 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
+                      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        Subject line
+                      </p>
+                      <p className="mt-0.5 text-sm text-zinc-900">{item.subject}</p>
+                    </div>
+                  ) : null}
                   <div className="mb-3 flex flex-wrap gap-2">
                     <button
                       type="button"

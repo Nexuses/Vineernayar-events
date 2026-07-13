@@ -2,6 +2,7 @@ import {
   EMAIL_SEQUENCE_LABELS,
   EMAIL_SEQUENCE_ORDER,
   EMAIL_SEQUENCE_SCHEDULE,
+  getSequenceSubject,
   type EmailSequenceKey,
   type SequenceRenderContext,
 } from "@/lib/email-sequence";
@@ -28,6 +29,7 @@ export type EmailTemplateDefinition = {
   key: EmailTemplateKey;
   label: string;
   schedule: string;
+  subject: string;
   group: string;
   placeholders: string[];
 };
@@ -71,6 +73,7 @@ export const EMAIL_TEMPLATE_DEFINITIONS: EmailTemplateDefinition[] = [
     key: key as EmailTemplateKey,
     label: EMAIL_SEQUENCE_LABELS[key],
     schedule: EMAIL_SEQUENCE_SCHEDULE[key],
+    subject: getSequenceSubject(key, { firstName: "", eventName: "" }),
     group: "Event registration emails",
     placeholders: SEQUENCE_PLACEHOLDERS,
   })),
@@ -78,6 +81,7 @@ export const EMAIL_TEMPLATE_DEFINITIONS: EmailTemplateDefinition[] = [
     key: "join_thank_you",
     label: "Join movement — thank you",
     schedule: "When someone reserves a seat",
+    subject: "Thank you — your seat is reserved | Humans First",
     group: "Join movement emails",
     placeholders: JOIN_PLACEHOLDERS,
   },
@@ -85,6 +89,7 @@ export const EMAIL_TEMPLATE_DEFINITIONS: EmailTemplateDefinition[] = [
     key: "join_notify",
     label: "Join movement — admin notification",
     schedule: "When someone reserves a seat",
+    subject: "New seat reservation — {name} ({city})",
     group: "Join movement emails",
     placeholders: JOIN_PLACEHOLDERS,
   },

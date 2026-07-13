@@ -121,8 +121,8 @@ export async function POST(
     if (!otpTrimmed) {
       return NextResponse.json({ error: "OTP is required" }, { status: 400 });
     }
-    if (!/^\d{6}$/.test(otpTrimmed)) {
-      return NextResponse.json({ error: "OTP must be a 6-digit code" }, { status: 400 });
+    if (!/^\d{4}$/.test(otpTrimmed)) {
+      return NextResponse.json({ error: "OTP must be a 4-digit code" }, { status: 400 });
     }
     const otpResult = await verifyOtp(mobileNormalized, otpTrimmed);
     if (!otpResult.success) {

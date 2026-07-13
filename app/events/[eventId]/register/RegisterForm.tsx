@@ -843,11 +843,11 @@ export function RegisterForm({
                   autoFocus
                   value={otpCode}
                   onChange={(e) =>
-                    setOtpCode(e.target.value.replace(/[^\d]/g, "").slice(0, 8))
+                    setOtpCode(e.target.value.replace(/[^\d]/g, "").slice(0, 4))
                   }
                   required
                   className={inputClass}
-                  placeholder="Enter 6-digit OTP"
+                  placeholder="Enter 4-digit OTP"
                 />
               </div>
 
