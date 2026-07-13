@@ -8,7 +8,7 @@ import {
   saveOtp,
   verifyOtp,
 } from "@/lib/otp-store";
-import { sendOtpSms } from "@/lib/instaalert";
+import { sendOtpSms } from "@/lib/twilio";
 
 export { getOtpTtlMinutes, normalizePhoneForOtp };
 
