@@ -1,6 +1,7 @@
 import { BRAND_LOGO_URL } from "@/lib/constants";
 import { EVENT_TIMEZONE } from "@/lib/date-utils";
 import { JOIN_NOTIFY_HTML, JOIN_THANK_YOU_HTML } from "@/lib/join-email-templates";
+import { getDefaultTemplateSubject } from "@/lib/email-template-registry";
 import { getEmailTemplateOverride } from "@/lib/models/EmailTemplate";
 import { MARKETING_SITE_URL } from "@/lib/marketing-site";
 import { isMailConfigured, sendAppMail } from "@/lib/mail";
@@ -97,12 +98,24 @@ export async function sendJoinEmails(
     submittedAt,
   };
 
+  const thankYouOverride = await getEmailTemplateOverride("join_thank_you");
+  const notifyOverride = await getEmailTemplateOverride("join_notify");
+
   const thankYouHtml = renderTemplate(
-    (await getEmailTemplateOverride("join_thank_you")) || JOIN_THANK_YOU_HTML,
+    thankYouOverride?.html || JOIN_THANK_YOU_HTML,
     templateVars
   );
   const notifyHtml = renderTemplate(
-    (await getEmailTemplateOverride("join_notify")) || JOIN_NOTIFY_HTML,
+    notifyOverride?.html || JOIN_NOTIFY_HTML,
+    templateVars
+  );
+
+  const thankYouSubject = renderTemplate(
+    thankYouOverride?.subject || getDefaultTemplateSubject("join_thank_you"),
+    templateVars
+  );
+  const notifySubject = renderTemplate(
+    notifyOverride?.subject || getDefaultTemplateSubject("join_notify"),
     templateVars
   );
 
@@ -130,7 +143,7 @@ Submitted: ${submittedAt}`;
       to: payload.email,
       toName: payload.name,
       replyTo: SMTP_REPLY_EMAIL,
-      subject: `Thank you — your seat is reserved | Humans First`,
+      subject: thankYouSubject,
       text: thankYouText,
       html: thankYouHtml,
     });
@@ -140,7 +153,7 @@ Submitted: ${submittedAt}`;
       notifyTo.length > 0
         ? sendAppMail({
             to: notifyTo,
-            subject: `New seat reservation — ${payload.name} (${payload.city})`,
+            subject: notifySubject,
             replyTo: payload.email,
             text: notifyText,
             html: notifyHtml,

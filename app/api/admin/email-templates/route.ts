@@ -3,6 +3,7 @@ import {
   buildSampleSequenceContextFromEvent,
   EMAIL_TEMPLATE_DEFINITIONS,
   getDefaultTemplateHtml,
+  getDefaultTemplateSubject,
   getPreviewHtml,
   getSampleSequenceContext,
   sequenceContextToVars,
@@ -14,6 +15,7 @@ import {
   getEventEmailTemplateOverride,
   getGlobalEmailTemplateOverride,
   upsertEmailTemplate,
+  type EmailTemplateOverride,
 } from "@/lib/models/EmailTemplate";
 import { isEventScopedEmailTemplate } from "@/lib/email-template-keys";
 import type { EmailTemplateKey } from "@/lib/email-template-keys";
@@ -31,6 +33,25 @@ const VALID_KEYS = new Set(EMAIL_TEMPLATE_DEFINITIONS.map((t) => t.key));
 
 function isValidKey(key: string): key is EmailTemplateKey {
   return VALID_KEYS.has(key as EmailTemplateKey);
+}
+
+function resolveEffective(
+  scoped: boolean,
+  eventOverride: EmailTemplateOverride | null,
+  globalOverride: EmailTemplateOverride | null
+) {
+  if (scoped) {
+    return {
+      html: eventOverride?.html ?? globalOverride?.html ?? null,
+      subject: eventOverride?.subject ?? globalOverride?.subject ?? null,
+      hasCustom: Boolean(eventOverride),
+    };
+  }
+  return {
+    html: globalOverride?.html ?? null,
+    subject: globalOverride?.subject ?? null,
+    hasCustom: Boolean(globalOverride),
+  };
 }
 
 async function getPreviewContext(eventId?: string): Promise<SequenceRenderContext> {
@@ -54,25 +75,22 @@ async function buildTemplateList(eventId: string) {
     EMAIL_TEMPLATE_DEFINITIONS.map(async (def) => {
       const scoped = isEventScopedEmailTemplate(def.key);
       const eventOverride = scoped ? await getEventEmailTemplateOverride(def.key, eventId) : null;
-      const globalOverride = scoped
-        ? null
-        : await getGlobalEmailTemplateOverride(def.key);
-      const customHtml = scoped ? eventOverride : globalOverride;
-      const effectiveHtml = customHtml ?? (scoped ? await getGlobalEmailTemplateOverride(def.key) : null);
+      const globalOverride = await getGlobalEmailTemplateOverride(def.key);
+      const effective = resolveEffective(scoped, eventOverride, scoped ? globalOverride : globalOverride);
       const defaultHtml = getDefaultTemplateHtml(def.key);
-      const editorHtml = effectiveHtml ?? defaultHtml;
+      const defaultSubject = getDefaultTemplateSubject(def.key);
+      const editorHtml = effective.html ?? defaultHtml;
+      const subject = effective.subject ?? defaultSubject;
 
       return {
         ...def,
+        defaultSubject,
+        subject,
         eventScoped: scoped,
         defaultHtml,
-        customHtml: effectiveHtml,
-        hasCustom: Boolean(scoped ? eventOverride : globalOverride),
-        previewHtml: getPreviewHtml(
-          def.key,
-          effectiveHtml,
-          previewContext
-        ),
+        customHtml: effective.html,
+        hasCustom: effective.hasCustom,
+        previewHtml: getPreviewHtml(def.key, effective.html, previewContext),
         editorHtml,
       };
     })
@@ -123,9 +141,10 @@ export async function PUT(request: Request) {
 
   try {
     const body = await request.json();
-    const { key, html, reset, eventId } = body as {
+    const { key, html, subject, reset, eventId } = body as {
       key?: string;
       html?: string;
+      subject?: string;
       reset?: boolean;
       eventId?: string;
     };
@@ -136,6 +155,7 @@ export async function PUT(request: Request) {
 
     const scoped = isEventScopedEmailTemplate(key);
     const resolvedEventId = eventId?.trim() || undefined;
+    const defaultSubject = getDefaultTemplateSubject(key);
 
     if (scoped && !resolvedEventId) {
       return NextResponse.json({ error: "eventId is required for this template" }, { status: 400 });
@@ -159,18 +179,19 @@ export async function PUT(request: Request) {
           ? await getEventEmailTemplateOverride(key, resolvedEventId)
           : null;
       const globalOverride = await getGlobalEmailTemplateOverride(key);
-      const effectiveHtml = scoped
-        ? eventOverride ?? globalOverride
-        : globalOverride;
+      const effective = resolveEffective(scoped, eventOverride, globalOverride);
       const defaultHtml = getDefaultTemplateHtml(key);
-      const editorHtml = effectiveHtml ?? defaultHtml;
+      const editorHtml = effective.html ?? defaultHtml;
+      const resolvedSubject = effective.subject ?? defaultSubject;
 
       return NextResponse.json({
         success: true,
         key,
         eventId: scoped ? resolvedEventId : null,
-        customHtml: effectiveHtml,
-        hasCustom: Boolean(scoped ? eventOverride : globalOverride),
+        customHtml: effective.html,
+        subject: resolvedSubject,
+        defaultSubject,
+        hasCustom: effective.hasCustom,
         previewHtml: getPreviewHtml(
           key,
           editorHtml === defaultHtml ? null : editorHtml,
@@ -184,14 +205,21 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "HTML is required" }, { status: 400 });
     }
 
-    await upsertEmailTemplate(key, html, scoped ? resolvedEventId : null);
+    if (typeof subject !== "string" || !subject.trim()) {
+      return NextResponse.json({ error: "Subject line is required" }, { status: 400 });
+    }
+
     const customHtml = html.trim();
+    const customSubject = subject.trim();
+    await upsertEmailTemplate(key, customHtml, scoped ? resolvedEventId : null, customSubject);
 
     return NextResponse.json({
       success: true,
       key,
       eventId: scoped ? resolvedEventId : null,
       customHtml,
+      subject: customSubject,
+      defaultSubject,
       hasCustom: true,
       previewHtml: getPreviewHtml(key, customHtml, ctx),
       editorHtml: customHtml,

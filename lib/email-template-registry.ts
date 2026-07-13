@@ -89,7 +89,7 @@ export const EMAIL_TEMPLATE_DEFINITIONS: EmailTemplateDefinition[] = [
     key: "join_notify",
     label: "Join movement — admin notification",
     schedule: "When someone reserves a seat",
-    subject: "New seat reservation — {name} ({city})",
+    subject: "New seat reservation — {{name}} ({{city}})",
     group: "Join movement emails",
     placeholders: JOIN_PLACEHOLDERS,
   },
@@ -166,6 +166,11 @@ export function getDefaultTemplateHtml(key: EmailTemplateKey): string {
   if (key === "join_thank_you") return JOIN_THANK_YOU_HTML;
   if (key === "join_notify") return JOIN_NOTIFY_HTML;
   return buildSequenceEmailHtml(key as EmailSequenceKey, getSampleSequenceContext());
+}
+
+export function getDefaultTemplateSubject(key: EmailTemplateKey): string {
+  const def = EMAIL_TEMPLATE_DEFINITIONS.find((item) => item.key === key);
+  return def?.subject ?? "The Humans First Series";
 }
 
 export function getPreviewHtml(

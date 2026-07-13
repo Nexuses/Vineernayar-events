@@ -87,11 +87,7 @@ export async function sendSequenceEmail(
       priorityPass: data.priorityPass,
       uniqueCode: data.uniqueCode,
     });
-    const subject = getSequenceSubject(key, {
-      firstName: data.firstName,
-      eventName: data.eventName,
-    });
-    const customHtml = await getEmailTemplateOverride(key, data.eventId);
+    const templateOverride = await getEmailTemplateOverride(key, data.eventId);
     const templateVars = {
       ...sequenceContextToVars(renderCtx),
       eventStartDate: data.eventStartDate,
@@ -101,6 +97,18 @@ export async function sendSequenceEmail(
       confirmDeclinedUrl: renderCtx.confirmDeclinedUrl ?? "",
       directionsUrl: renderCtx.directionsUrl ?? "",
     };
+    const subjectTemplate =
+      templateOverride?.subject?.trim() ||
+      getSequenceSubject(key, {
+        firstName: data.firstName,
+        eventName: data.eventName,
+      });
+    const subject = applyEmailTemplate(subjectTemplate, {
+      firstName: data.firstName,
+      eventName: data.eventName,
+      ...templateVars,
+    });
+    const customHtml = templateOverride?.html?.trim() || null;
     const html = appendAttendanceRsvpToEmailHtml(
       customHtml
         ? applyEmailTemplate(customHtml, templateVars)

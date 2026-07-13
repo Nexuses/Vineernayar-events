@@ -17,6 +17,7 @@ type TemplateItem = {
   label: string;
   schedule: string;
   subject: string;
+  defaultSubject?: string;
   group: string;
   placeholders: string[];
   defaultHtml: string;
@@ -97,6 +98,8 @@ function TemplateGroup({
   setOpenKey,
   drafts,
   setDrafts,
+  subjectDrafts,
+  setSubjectDrafts,
   savingKey,
   resettingKey,
   savedKey,
@@ -112,6 +115,8 @@ function TemplateGroup({
   setOpenKey: (key: string | null) => void;
   drafts: Record<string, string>;
   setDrafts: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  subjectDrafts: Record<string, string>;
+  setSubjectDrafts: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   savingKey: string | null;
   resettingKey: string | null;
   savedKey: string | null;
@@ -130,7 +135,8 @@ function TemplateGroup({
         {items.map((item) => {
           const isOpen = openKey === item.key;
           const draft = drafts[item.key] ?? item.editorHtml;
-          const isDirty = draft !== item.editorHtml;
+          const subjectDraft = subjectDrafts[item.key] ?? item.subject;
+          const isDirty = draft !== item.editorHtml || subjectDraft !== item.subject;
 
           return (
             <div
@@ -162,25 +168,33 @@ function TemplateGroup({
                     ) : null}
                   </div>
                   <p className="mt-1 text-sm text-zinc-500">{item.schedule}</p>
-                  {item.subject ? (
-                    <p className="mt-1 text-sm text-zinc-600">
-                      <span className="font-medium text-zinc-700">Subject:</span> {item.subject}
-                    </p>
-                  ) : null}
+                  <p className="mt-1 truncate text-sm text-zinc-600">
+                    <span className="font-medium text-zinc-700">Subject:</span> {subjectDraft}
+                  </p>
                 </div>
                 <ChevronIcon open={isOpen} />
               </button>
 
               {isOpen ? (
                 <div className="border-t border-zinc-200 px-4 py-4">
-                  {item.subject ? (
-                    <div className="mb-3 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
-                      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                        Subject line
-                      </p>
-                      <p className="mt-0.5 text-sm text-zinc-900">{item.subject}</p>
-                    </div>
-                  ) : null}
+                  <div className="mb-4">
+                    <label
+                      htmlFor={`email-subject-${item.key}`}
+                      className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-500"
+                    >
+                      Subject line
+                    </label>
+                    <input
+                      id={`email-subject-${item.key}`}
+                      type="text"
+                      value={subjectDraft}
+                      onChange={(e) =>
+                        setSubjectDrafts((prev) => ({ ...prev, [item.key]: e.target.value }))
+                      }
+                      className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                    />
+                  </div>
+
                   <div className="mb-3 flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -257,6 +271,7 @@ export function EmailFlowSection({ events }: { events: EventItem[] }) {
   const [selectedEventName, setSelectedEventName] = useState("");
   const [templates, setTemplates] = useState<TemplateItem[]>([]);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [subjectDrafts, setSubjectDrafts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [openKey, setOpenKey] = useState<string | null>(null);
@@ -270,6 +285,7 @@ export function EmailFlowSection({ events }: { events: EventItem[] }) {
     if (!selectedEventId) {
       setTemplates([]);
       setDrafts({});
+      setSubjectDrafts({});
       setPreviewVars({});
       setOpenKey(null);
       setLoading(false);
@@ -293,10 +309,13 @@ export function EmailFlowSection({ events }: { events: EventItem[] }) {
       );
       setTemplates(list);
       const nextDrafts: Record<string, string> = {};
+      const nextSubjectDrafts: Record<string, string> = {};
       for (const item of list) {
         nextDrafts[item.key] = item.editorHtml;
+        nextSubjectDrafts[item.key] = item.subject;
       }
       setDrafts(nextDrafts);
+      setSubjectDrafts(nextSubjectDrafts);
       setOpenKey(null);
     } catch {
       setError("Failed to load email templates");
@@ -337,13 +356,14 @@ export function EmailFlowSection({ events }: { events: EventItem[] }) {
 
   async function handleSave(key: string) {
     const html = drafts[key] ?? "";
+    const subject = subjectDrafts[key] ?? "";
     setSavingKey(key);
     setSavedKey(null);
     try {
       const res = await fetch("/api/admin/email-templates", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBodyForTemplate(key, { key, html })),
+        body: JSON.stringify(requestBodyForTemplate(key, { key, html, subject })),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -356,6 +376,8 @@ export function EmailFlowSection({ events }: { events: EventItem[] }) {
             ? {
                 ...item,
                 customHtml: data.customHtml,
+                subject: data.subject ?? subject,
+                defaultSubject: data.defaultSubject ?? item.defaultSubject,
                 hasCustom: data.hasCustom ?? true,
                 previewHtml: data.previewHtml,
                 editorHtml: data.editorHtml,
@@ -364,6 +386,7 @@ export function EmailFlowSection({ events }: { events: EventItem[] }) {
         )
       );
       setDrafts((prev) => ({ ...prev, [key]: data.editorHtml }));
+      setSubjectDrafts((prev) => ({ ...prev, [key]: data.subject ?? subject }));
       setSavedKey(key);
       setTimeout(() => setSavedKey((current) => (current === key ? null : current)), 2500);
     } catch {
@@ -376,8 +399,8 @@ export function EmailFlowSection({ events }: { events: EventItem[] }) {
   async function handleReset(key: string) {
     const item = templates.find((t) => t.key === key);
     const message = item?.eventScoped === false
-      ? "Reset this template to the built-in default? Your custom HTML will be removed."
-      : `Reset this template for ${selectedEventName}? Your event-specific HTML will be removed.`;
+      ? "Reset this template to the built-in default? Your custom HTML and subject will be removed."
+      : `Reset this template for ${selectedEventName}? Your event-specific HTML and subject will be removed.`;
     if (!confirm(message)) return;
 
     setResettingKey(key);
@@ -399,6 +422,8 @@ export function EmailFlowSection({ events }: { events: EventItem[] }) {
             ? {
                 ...t,
                 customHtml: data.customHtml,
+                subject: data.subject ?? t.defaultSubject ?? t.subject,
+                defaultSubject: data.defaultSubject ?? t.defaultSubject,
                 hasCustom: data.hasCustom ?? false,
                 previewHtml: data.previewHtml,
                 editorHtml: data.editorHtml,
@@ -407,6 +432,10 @@ export function EmailFlowSection({ events }: { events: EventItem[] }) {
         )
       );
       setDrafts((prev) => ({ ...prev, [key]: data.editorHtml }));
+      setSubjectDrafts((prev) => ({
+        ...prev,
+        [key]: data.subject ?? item?.defaultSubject ?? item?.subject ?? "",
+      }));
     } catch {
       setError("Failed to reset template");
     } finally {
@@ -500,6 +529,8 @@ export function EmailFlowSection({ events }: { events: EventItem[] }) {
                   setOpenKey={setOpenKey}
                   drafts={drafts}
                   setDrafts={setDrafts}
+                  subjectDrafts={subjectDrafts}
+                  setSubjectDrafts={setSubjectDrafts}
                   savingKey={savingKey}
                   resettingKey={resettingKey}
                   savedKey={savedKey}
@@ -519,6 +550,8 @@ export function EmailFlowSection({ events }: { events: EventItem[] }) {
                   setOpenKey={setOpenKey}
                   drafts={drafts}
                   setDrafts={setDrafts}
+                  subjectDrafts={subjectDrafts}
+                  setSubjectDrafts={setSubjectDrafts}
                   savingKey={savingKey}
                   resettingKey={resettingKey}
                   savedKey={savedKey}
