@@ -50,37 +50,37 @@ export default function RootLayout({
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
           strategy="afterInteractive"
         />
-        <Script id="google-gtag" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', '${GA_MEASUREMENT_ID}');
-            gtag('config', '${GOOGLE_ADS_ID}');
-          `}
-        </Script>
-        <Script id="linkedin-partner" strategy="afterInteractive">
-          {`
-            _linkedin_partner_id = "${LINKEDIN_PARTNER_ID}";
-            window._linkedin_data_partner_ids = window._linkedin_data_partner_ids || [];
-            window._linkedin_data_partner_ids.push(_linkedin_partner_id);
-          `}
-        </Script>
-        <Script id="linkedin-insight" strategy="afterInteractive">
-          {`
-            (function(l) {
-              if (!l){window.lintrk = function(a,b){window.lintrk.q.push([a,b])};
-              window.lintrk.q=[]}
-              var s = document.getElementsByTagName("script")[0];
-              var b = document.createElement("script");
-              b.type = "text/javascript";b.async = true;
-              b.src = "https://snap.licdn.com/li.lms-analytics/insight.min.js";
-              s.parentNode.insertBefore(b, s);
-            })(window.lintrk);
-          `}
-        </Script>
+        <Script
+          id="google-gtag"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', '${GA_MEASUREMENT_ID}');
+              gtag('config', '${GOOGLE_ADS_ID}');
+            `,
+          }}
+        />
+        <Script
+          id="linkedin-partner"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              window._linkedin_partner_id = "${LINKEDIN_PARTNER_ID}";
+              window._linkedin_data_partner_ids = window._linkedin_data_partner_ids || [];
+              window._linkedin_data_partner_ids.push(window._linkedin_partner_id);
+              window.lintrk = window.lintrk || function (a, b) { window.lintrk.q.push([a, b]); };
+              window.lintrk.q = window.lintrk.q || [];
+            `,
+          }}
+        />
+        <Script
+          src="https://snap.licdn.com/li.lms-analytics/insight.min.js"
+          strategy="afterInteractive"
+        />
         <noscript>
-          {/* LinkedIn Insight Tag */}
           <img
             height={1}
             width={1}
