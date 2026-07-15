@@ -41,6 +41,7 @@ type EventSnap = {
 };
 
 const ALREADY_REGISTERED_MESSAGE = "This email is already registered for this event.";
+const OTP_RESEND_COOLDOWN_SECONDS = 60;
 
 export function RegisterForm({
   eventId,
@@ -76,6 +77,7 @@ export function RegisterForm({
   const [otpModalError, setOtpModalError] = useState("");
   const [verifiedMobile, setVerifiedMobile] = useState("");
   const [sendingOtp, setSendingOtp] = useState(false);
+  const [resendCooldownSeconds, setResendCooldownSeconds] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
@@ -91,6 +93,25 @@ export function RegisterForm({
     if (error !== ALREADY_REGISTERED_MESSAGE || !errorRef.current) return;
     errorRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [error]);
+
+  useEffect(() => {
+    if (resendCooldownSeconds <= 0) return;
+    const timer = window.setTimeout(() => {
+      setResendCooldownSeconds((seconds) => Math.max(0, seconds - 1));
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [resendCooldownSeconds]);
+
+  function startResendCooldown(seconds = OTP_RESEND_COOLDOWN_SECONDS) {
+    setResendCooldownSeconds(seconds);
+  }
+
+  function parseResendCooldownFromError(message: string): number | null {
+    const match = message.match(/wait\s+(\d+)\s+seconds/i);
+    if (!match) return null;
+    const seconds = Number(match[1]);
+    return Number.isFinite(seconds) && seconds > 0 ? seconds : null;
+  }
 
   function getFullMobileNumber(): string {
     return buildE164Phone(countryDial, mobileLocal);
@@ -169,8 +190,11 @@ export function RegisterForm({
     };
   }
 
-  async function sendOtpToMobile(mobileNumber: string): Promise<string | null> {
-    setSendingOtp(true);
+  async function sendOtpToMobile(
+    mobileNumber: string,
+    options?: { skipSendingState?: boolean }
+  ): Promise<string | null> {
+    if (!options?.skipSendingState) setSendingOtp(true);
     try {
       const otpRes = await fetch(`/api/events/${eventId}/register/otp/send`, {
         method: "POST",
@@ -179,13 +203,17 @@ export function RegisterForm({
       });
       const otpData = await otpRes.json();
       if (!otpRes.ok) {
-        return otpData.error || "Unable to send OTP";
+        const message = otpData.error || "Unable to send OTP";
+        const cooldownFromError = parseResendCooldownFromError(message);
+        if (cooldownFromError) startResendCooldown(cooldownFromError);
+        return message;
       }
+      startResendCooldown();
       return null;
     } catch {
       return "Unable to send OTP. Please try again.";
     } finally {
-      setSendingOtp(false);
+      if (!options?.skipSendingState) setSendingOtp(false);
     }
   }
 
@@ -213,32 +241,44 @@ export function RegisterForm({
     }
   }
 
+  const submitLockRef = useRef(false);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading || sendingOtp || submitLockRef.current) return;
+    submitLockRef.current = true;
+
     setError("");
     const validationError = validateForm();
     if (validationError) {
       setError(validationError);
+      submitLockRef.current = false;
       return;
     }
 
-    const emailCheckError = await checkEmailBeforeOtp();
-    if (emailCheckError) {
-      setError(emailCheckError);
-      return;
-    }
+    setSendingOtp(true);
+    try {
+      const emailCheckError = await checkEmailBeforeOtp();
+      if (emailCheckError) {
+        setError(emailCheckError);
+        return;
+      }
 
-    const mobileNumber = getFullMobileNumber();
-    const otpError = await sendOtpToMobile(mobileNumber);
-    if (otpError) {
-      setError(otpError);
-      return;
-    }
+      const mobileNumber = getFullMobileNumber();
+      const otpError = await sendOtpToMobile(mobileNumber, { skipSendingState: true });
+      if (otpError) {
+        setError(otpError);
+        return;
+      }
 
-    setVerifiedMobile(mobileNumber);
-    setOtpCode("");
-    setOtpModalError("");
-    setOtpModalOpen(true);
+      setVerifiedMobile(mobileNumber);
+      setOtpCode("");
+      setOtpModalError("");
+      setOtpModalOpen(true);
+    } finally {
+      setSendingOtp(false);
+      submitLockRef.current = false;
+    }
   }
 
   function closeOtpModal() {
@@ -246,10 +286,11 @@ export function RegisterForm({
     setOtpModalOpen(false);
     setOtpCode("");
     setOtpModalError("");
+    setResendCooldownSeconds(0);
   }
 
   async function handleResendOtp() {
-    if (!verifiedMobile || sendingOtp) return;
+    if (!verifiedMobile || sendingOtp || resendCooldownSeconds > 0) return;
     setOtpModalError("");
     const otpError = await sendOtpToMobile(verifiedMobile);
     if (otpError) {
@@ -834,7 +875,7 @@ export function RegisterForm({
       <button
         type="submit"
         disabled={loading || sendingOtp}
-        className="w-full rounded-lg border-2 border-zinc-900 bg-brand-500 px-4 py-4 text-base font-extrabold uppercase tracking-wide text-zinc-900 shadow-[0_4px_0_#0f172a] transition hover:translate-y-0.5 hover:shadow-[0_2px_0_#0f172a] disabled:translate-y-0 disabled:opacity-50 disabled:shadow-[0_4px_0_#0f172a]"
+        className="w-full cursor-pointer rounded-lg border-2 border-zinc-900 bg-brand-500 px-4 py-4 text-base font-extrabold uppercase tracking-wide text-zinc-900 shadow-[0_4px_0_#0f172a] transition hover:translate-y-0.5 hover:shadow-[0_2px_0_#0f172a] disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-50 disabled:shadow-[0_4px_0_#0f172a]"
       >
         {sendingOtp ? "Sending OTP…" : "Apply for an Invitation"}
       </button>
@@ -894,10 +935,14 @@ export function RegisterForm({
                 <button
                   type="button"
                   onClick={handleResendOtp}
-                  disabled={loading || sendingOtp}
-                  className="rounded-md border border-zinc-300 px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                  disabled={loading || sendingOtp || resendCooldownSeconds > 0}
+                  className="cursor-pointer rounded-md border border-zinc-300 px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {sendingOtp ? "Sending…" : "Resend OTP"}
+                  {sendingOtp
+                    ? "Sending…"
+                    : resendCooldownSeconds > 0
+                      ? `Resend OTP (${resendCooldownSeconds}s)`
+                      : "Resend OTP"}
                 </button>
               </div>
 
