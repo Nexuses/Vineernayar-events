@@ -15,6 +15,7 @@ import {
   type RegistrationDesignationSelection,
   trimToFieldLimit,
 } from "@/lib/registration-field-limits";
+import { MARKETING_SITE_URL } from "@/lib/marketing-site";
 
 type EventSnap = {
   eventId: string;
@@ -790,6 +791,37 @@ export function RegisterForm({
         </label>
       </div>
 
+      <div
+        className="flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-center text-[13px] font-semibold"
+        style={{
+          backgroundColor: "rgba(103, 103, 111, 0.12)",
+          borderColor: "rgba(103, 103, 111, 0.25)",
+          color: "#5B5B65",
+        }}
+      >
+        <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2.5}
+            d="M8.228 9c.549-1.165 1.956-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+        <span>
+          Have questions?{" "}
+          <a
+            href={`${MARKETING_SITE_URL}/faq`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:no-underline"
+            style={{ color: "#5B5B65" }}
+          >
+            Read our FAQs
+          </a>
+          .
+        </span>
+      </div>
+
       <div className="flex items-center justify-center gap-2 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-center text-[13px] font-semibold text-red-600">
         <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -843,11 +875,11 @@ export function RegisterForm({
                   autoFocus
                   value={otpCode}
                   onChange={(e) =>
-                    setOtpCode(e.target.value.replace(/[^\d]/g, "").slice(0, 8))
+                    setOtpCode(e.target.value.replace(/[^\d]/g, "").slice(0, 4))
                   }
                   required
                   className={inputClass}
-                  placeholder="Enter 6-digit OTP"
+                  placeholder="Enter 4-digit OTP"
                 />
               </div>
 
