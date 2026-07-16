@@ -25,6 +25,7 @@ function buildEventsNavbarConfig(): HumansFirstNavbarConfig {
     homeHref: MARKETING_SITE_URL,
     ctaHref: MARKETING_SITE_URL,
     leftLinks: mapLinks(HUMANS_FIRST_NAVBAR_CONFIG.leftLinks),
+    afterExploreLinks: mapLinks(HUMANS_FIRST_NAVBAR_CONFIG.afterExploreLinks),
     rightLinks: mapLinks(HUMANS_FIRST_NAVBAR_CONFIG.rightLinks),
     exploreItems: mapLinks(HUMANS_FIRST_NAVBAR_CONFIG.exploreItems),
   };

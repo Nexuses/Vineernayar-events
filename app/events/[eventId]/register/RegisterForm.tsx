@@ -15,6 +15,7 @@ import {
   type RegistrationDesignationSelection,
   trimToFieldLimit,
 } from "@/lib/registration-field-limits";
+import { RegistrationFaqBanner } from "./RegistrationFaqBanner";
 
 type EventSnap = {
   eventId: string;
@@ -40,6 +41,7 @@ type EventSnap = {
 };
 
 const ALREADY_REGISTERED_MESSAGE = "This email is already registered for this event.";
+const OTP_RESEND_COOLDOWN_SECONDS = 60;
 
 export function RegisterForm({
   eventId,
@@ -75,6 +77,8 @@ export function RegisterForm({
   const [otpModalError, setOtpModalError] = useState("");
   const [verifiedMobile, setVerifiedMobile] = useState("");
   const [sendingOtp, setSendingOtp] = useState(false);
+  const [submittingInvite, setSubmittingInvite] = useState(false);
+  const [otpResendSecondsLeft, setOtpResendSecondsLeft] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
@@ -90,6 +94,18 @@ export function RegisterForm({
     if (error !== ALREADY_REGISTERED_MESSAGE || !errorRef.current) return;
     errorRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [error]);
+
+  useEffect(() => {
+    if (otpResendSecondsLeft <= 0) return;
+    const timer = window.setInterval(() => {
+      setOtpResendSecondsLeft((seconds) => (seconds <= 1 ? 0 : seconds - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [otpResendSecondsLeft]);
+
+  function startOtpResendCooldown(seconds = OTP_RESEND_COOLDOWN_SECONDS) {
+    setOtpResendSecondsLeft(Math.max(1, Math.ceil(seconds)));
+  }
 
   function getFullMobileNumber(): string {
     return buildE164Phone(countryDial, mobileLocal);
@@ -168,7 +184,9 @@ export function RegisterForm({
     };
   }
 
-  async function sendOtpToMobile(mobileNumber: string): Promise<string | null> {
+  async function sendOtpToMobile(
+    mobileNumber: string
+  ): Promise<{ error: string | null; retryAfterSeconds?: number }> {
     setSendingOtp(true);
     try {
       const otpRes = await fetch(`/api/events/${eventId}/register/otp/send`, {
@@ -178,11 +196,18 @@ export function RegisterForm({
       });
       const otpData = await otpRes.json();
       if (!otpRes.ok) {
-        return otpData.error || "Unable to send OTP";
+        return {
+          error: otpData.error || "Unable to send OTP",
+          retryAfterSeconds:
+            typeof otpData.retryAfterSeconds === "number"
+              ? otpData.retryAfterSeconds
+              : undefined,
+        };
       }
-      return null;
+      startOtpResendCooldown();
+      return { error: null };
     } catch {
-      return "Unable to send OTP. Please try again.";
+      return { error: "Unable to send OTP. Please try again." };
     } finally {
       setSendingOtp(false);
     }
@@ -214,23 +239,33 @@ export function RegisterForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submittingInvite || sendingOtp || otpModalOpen) return;
+
     setError("");
+    setSubmittingInvite(true);
+
     const validationError = validateForm();
     if (validationError) {
       setError(validationError);
+      setSubmittingInvite(false);
       return;
     }
 
     const emailCheckError = await checkEmailBeforeOtp();
     if (emailCheckError) {
       setError(emailCheckError);
+      setSubmittingInvite(false);
       return;
     }
 
     const mobileNumber = getFullMobileNumber();
-    const otpError = await sendOtpToMobile(mobileNumber);
-    if (otpError) {
-      setError(otpError);
+    const otpResult = await sendOtpToMobile(mobileNumber);
+    if (otpResult.error) {
+      setError(otpResult.error);
+      if (otpResult.retryAfterSeconds) {
+        startOtpResendCooldown(otpResult.retryAfterSeconds);
+      }
+      setSubmittingInvite(false);
       return;
     }
 
@@ -245,14 +280,18 @@ export function RegisterForm({
     setOtpModalOpen(false);
     setOtpCode("");
     setOtpModalError("");
+    setSubmittingInvite(false);
   }
 
   async function handleResendOtp() {
-    if (!verifiedMobile || sendingOtp) return;
+    if (!verifiedMobile || sendingOtp || otpResendSecondsLeft > 0) return;
     setOtpModalError("");
-    const otpError = await sendOtpToMobile(verifiedMobile);
-    if (otpError) {
-      setOtpModalError(otpError);
+    const otpResult = await sendOtpToMobile(verifiedMobile);
+    if (otpResult.error) {
+      setOtpModalError(otpResult.error);
+      if (otpResult.retryAfterSeconds) {
+        startOtpResendCooldown(otpResult.retryAfterSeconds);
+      }
     }
   }
 
@@ -307,6 +346,10 @@ export function RegisterForm({
       </svg>
     </span>
   );
+
+  const applyButtonDisabled =
+    loading || sendingOtp || submittingInvite || otpModalOpen;
+  const resendOtpDisabled = loading || sendingOtp || otpResendSecondsLeft > 0;
 
   return (
     <>
@@ -790,6 +833,8 @@ export function RegisterForm({
         </label>
       </div>
 
+      <RegistrationFaqBanner />
+
       <div className="flex items-center justify-center gap-2 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-center text-[13px] font-semibold text-red-600">
         <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -801,10 +846,10 @@ export function RegisterForm({
 
       <button
         type="submit"
-        disabled={loading || sendingOtp}
-        className="w-full rounded-lg border-2 border-zinc-900 bg-brand-500 px-4 py-4 text-base font-extrabold uppercase tracking-wide text-zinc-900 shadow-[0_4px_0_#0f172a] transition hover:translate-y-0.5 hover:shadow-[0_2px_0_#0f172a] disabled:translate-y-0 disabled:opacity-50 disabled:shadow-[0_4px_0_#0f172a]"
+        disabled={applyButtonDisabled}
+        className="w-full cursor-pointer rounded-lg border-2 border-zinc-900 bg-brand-500 px-4 py-4 text-base font-extrabold uppercase tracking-wide text-zinc-900 shadow-[0_4px_0_#0f172a] transition hover:translate-y-0.5 hover:shadow-[0_2px_0_#0f172a] disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-[0_4px_0_#0f172a]"
       >
-        {sendingOtp ? "Sending OTP…" : "Apply for an Invitation"}
+        {sendingOtp || submittingInvite ? "Sending OTP…" : "Apply for an Invitation"}
       </button>
     </form>
 
@@ -855,17 +900,21 @@ export function RegisterForm({
                 <button
                   type="submit"
                   disabled={loading || sendingOtp}
-                  className="flex-1 rounded-lg border-2 border-zinc-900 bg-brand-500 px-4 py-3 font-bold text-zinc-900 shadow-[0_3px_0_#0f172a] transition hover:translate-y-0.5 hover:shadow-[0_1px_0_#0f172a] disabled:opacity-50"
+                  className="flex-1 cursor-pointer rounded-lg border-2 border-zinc-900 bg-brand-500 px-4 py-3 font-bold text-zinc-900 shadow-[0_3px_0_#0f172a] transition hover:translate-y-0.5 hover:shadow-[0_1px_0_#0f172a] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {loading ? "Submitting…" : "Submit"}
                 </button>
                 <button
                   type="button"
                   onClick={handleResendOtp}
-                  disabled={loading || sendingOtp}
-                  className="rounded-md border border-zinc-300 px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                  disabled={resendOtpDisabled}
+                  className="cursor-pointer rounded-md border border-zinc-300 px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {sendingOtp ? "Sending…" : "Resend OTP"}
+                  {sendingOtp
+                    ? "Sending…"
+                    : otpResendSecondsLeft > 0
+                      ? `Resend OTP (${otpResendSecondsLeft}s)`
+                      : "Resend OTP"}
                 </button>
               </div>
 

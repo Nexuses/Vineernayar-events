@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+import { LinkedInInsightTag } from "@/app/components/LinkedInInsightTag";
 import { Caveat, Inter } from "next/font/google";
 import { BRAND_LOGO_URL, BRAND_NAME } from "@/lib/constants";
 import "./globals.css";
@@ -34,8 +35,6 @@ const GA_MEASUREMENT_ID =
   process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID?.trim() || "G-4801XNSKV8";
 const GOOGLE_ADS_ID =
   process.env.NEXT_PUBLIC_GOOGLE_ADS_ID?.trim() || "AW-18043603754";
-const LINKEDIN_PARTNER_ID =
-  process.env.NEXT_PUBLIC_LINKEDIN_PARTNER_ID?.trim() || "9627468";
 
 export default function RootLayout({
   children,
@@ -63,32 +62,7 @@ export default function RootLayout({
             `,
           }}
         />
-        <Script
-          id="linkedin-partner"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
-              window._linkedin_partner_id = "${LINKEDIN_PARTNER_ID}";
-              window._linkedin_data_partner_ids = window._linkedin_data_partner_ids || [];
-              window._linkedin_data_partner_ids.push(window._linkedin_partner_id);
-              window.lintrk = window.lintrk || function (a, b) { window.lintrk.q.push([a, b]); };
-              window.lintrk.q = window.lintrk.q || [];
-            `,
-          }}
-        />
-        <Script
-          src="https://snap.licdn.com/li.lms-analytics/insight.min.js"
-          strategy="afterInteractive"
-        />
-        <noscript>
-          <img
-            height={1}
-            width={1}
-            style={{ display: "none" }}
-            alt=""
-            src={`https://px.ads.linkedin.com/collect/?pid=${LINKEDIN_PARTNER_ID}&fmt=gif`}
-          />
-        </noscript>
+        <LinkedInInsightTag />
       </body>
     </html>
   );

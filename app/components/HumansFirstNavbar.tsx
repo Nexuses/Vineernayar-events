@@ -20,6 +20,7 @@ export const HUMANS_FIRST_NAVBAR_CONFIG = {
   ctaLabel: "Join the movement",
   ctaHref: "/#cities-cards",
   leftLinks: [{ href: "/book", label: "More Books", isRoute: true }],
+  afterExploreLinks: [{ href: "/faq", label: "FAQ", isRoute: true }],
   rightLinks: [{ href: "/#wall", label: "The Wall", sectionId: "wall" }],
   exploreItems: [
     { href: "/#mosaic", label: "Vineet Nayar in Action", sectionId: "mosaic" },
@@ -41,6 +42,7 @@ export type HumansFirstNavbarConfig = {
   ctaLabel: string;
   ctaHref: string;
   leftLinks: readonly NavLink[];
+  afterExploreLinks: readonly NavLink[];
   rightLinks: readonly NavLink[];
   exploreItems: readonly NavLink[];
 };
@@ -251,6 +253,12 @@ function MobileMenu({
           </div>
         ) : null}
 
+        {config.afterExploreLinks.map((link) => (
+          <a key={link.href} href={resolveHref(link, currentPath)} onClick={onClose}>
+            {link.label}
+          </a>
+        ))}
+
         <NavCta
           config={config}
           currentPath={currentPath}
@@ -300,6 +308,7 @@ export function HumansFirstNavbar({
               currentPath={currentPath}
               onNavigate={onNavigate}
             />
+            {config.afterExploreLinks.map(renderLink)}
           </div>
 
           <a

@@ -4,6 +4,7 @@ import {
   HumansFirstFooter,
   HUMANS_FIRST_FOOTER_CONFIG,
 } from "@/app/components/HumansFirstFooter";
+import { LinkedInInsightTag } from "@/app/components/LinkedInInsightTag";
 import { MARKETING_SITE_URL } from "@/lib/marketing-site";
 
 const footerConfig = {
@@ -18,6 +19,7 @@ export function Footer() {
   return (
     <>
       <HumansFirstFooter config={footerConfig} contactHref={MARKETING_SITE_URL} />
+      <LinkedInInsightTag idSuffix="-footer" />
     </>
   );
 }

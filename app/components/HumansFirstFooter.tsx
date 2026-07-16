@@ -34,6 +34,7 @@ export const HUMANS_FIRST_FOOTER_CONFIG = {
       labelHighlight: "Vineet Nayar",
       external: true,
     },
+    { href: "/faq", label: "FAQ" },
   ],
   socialLinks: [
     { href: "https://www.linkedin.com/in/vineetnayar?originalSubdomain=in", label: "LinkedIn" },

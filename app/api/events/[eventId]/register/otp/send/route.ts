@@ -30,7 +30,10 @@ export async function POST(
     });
   } catch (err) {
     if (err instanceof OtpResendCooldownError) {
-      return NextResponse.json({ error: err.message }, { status: 429 });
+      return NextResponse.json(
+        { error: err.message, retryAfterSeconds: err.retryAfterSeconds },
+        { status: 429 }
+      );
     }
 
     console.error("Send OTP error:", err);
