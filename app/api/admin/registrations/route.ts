@@ -26,6 +26,8 @@ export async function GET(request: Request) {
       firstName: r.firstName,
       surname: r.surname,
       email: r.email,
+      city: r.city,
+      registrationSource: r.registrationSource,
       organization: r.organization,
       currentDesignation: r.currentDesignation,
       designation: r.designation,
@@ -44,6 +46,7 @@ export async function GET(request: Request) {
       passportNic: r.passportNic,
       transportNeeded: r.transportNeeded,
       transportLocation: r.transportLocation,
+      adminNotes: r.adminNotes,
       participationStatus: r.participationStatus || "registered",
       attendanceRsvpStatus: r.attendanceRsvpStatus ?? "pending",
       attendanceRsvpAt:

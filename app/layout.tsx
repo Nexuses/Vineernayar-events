@@ -34,6 +34,7 @@ export const viewport: Viewport = {
 
 const GA_MEASUREMENT_ID =
   process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID?.trim() || "G-4801XNSKV8";
+const GA_MEASUREMENT_ID_SECONDARY = "G-0BT2JXWMK1";
 const GOOGLE_ADS_ID =
   process.env.NEXT_PUBLIC_GOOGLE_ADS_ID?.trim() || "AW-18043603754";
 
@@ -62,6 +63,7 @@ export default function RootLayout({
               window.dataLayer = window.dataLayer || [];
               function gtag(){dataLayer.push(arguments);}
               gtag('js', new Date());
+              gtag('config', '${GA_MEASUREMENT_ID_SECONDARY}');
               gtag('config', '${GA_MEASUREMENT_ID}');
               gtag('config', '${GOOGLE_ADS_ID}');
             `,

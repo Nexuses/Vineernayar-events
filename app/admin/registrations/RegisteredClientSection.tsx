@@ -33,6 +33,7 @@ type ParticipationStatus = "registered" | "attended";
 
 type StatusFilter = "all" | "registered" | "attended";
 type RsvpFilter = "all" | "pending" | "reconfirmed" | "declined";
+type SourceFilter = "all" | "manual" | "online";
 
 const PAGE_SIZE = 25;
 
@@ -77,12 +78,14 @@ function matchesSearch(row: RegistrationItem, query: string): boolean {
     row.surname,
     `${row.firstName} ${row.surname}`,
     row.email,
+    row.city,
     row.mobileNumber,
     row.whatsappNumber,
     row.uniqueCode,
     row.organization,
     row.currentDesignation,
     row.specialComment,
+    row.adminNotes,
     row.questionForVineet,
     row.workedWithVineetDetails,
     row.whyAttend,
@@ -118,6 +121,19 @@ function matchesRsvpFilter(row: RegistrationItem, filter: RsvpFilter): boolean {
   return status !== "declined";
 }
 
+function getRegistrationSource(row: RegistrationItem): "manual" | "online" {
+  if (row.registrationSource === "manual" || row.registrationSource === "online") {
+    return row.registrationSource;
+  }
+  if (row.adminNotes?.trim() === "Manual registration by admin") return "manual";
+  return "online";
+}
+
+function matchesSourceFilter(row: RegistrationItem, filter: SourceFilter): boolean {
+  if (filter === "all") return true;
+  return getRegistrationSource(row) === filter;
+}
+
 type EmailSequenceEntryView = {
   status: string;
   sentAt: string | null;
@@ -132,6 +148,7 @@ type RegistrationItem = {
   firstName: string;
   surname: string;
   email: string;
+  city?: string;
   organization?: string;
   currentDesignation?: string;
   designation?: string;
@@ -150,6 +167,8 @@ type RegistrationItem = {
   passportNic?: string;
   transportNeeded?: boolean;
   transportLocation?: string;
+  adminNotes?: string;
+  registrationSource?: "manual" | "online";
   participationStatus: ParticipationStatus;
   attendanceRsvpStatus?: AttendanceRsvpStatus;
   attendanceRsvpAt?: string | null;
@@ -198,10 +217,10 @@ function buildRegistrationDetailFields(row: RegistrationItem): DetailField[] {
   push("Surname", row.surname);
   push("Email", row.email);
   push("Mobile Number", row.mobileNumber);
-  push(
-    "WhatsApp Number",
-    row.addToWhatsapp ? row.whatsappNumber?.trim() || row.mobileNumber : undefined
-  );
+  push("City", row.city);
+  const whatsapp =
+    row.whatsappNumber?.trim() || (row.addToWhatsapp ? row.mobileNumber : undefined);
+  push("WhatsApp Number", whatsapp);
   push("Your Current Organisation", row.organization);
   const profile = row.currentDesignation?.trim();
   if (profile) {
@@ -226,12 +245,16 @@ function buildRegistrationDetailFields(row: RegistrationItem): DetailField[] {
     push("Transport", row.transportNeeded ? "Yes" : "No");
   }
   push("Location", row.transportNeeded ? row.transportLocation : undefined);
+  push("Coming with how many persons?", row.specialComment);
   push("Registration code", row.uniqueCode, true);
   fields.push({
     label: "Status",
     value: (row.participationStatus || "registered") === "attended" ? "Attended" : "Registered",
   });
   fields.push({ label: "Registered on", value: formatDate(row.createdAt) });
+  if (row.participationTimestamp) {
+    fields.push({ label: "Attended on", value: formatDate(row.participationTimestamp) });
+  }
   fields.push({
     label: "RSVP status",
     value: `${attendanceRsvpLabel(getAttendanceRsvpStatus(row))}${
@@ -240,6 +263,150 @@ function buildRegistrationDetailFields(row: RegistrationItem): DetailField[] {
   });
 
   return fields;
+}
+
+function yesNoCsv(value?: boolean | null): string {
+  if (value == null) return "";
+  return value ? "Yes" : "No";
+}
+
+function whatsappCsvValue(row: RegistrationItem): string {
+  return row.whatsappNumber?.trim() || (row.addToWhatsapp ? row.mobileNumber?.trim() || "" : "");
+}
+
+function customDesignationCsv(row: RegistrationItem): string {
+  if (row.currentDesignation?.trim() === REGISTRATION_DESIGNATION_OTHER) {
+    return row.designation?.trim() || "";
+  }
+  return "";
+}
+
+function buildRegistrationsCsv(rows: RegistrationItem[]): string {
+  const optionalColumns: {
+    header: string;
+    value: (r: RegistrationItem) => string;
+    hasData: (r: RegistrationItem) => boolean;
+  }[] = [
+    {
+      header: "City",
+      value: (r) => r.city || "",
+      hasData: (r) => Boolean(r.city?.trim()),
+    },
+    {
+      header: "WhatsApp Number",
+      value: whatsappCsvValue,
+      hasData: (r) => Boolean(whatsappCsvValue(r)),
+    },
+    {
+      header: "Your Current Organisation",
+      value: (r) => r.organization || "",
+      hasData: (r) => Boolean(r.organization?.trim()),
+    },
+    {
+      header: "Your Current Designation",
+      value: (r) => getEffectiveDesignation(r),
+      hasData: (r) => Boolean(getEffectiveDesignation(r).trim()),
+    },
+    {
+      header: "Please specify your designation",
+      value: customDesignationCsv,
+      hasData: (r) => Boolean(customDesignationCsv(r)),
+    },
+    {
+      header: "Have you worked, studied, or partnered with Vineet Nayar?",
+      value: (r) => yesNoCsv(r.workedWithVineet),
+      hasData: (r) => r.workedWithVineet != null,
+    },
+    {
+      header: "Tell us more about where or how you connected?",
+      value: (r) => r.workedWithVineetDetails || "",
+      hasData: (r) => Boolean(r.workedWithVineetDetails?.trim()),
+    },
+    {
+      header: "Why would you like to attend this event?",
+      value: (r) => r.whyAttend || "",
+      hasData: (r) => Boolean(r.whyAttend?.trim()),
+    },
+    {
+      header:
+        "Would you like to have your copy of Humans First, Machines Second signed by Vineet Nayar?",
+      value: (r) => yesNoCsv(r.signedCopyInterested),
+      hasData: (r) => r.signedCopyInterested != null,
+    },
+    {
+      header: "Apparel - sizes",
+      value: (r) => r.apparelSize || "",
+      hasData: (r) => Boolean(r.apparelSize?.trim()),
+    },
+    {
+      header: "Overnight Stay",
+      value: (r) => yesNoCsv(r.overnightStay),
+      hasData: (r) => r.overnightStay != null,
+    },
+    {
+      header: "Passport/NIC",
+      value: (r) => r.passportNic || "",
+      hasData: (r) => Boolean(r.passportNic?.trim()),
+    },
+    {
+      header: "Transport",
+      value: (r) => (r.transportNeeded == null ? "" : r.transportNeeded ? "Yes" : "No"),
+      hasData: (r) => r.transportNeeded != null,
+    },
+    {
+      header: "Location",
+      value: (r) => (r.transportNeeded ? r.transportLocation || "" : ""),
+      hasData: (r) => Boolean(r.transportNeeded && r.transportLocation?.trim()),
+    },
+    {
+      header: "Coming with how many persons?",
+      value: (r) => r.specialComment || "",
+      hasData: (r) => Boolean(r.specialComment?.trim()),
+    },
+    {
+      header: "Attended on",
+      value: (r) => (r.participationTimestamp ? formatDate(r.participationTimestamp) : ""),
+      hasData: (r) => Boolean(r.participationTimestamp),
+    },
+    {
+      header: "RSVP Status",
+      value: (r) => attendanceRsvpLabel(getAttendanceRsvpStatus(r)),
+      hasData: (r) => getAttendanceRsvpStatus(r) !== "pending" || Boolean(r.attendanceRsvpAt),
+    },
+    {
+      header: "RSVP At",
+      value: (r) => (r.attendanceRsvpAt ? formatDate(r.attendanceRsvpAt) : ""),
+      hasData: (r) => Boolean(r.attendanceRsvpAt),
+    },
+  ];
+
+  const activeOptional = optionalColumns.filter((col) => rows.some((r) => col.hasData(r)));
+
+  const headers = [
+    "First Name",
+    "Surname",
+    "Email",
+    "Mobile Number",
+    ...activeOptional.map((col) => col.header),
+    "Registration code",
+    "Status",
+    "Registered on",
+  ];
+
+  const headerLine = headers.map(escapeCsvCell).join(",");
+  const dataLines = rows.map((r) =>
+    [
+      r.firstName,
+      r.surname,
+      r.email,
+      r.mobileNumber || "",
+      ...activeOptional.map((col) => col.value(r)),
+      r.uniqueCode,
+      (r.participationStatus || "registered") === "attended" ? "Attended" : "Registered",
+      formatDate(r.createdAt),
+    ].map(escapeCsvCell).join(",")
+  );
+  return [headerLine, ...dataLines].join("\r\n");
 }
 
 function RegistrationDetailGrid({ row }: { row: RegistrationItem }) {
@@ -300,69 +467,6 @@ function escapeCsvCell(value: string): string {
   return s;
 }
 
-function buildRegistrationsCsv(rows: RegistrationItem[]): string {
-  const optionalColumns: {
-    header: string;
-    value: (r: RegistrationItem) => string;
-    hasData: (r: RegistrationItem) => boolean;
-  }[] = [
-    {
-      header: "Tell us more about where or how you connected?",
-      value: (r) => r.workedWithVineetDetails || "",
-      hasData: (r) => Boolean(r.workedWithVineetDetails?.trim()),
-    },
-    {
-      header: "Your Current Organisation",
-      value: (r) => r.organization || "",
-      hasData: (r) => Boolean(r.organization?.trim()),
-    },
-    {
-      header: "Your Current Designation",
-      value: (r) => getEffectiveDesignation(r),
-      hasData: (r) => Boolean(getEffectiveDesignation(r).trim()),
-    },
-    {
-      header: "Why would you like to attend this event?",
-      value: (r) => r.whyAttend || "",
-      hasData: (r) => Boolean(r.whyAttend?.trim()),
-    },
-    {
-      header: "Would you like to have your copy of Humans First, Machines Second signed by Vineet Nayar?",
-      value: (r) =>
-        r.signedCopyInterested == null ? "" : r.signedCopyInterested ? "Yes" : "No",
-      hasData: (r) => r.signedCopyInterested != null,
-    },
-  ];
-
-  const activeOptional = optionalColumns.filter((col) =>
-    rows.some((r) => col.hasData(r))
-  );
-
-  const headers = [
-    "First Name",
-    "Surname",
-    "Email",
-    "Mobile Number",
-    ...activeOptional.map((col) => col.header),
-    "Status",
-    "RSVP Status",
-  ];
-
-  const headerLine = headers.map(escapeCsvCell).join(",");
-  const dataLines = rows.map((r) =>
-    [
-      r.firstName,
-      r.surname,
-      r.email,
-      r.mobileNumber || "",
-      ...activeOptional.map((col) => col.value(r)),
-      (r.participationStatus || "registered") === "attended" ? "Attended" : "Registered",
-      attendanceRsvpLabel(getAttendanceRsvpStatus(r)),
-    ].map(escapeCsvCell).join(",")
-  );
-  return [headerLine, ...dataLines].join("\r\n");
-}
-
 function downloadCsv(csv: string, filename: string) {
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -389,6 +493,7 @@ export function RegisteredClientSection({
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [rsvpFilter, setRsvpFilter] = useState<RsvpFilter>("all");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
 
   function fetchRegistrations() {
@@ -408,12 +513,14 @@ export function RegisteredClientSection({
       setSearchQuery("");
       setStatusFilter("all");
       setRsvpFilter("all");
+      setSourceFilter("all");
       setCurrentPage(1);
       return;
     }
     setSearchQuery("");
     setStatusFilter("all");
     setRsvpFilter("all");
+    setSourceFilter("all");
     setCurrentPage(1);
     fetchRegistrations();
   }, [selectedEventId]);
@@ -429,9 +536,10 @@ export function RegisteredClientSection({
         (row) =>
           matchesSearch(row, searchQuery) &&
           matchesStatusFilter(row, statusFilter) &&
-          matchesRsvpFilter(row, rsvpFilter)
+          matchesRsvpFilter(row, rsvpFilter) &&
+          matchesSourceFilter(row, sourceFilter)
       ),
-    [registrations, searchQuery, statusFilter, rsvpFilter]
+    [registrations, searchQuery, statusFilter, rsvpFilter, sourceFilter]
   );
 
   const totalPages = Math.max(1, Math.ceil(filteredRegistrations.length / PAGE_SIZE));
@@ -449,13 +557,15 @@ export function RegisteredClientSection({
       rsvpPending: registeredClients.filter((r) => getAttendanceRsvpStatus(r) === "pending").length,
       rsvpReconfirmed: registeredClients.filter((r) => getAttendanceRsvpStatus(r) === "reconfirmed").length,
       rsvpDeclined: registrations.filter((r) => getAttendanceRsvpStatus(r) === "declined").length,
+      manual: registeredClients.filter((r) => getRegistrationSource(r) === "manual").length,
+      online: registeredClients.filter((r) => getRegistrationSource(r) === "online").length,
     }),
     [registrations, registeredClients]
   );
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, rsvpFilter]);
+  }, [searchQuery, statusFilter, rsvpFilter, sourceFilter]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -543,7 +653,7 @@ export function RegisteredClientSection({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-zinc-900">
               Registered clients ({registeredClients.length})
-              {searchQuery.trim() || statusFilter !== "all" || rsvpFilter !== "all" ? (
+              {searchQuery.trim() || statusFilter !== "all" || rsvpFilter !== "all" || sourceFilter !== "all" ? (
                 <span className="ml-2 text-sm font-normal text-zinc-500">
                   · {filteredRegistrations.length} shown
                 </span>
@@ -604,6 +714,17 @@ export function RegisteredClientSection({
                   <option value="pending">Pending ({statusCounts.rsvpPending})</option>
                   <option value="reconfirmed">Reconfirmed ({statusCounts.rsvpReconfirmed})</option>
                   <option value="declined">Not Able to Attend ({statusCounts.rsvpDeclined})</option>
+                </FilterSelect>
+
+                <FilterSelect
+                  id="registrations-source-filter"
+                  label="Registration type"
+                  value={sourceFilter}
+                  onChange={(value) => setSourceFilter(value as SourceFilter)}
+                >
+                  <option value="all">All ({statusCounts.all})</option>
+                  <option value="manual">Manual registration ({statusCounts.manual})</option>
+                  <option value="online">Self-registration ({statusCounts.online})</option>
                 </FilterSelect>
               </div>
             </div>

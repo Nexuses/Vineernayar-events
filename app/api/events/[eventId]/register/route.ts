@@ -221,6 +221,7 @@ export async function POST(
           : undefined,
       agreedToPrivacy: true,
       admissionStatus: "waitlisted",
+      registrationSource: "online",
       waitlistWhatsAppStatus: "pending",
     });
 

@@ -17,6 +17,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { href: "/admin/create-event", label: "Create Event", superadminOnly: true },
   { href: "/admin/waitlist", label: "Waitlist Client" },
   { href: "/admin/rejected", label: "Rejected Client" },
+  { href: "/admin/manual-register", label: "Manual Register" },
   { href: "/admin/registrations", label: "Registered Client" },
   {
     href: "/admin/messaging-flow",

@@ -10,6 +10,7 @@ export type ParticipationStatus = "registered" | "attended";
 export type AdmissionStatus = "waitlisted" | "confirmed" | "rejected";
 export type AttendanceRsvpStatus = "pending" | "reconfirmed" | "declined";
 export type BlastAudience = "confirmed" | "waitlisted" | "all";
+export type RegistrationSource = "manual" | "online";
 
 export interface RegistrationDoc {
   _id?: ObjectId;
@@ -23,6 +24,10 @@ export interface RegistrationDoc {
   firstName: string;
   surname: string;
   email: string;
+  /** City (optional; collected on manual admin registration) */
+  city?: string;
+  /** How this registration was created */
+  registrationSource?: RegistrationSource;
   organization?: string;
   currentDesignation?: string;
   designation?: string;
@@ -163,6 +168,24 @@ export async function findRegistrationByEventAndEmail(
 ): Promise<RegistrationDoc | null> {
   const col = await getRegistrationsCollection();
   return col.findOne({ eventId, email: email.trim().toLowerCase() });
+}
+
+export async function findActiveRegistrationByEventAndMobile(
+  eventId: string,
+  mobileNumber: string
+): Promise<RegistrationDoc | null> {
+  const col = await getRegistrationsCollection();
+  const normalized = mobileNumber.trim();
+  if (!normalized) return null;
+
+  return col.findOne({
+    eventId,
+    mobileNumber: normalized,
+    $or: [
+      { admissionStatus: { $exists: false } },
+      { admissionStatus: { $in: ["confirmed", "waitlisted"] as AdmissionStatus[] } },
+    ],
+  });
 }
 
 export async function updateAdmissionStatus(
