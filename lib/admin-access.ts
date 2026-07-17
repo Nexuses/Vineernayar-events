@@ -5,6 +5,7 @@ import {
   type AdminDoc,
   findAdminById,
   getAdminRole,
+  canManualRegister,
   isSubManager,
   isSuperAdmin,
 } from "@/lib/models/Admin";
@@ -13,7 +14,7 @@ import type { EventDoc } from "@/lib/models/Event";
 
 export type AdminSession = AdminDoc & { _id: ObjectId };
 
-export { getAdminRole, isSuperAdmin };
+export { getAdminRole, isSuperAdmin, canManualRegister };
 export { isSubManager };
 
 export function getAdminPasswordVersion(admin: AdminDoc): number {
@@ -55,6 +56,13 @@ export function assertCanModifyAdminData(admin: AdminDoc): NextResponse | null {
   return null;
 }
 
+export function assertCanManualRegister(admin: AdminDoc): NextResponse | null {
+  if (!canManualRegister(admin)) {
+    return forbiddenResponse("You do not have access to manual registration");
+  }
+  return null;
+}
+
 export function assertCanEditEvents(admin: AdminDoc): NextResponse | null {
   if (!canEditEvents(admin)) {
     return forbiddenResponse("Only super admins can edit events");
@@ -89,6 +97,7 @@ export function serializeAdminPublic(admin: AdminDoc) {
     name: admin.name,
     role: getAdminRole(admin),
     assignedEventIds: admin.assignedEventIds ?? [],
+    canManualRegister: canManualRegister(admin),
     createdAt: admin.createdAt instanceof Date ? admin.createdAt.toISOString() : admin.createdAt,
   };
 }

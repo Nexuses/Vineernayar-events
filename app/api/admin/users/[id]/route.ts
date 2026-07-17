@@ -34,11 +34,12 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { name, role, assignedEventIds, password } = body as {
+    const { name, role, assignedEventIds, password, canManualRegister } = body as {
       name?: string;
       role?: AdminRole;
       assignedEventIds?: string[];
       password?: string;
+      canManualRegister?: boolean;
     };
 
     const nextRole: AdminRole | undefined =
@@ -81,6 +82,8 @@ export async function PATCH(
       name,
       role: nextRole,
       assignedEventIds: events,
+      canManualRegister:
+        typeof canManualRegister === "boolean" ? canManualRegister : undefined,
       passwordHash,
     });
     if (!ok) {

@@ -19,6 +19,10 @@ export function getEventPassPath(
   return `${getEventPublicPath(event)}/pass/${uniqueCode}`;
 }
 
+export function getEventWaitlistedPath(event: Pick<EventDoc, "slug" | "eventId">): string {
+  return `${getEventPublicPath(event)}/waitlisted`;
+}
+
 /** When the URL uses legacy eventId but a slug exists, return the canonical path. */
 export function getCanonicalEventPathIfNeeded(
   param: string,

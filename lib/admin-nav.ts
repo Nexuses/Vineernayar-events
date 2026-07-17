@@ -1,5 +1,5 @@
 import type { AdminDoc } from "./models/Admin";
-import { isSubManager, isSuperAdmin } from "./models/Admin";
+import { isSubManager, isSuperAdmin, canManualRegister } from "./models/Admin";
 import type { AdminCityDashboard } from "./admin-city-dashboard";
 
 export type NavItem = {
@@ -7,6 +7,7 @@ export type NavItem = {
   label: string;
   superadminOnly?: boolean;
   subManagerHidden?: boolean;
+  requiresManualRegister?: boolean;
   children?: NavItem[];
 };
 
@@ -17,7 +18,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { href: "/admin/create-event", label: "Create Event", superadminOnly: true },
   { href: "/admin/waitlist", label: "Waitlist Client" },
   { href: "/admin/rejected", label: "Rejected Client" },
-  { href: "/admin/manual-register", label: "Manual Register" },
+  { href: "/admin/manual-register", label: "Manual Register", requiresManualRegister: true },
   { href: "/admin/registrations", label: "Registered Client" },
   {
     href: "/admin/messaging-flow",
@@ -40,8 +41,11 @@ export function navItemsForAdmin(
     ? ADMIN_NAV_ITEMS
     : ADMIN_NAV_ITEMS.filter((item) => !item.superadminOnly);
   const scoped = isSubManager(admin) ? base.filter((item) => !item.subManagerHidden) : base;
+  const permitted = scoped.filter(
+    (item) => !item.requiresManualRegister || canManualRegister(admin)
+  );
 
-  return scoped.map((item) => {
+  return permitted.map((item) => {
     if (item.href !== "/admin" || cities.length === 0) return item;
 
     return {

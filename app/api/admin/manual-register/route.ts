@@ -15,7 +15,7 @@ import {
   validateRegistrationFieldLengths,
 } from "@/lib/registration-field-limits";
 import {
-  assertCanModifyAdminData,
+  assertCanManualRegister,
   assertEventAccess,
   getAdminSession,
   unauthorizedResponse,
@@ -35,7 +35,7 @@ function buildAccompanyingPersonsComment(count: number): string | undefined {
 export async function POST(request: Request) {
   const session = await getAdminSession();
   if (!session) return unauthorizedResponse();
-  const blocked = assertCanModifyAdminData(session);
+  const blocked = assertCanManualRegister(session);
   if (blocked) return blocked;
 
   try {
