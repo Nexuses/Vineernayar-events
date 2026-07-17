@@ -35,12 +35,13 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { email, password, name, role, assignedEventIds } = body as {
+    const { email, password, name, role, assignedEventIds, canManualRegister } = body as {
       email?: string;
       password?: string;
       name?: string;
       role?: AdminRole;
       assignedEventIds?: string[];
+      canManualRegister?: boolean;
     };
 
     if (!email?.trim() || !password || !name?.trim()) {
@@ -83,6 +84,12 @@ export async function POST(request: Request) {
       name,
       role: adminRole,
       assignedEventIds: events,
+      canManualRegister:
+        adminRole === "superadmin"
+          ? undefined
+          : typeof canManualRegister === "boolean"
+            ? canManualRegister
+            : adminRole === "manager",
       createdBy: session._id,
     });
 

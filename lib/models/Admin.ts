@@ -13,6 +13,8 @@ export interface AdminDoc {
   name: string;
   role?: AdminRole | LegacyAdminRole;
   assignedEventIds?: string[];
+  /** When true, manager/sub-manager can use Manual Register (superadmin always can). */
+  canManualRegister?: boolean;
   createdAt: Date;
   createdBy?: ObjectIdType;
   /** Set when password changes so existing JWTs can be invalidated. */
@@ -42,6 +44,12 @@ export function isManager(admin: AdminDoc): boolean {
 
 export function isSubManager(admin: AdminDoc): boolean {
   return getAdminRole(admin) === "sub_manager";
+}
+
+export function canManualRegister(admin: AdminDoc): boolean {
+  if (isSuperAdmin(admin)) return true;
+  if (typeof admin.canManualRegister === "boolean") return admin.canManualRegister;
+  return isManager(admin);
 }
 
 export async function getAdminsCollection() {
@@ -76,6 +84,7 @@ export async function createAdmin(data: {
   name: string;
   role?: AdminRole;
   assignedEventIds?: string[];
+  canManualRegister?: boolean;
   createdBy?: ObjectIdType;
 }): Promise<AdminDoc> {
   const col = await getAdminsCollection();
@@ -89,6 +98,9 @@ export async function createAdmin(data: {
     name: data.name.trim(),
     role,
     assignedEventIds,
+    ...(role !== "superadmin" && data.canManualRegister !== undefined
+      ? { canManualRegister: data.canManualRegister }
+      : {}),
     createdAt: new Date(),
     createdBy: data.createdBy,
   };
@@ -102,6 +114,7 @@ export async function updateAdmin(
     name?: string;
     role?: AdminRole;
     assignedEventIds?: string[];
+    canManualRegister?: boolean;
     passwordHash?: string;
     passwordChangedAt?: Date;
   }
@@ -120,6 +133,9 @@ export async function updateAdmin(
     if (data.role === "superadmin") {
       update.assignedEventIds = [];
     }
+  }
+  if (data.canManualRegister !== undefined) {
+    update.canManualRegister = data.canManualRegister;
   }
   if (data.assignedEventIds !== undefined) {
     update.assignedEventIds = data.assignedEventIds.map((eid) => eid.trim()).filter(Boolean);

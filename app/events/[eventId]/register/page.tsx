@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getPublishedEventByParam } from "@/lib/models/Event";
-import { getCanonicalEventPathIfNeeded, getEventPublicSlug } from "@/lib/event-path";
+import { getCanonicalEventPathIfNeeded, getEventPublicPath, getEventWaitlistedPath } from "@/lib/event-path";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -17,13 +17,14 @@ export default async function RegisterPage({
   const event = await getPublishedEventByParam(param);
   if (!event) notFound();
 
-  const slug = getEventPublicSlug(event);
+  if (waitlisted === "1" || success === "1") {
+    redirect(getEventWaitlistedPath(event));
+  }
+
   const qs = new URLSearchParams();
   if (email) qs.set("email", email);
-  if (success) qs.set("success", success);
-  if (waitlisted) qs.set("waitlisted", waitlisted);
   const query = qs.toString();
-  const target = query ? `/events/${slug}?${query}` : `/events/${slug}`;
+  const target = query ? `${getEventPublicPath(event)}?${query}` : getEventPublicPath(event);
 
   const canonicalPath = getCanonicalEventPathIfNeeded(param, event);
   if (canonicalPath) {

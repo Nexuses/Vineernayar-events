@@ -12,6 +12,7 @@ type AdminUser = {
   name: string;
   role: "superadmin" | "manager" | "sub_manager";
   assignedEventIds: string[];
+  canManualRegister: boolean;
   createdAt: string;
 };
 
@@ -19,7 +20,12 @@ type UserDraft = {
   name: string;
   role: "superadmin" | "manager" | "sub_manager";
   assignedEventIds: string[];
+  canManualRegister: boolean;
 };
+
+function defaultManualRegisterForRole(role: AdminUser["role"]): boolean {
+  return role === "manager";
+}
 
 function formatDate(iso: string) {
   if (!iso) return "—";
@@ -174,6 +180,7 @@ function hasUserChanges(user: AdminUser, draft: UserDraft): boolean {
     const next = [...draft.assignedEventIds].sort().join(",");
     const current = [...user.assignedEventIds].sort().join(",");
     if (next !== current) return true;
+    if (draft.canManualRegister !== user.canManualRegister) return true;
   }
   return false;
 }
@@ -183,6 +190,7 @@ function draftFromUser(user: AdminUser): UserDraft {
     name: user.name,
     role: user.role,
     assignedEventIds: [...user.assignedEventIds],
+    canManualRegister: user.canManualRegister,
   };
 }
 
@@ -331,6 +339,7 @@ export function UserManagementSection({
     password: "",
     role: "manager" as "superadmin" | "manager" | "sub_manager",
     assignedEventIds: [] as string[],
+    canManualRegister: true,
   });
 
   const [editDraft, setEditDraft] = useState<Record<string, UserDraft>>({});
@@ -382,6 +391,7 @@ export function UserManagementSection({
         password: "",
         role: "manager",
         assignedEventIds: [],
+        canManualRegister: true,
       });
       loadUsers();
     } catch {
@@ -403,6 +413,7 @@ export function UserManagementSection({
           name: draft.name.trim(),
           role: draft.role,
           assignedEventIds: draft.role === "superadmin" ? [] : draft.assignedEventIds,
+          canManualRegister: draft.role === "superadmin" ? undefined : draft.canManualRegister,
         }),
       });
       const data = await res.json();
@@ -417,6 +428,7 @@ export function UserManagementSection({
         name: data.name,
         role: data.role,
         assignedEventIds: data.assignedEventIds ?? [],
+        canManualRegister: data.canManualRegister ?? defaultManualRegisterForRole(data.role),
         createdAt: data.createdAt,
       };
       setUsers((prev) => prev.map((u) => (u.id === id ? updated : u)));
@@ -564,13 +576,16 @@ export function UserManagementSection({
               <label className="mb-1 block text-sm font-medium text-zinc-700">Role</label>
               <select
                 value={createForm.role}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const role = e.target.value as "superadmin" | "manager" | "sub_manager";
                   setCreateForm((f) => ({
                     ...f,
-                    role: e.target.value as "superadmin" | "manager" | "sub_manager",
-                    assignedEventIds: e.target.value === "superadmin" ? [] : f.assignedEventIds,
-                  }))
-                }
+                    role,
+                    assignedEventIds: role === "superadmin" ? [] : f.assignedEventIds,
+                    canManualRegister:
+                      role === "superadmin" ? false : defaultManualRegisterForRole(role),
+                  }));
+                }}
                 className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
               >
                 <option value="manager">Manager</option>
@@ -579,6 +594,24 @@ export function UserManagementSection({
               </select>
             </div>
           </div>
+
+          {createForm.role !== "superadmin" ? (
+            <div className="mt-4">
+              <label className="flex items-center gap-2 text-sm text-zinc-800">
+                <input
+                  type="checkbox"
+                  checked={createForm.canManualRegister}
+                  onChange={(e) =>
+                    setCreateForm((f) => ({ ...f, canManualRegister: e.target.checked }))
+                  }
+                />
+                Manual registration access
+              </label>
+              <p className="mt-1 text-xs text-zinc-500">
+                Allows this user to add clients via Admin → Manual Register.
+              </p>
+            </div>
+          ) : null}
 
           {createForm.role !== "superadmin" ? (
             <div className="mt-4">
@@ -634,6 +667,7 @@ export function UserManagementSection({
                 <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Name</th>
                 <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Email</th>
                 <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Role</th>
+                <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Manual register</th>
                 <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Events</th>
                 <th className="px-3 py-3 font-medium text-zinc-700 sm:px-4">Created</th>
                 <th className="w-10 px-2 py-3" aria-label="Actions" />
@@ -669,6 +703,10 @@ export function UserManagementSection({
                             {
                               role,
                               assignedEventIds: role === "superadmin" ? [] : draft.assignedEventIds,
+                              canManualRegister:
+                                role === "superadmin"
+                                  ? false
+                                  : defaultManualRegisterForRole(role),
                             },
                             true
                           );
@@ -680,6 +718,23 @@ export function UserManagementSection({
                         <option value="sub_manager">Sub Manager</option>
                         <option value="superadmin">Super Admin</option>
                       </select>
+                    </td>
+                    <td className="px-3 py-3 sm:px-4">
+                      {draft.role === "superadmin" ? (
+                        <span className="text-zinc-600">Always</span>
+                      ) : (
+                        <label className="flex items-center gap-2 text-xs text-zinc-800">
+                          <input
+                            type="checkbox"
+                            checked={draft.canManualRegister}
+                            disabled={savingId === user.id}
+                            onChange={(e) =>
+                              updateDraft(user.id, { canManualRegister: e.target.checked }, true)
+                            }
+                          />
+                          Allowed
+                        </label>
+                      )}
                     </td>
                     <td className="px-3 py-3 sm:px-4">
                       {draft.role === "superadmin" ? (

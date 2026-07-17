@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   buildE164Phone,
   DEFAULT_PHONE_COUNTRY,
@@ -52,7 +51,6 @@ export function RegisterForm({
   event: EventSnap;
   prefilledEmail: string;
 }) {
-  const router = useRouter();
   const [firstName, setFirstName] = useState("");
   const [surname, setSurname] = useState("");
   const [email, setEmail] = useState(prefilledEmail);
@@ -323,7 +321,7 @@ export function RegisterForm({
         }
         return;
       }
-      router.replace(`/events/${eventId}?waitlisted=1`);
+      window.location.assign(`/events/${eventId}/waitlisted`);
     } catch {
       setOtpModalError("Something went wrong. Please try again.");
     } finally {
