@@ -76,7 +76,7 @@ async function ensureOtpIndexes() {
 }
 
 export function generateOtp(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return Math.floor(1000 + Math.random() * 9000).toString();
 }
 
 export async function saveOtp(phone: string, otp: string): Promise<void> {
@@ -147,6 +147,10 @@ export async function verifyOtp(
 
   if (!entry || entry.status === "verified") {
     return { success: false, reason: "not_found" };
+  }
+
+  if (entry.status === "expired") {
+    return { success: false, reason: "expired" };
   }
 
   if (Date.now() > entry.expiresAt.getTime()) {

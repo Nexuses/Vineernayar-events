@@ -8,7 +8,7 @@ import {
   saveOtp,
   verifyOtp,
 } from "@/lib/otp-store";
-import { sendOtpSms } from "@/lib/twilio";
+import { sendOtpSms } from "@/lib/instaalert";
 
 export { getOtpTtlMinutes, normalizePhoneForOtp };
 
@@ -29,8 +29,8 @@ export async function sendOtpCode(phone: string): Promise<void> {
   }
 
   const otp = generateOtp();
-  await saveOtp(phone, otp);
   await sendOtpSms(phone, otp);
+  await saveOtp(phone, otp);
 }
 
 export async function checkOtpCode(phone: string, code: string): Promise<boolean> {

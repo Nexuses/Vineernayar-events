@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+import { GoogleTagManagerBody, GoogleTagManagerHead } from "@/app/components/GoogleTagManager";
 import { LinkedInInsightTag } from "@/app/components/LinkedInInsightTag";
 import { Caveat, Inter } from "next/font/google";
 import { BRAND_LOGO_URL, BRAND_NAME } from "@/lib/constants";
@@ -43,7 +44,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <GoogleTagManagerHead />
+      </head>
       <body className={`${inter.className} ${caveat.variable} antialiased min-h-screen`}>
+        <GoogleTagManagerBody />
         {children}
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
