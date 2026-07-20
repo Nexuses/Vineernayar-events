@@ -192,7 +192,7 @@ export async function generateVectorPassPdf(data: FullPassData): Promise<Buffer>
   const lhEventTitle = fsEventTitle * 1.3;
   const lhEventRow = fsEventRow * 1.35;
 
-  const nameLines = wrapLines(`${firstName} ${surname}`, bold, fsName, leftColW);
+  const nameLines = wrapLines(`${firstName} ${surname}`.trim(), bold, fsName, leftColW);
   const emailLines = wrapLines(data.email, regular, fsBody, leftColW);
   const eventInnerW = W - PAD * 2 - PT(24);
   const eventNameLines = wrapLines(data.eventName, bold, fsEventTitle, eventInnerW);

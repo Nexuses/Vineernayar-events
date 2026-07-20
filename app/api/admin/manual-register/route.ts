@@ -8,6 +8,7 @@ import {
   findRegistrationByEventAndEmail,
   getAdmissionStatus,
 } from "@/lib/models/Registration";
+import { isAttendeeCategory } from "@/lib/attendee-category";
 import { normalizePhoneForOtp } from "@/lib/otp-store";
 import {
   REGISTRATION_FIELD_LIMITS,
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
     const cityRaw = typeof body?.city === "string" ? body.city.trim() : "";
     const mobileRaw = typeof body?.mobileNumber === "string" ? body.mobileNumber.trim() : "";
     const accompanyingPersonsRaw = body?.accompanyingPersons;
+    const attendeeCategoryRaw = body?.attendeeCategory;
 
     if (!eventId) {
       return NextResponse.json({ error: "Event is required" }, { status: 400 });
@@ -54,10 +56,6 @@ export async function POST(request: Request) {
     if (!firstName) {
       return NextResponse.json({ error: "First name is required" }, { status: 400 });
     }
-    if (!surname) {
-      return NextResponse.json({ error: "Last name is required" }, { status: 400 });
-    }
-
     const denied = assertEventAccess(session, eventId);
     if (denied) return denied;
 
@@ -97,6 +95,13 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    const hasAttendeeCategory =
+      attendeeCategoryRaw !== undefined && attendeeCategoryRaw !== null && attendeeCategoryRaw !== "";
+    if (hasAttendeeCategory && !isAttendeeCategory(attendeeCategoryRaw)) {
+      return NextResponse.json({ error: "Invalid attendee category" }, { status: 400 });
+    }
+    const attendeeCategory = hasAttendeeCategory ? attendeeCategoryRaw : undefined;
 
     const lengthError = validateRegistrationFieldLengths({
       firstName,
@@ -145,6 +150,7 @@ export async function POST(request: Request) {
       email: email.toLowerCase(),
       mobileNumber: mobileNormalized,
       ...(cityRaw ? { city: trimToFieldLimit(cityRaw, REGISTRATION_FIELD_LIMITS.city) } : {}),
+      ...(attendeeCategory ? { attendeeCategory } : {}),
       addToWhatsapp: false,
       agreedToPrivacy: true,
       admissionStatus: "confirmed",

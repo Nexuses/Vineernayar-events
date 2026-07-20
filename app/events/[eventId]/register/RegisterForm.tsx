@@ -411,9 +411,7 @@ export function RegisterForm({
           />
         </div>
         <div>
-          <label className={labelClass}>
-            Surname <span className="text-red-600">*</span>
-          </label>
+          <label className={labelClass}>Surname</label>
           <input
             type="text"
             value={surname}
@@ -421,7 +419,6 @@ export function RegisterForm({
               setSurname(trimToFieldLimit(e.target.value, REGISTRATION_FIELD_LIMITS.surname))
             }
             maxLength={REGISTRATION_FIELD_LIMITS.surname}
-            required
             className={inputClass}
             placeholder="Surname"
           />

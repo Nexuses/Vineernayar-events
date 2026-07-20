@@ -94,7 +94,7 @@ async function buildPassEmailAttachments(
         venue: reg.venue,
         uniqueCode: reg.uniqueCode,
         passUrl,
-        attendeeName: `${reg.firstName} ${reg.surname}`,
+        attendeeName: `${reg.firstName} ${reg.surname}`.trim(),
         attendeeEmail: reg.email,
       },
       reg.eventId
