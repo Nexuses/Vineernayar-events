@@ -57,13 +57,13 @@ export async function POST(
       otpCode,
     } = body;
 
-    if (!firstName?.trim() || !surname?.trim() || !email?.trim()) {
-      return NextResponse.json({ error: "First name, surname and email are required" }, { status: 400 });
+    if (!firstName?.trim() || !email?.trim()) {
+      return NextResponse.json({ error: "First name and email are required" }, { status: 400 });
     }
     const mobileNormalized = normalizePhoneForOtp(typeof mobileNumber === "string" ? mobileNumber : "");
     const lengthError = validateRegistrationFieldLengths({
       firstName: String(firstName),
-      surname: String(surname),
+      surname: typeof surname === "string" ? surname : "",
       email: String(email),
       organization: typeof organization === "string" ? organization : undefined,
       mobileE164: mobileNormalized || undefined,
@@ -191,7 +191,7 @@ export async function POST(
       eventTime: event.eventTime,
       venue: event.venue,
       firstName: firstName.trim(),
-      surname: surname.trim(),
+      surname: typeof surname === "string" ? surname.trim() : "",
       email: email.trim().toLowerCase(),
       mobileNumber: mobileNormalized,
       organization: organizationTrimmed || undefined,

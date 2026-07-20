@@ -220,7 +220,7 @@ export async function generatePassCardImage(data: FullPassData): Promise<Buffer>
   const lhEventTitle = Math.round(fsEventTitle * 1.3);
   const lhEventRow = Math.round(fsEventRow * 1.35);
 
-  const nameLines = wrapLines(`${firstName} ${surname}`, fsName, LEFT_COL_W);
+  const nameLines = wrapLines(`${firstName} ${surname}`.trim(), fsName, LEFT_COL_W);
   const emailLines = wrapLines(data.email, fsBody, LEFT_COL_W);
   const eventInnerW = W - PAD * 2 - 24 * SCALE;
   const eventRowTextW = eventInnerW - ICON_SIZE - ICON_COL_GAP;

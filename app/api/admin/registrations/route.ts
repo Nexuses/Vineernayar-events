@@ -23,11 +23,20 @@ export async function GET(request: Request) {
       uniqueCode: r.uniqueCode,
       eventId: r.eventId,
       eventName: r.eventName,
+      eventStartDate:
+        r.eventStartDate instanceof Date
+          ? r.eventStartDate.toISOString()
+          : r.eventStartDate ?? null,
+      eventEndDate:
+        r.eventEndDate instanceof Date ? r.eventEndDate.toISOString() : r.eventEndDate ?? null,
+      eventTime: r.eventTime ?? null,
+      venue: r.venue ?? null,
       firstName: r.firstName,
       surname: r.surname,
       email: r.email,
       city: r.city,
       registrationSource: r.registrationSource,
+      attendeeCategory: r.attendeeCategory ?? null,
       organization: r.organization,
       currentDesignation: r.currentDesignation,
       designation: r.designation,
@@ -47,6 +56,16 @@ export async function GET(request: Request) {
       transportNeeded: r.transportNeeded,
       transportLocation: r.transportLocation,
       adminNotes: r.adminNotes,
+      agreedToPrivacy: r.agreedToPrivacy ?? null,
+      admissionStatus: r.admissionStatus ?? "confirmed",
+      admissionUpdatedAt:
+        r.admissionUpdatedAt instanceof Date
+          ? r.admissionUpdatedAt.toISOString()
+          : r.admissionUpdatedAt ?? null,
+      lastEmailBlastAt:
+        r.lastEmailBlastAt instanceof Date
+          ? r.lastEmailBlastAt.toISOString()
+          : r.lastEmailBlastAt ?? null,
       participationStatus: r.participationStatus || "registered",
       attendanceRsvpStatus: r.attendanceRsvpStatus ?? "pending",
       attendanceRsvpAt:

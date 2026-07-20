@@ -22,6 +22,7 @@ import {
   getEffectiveDesignation,
   REGISTRATION_DESIGNATION_OTHER,
 } from "@/lib/registration-field-limits";
+import { ATTENDEE_CATEGORY_LABELS } from "@/lib/attendee-category";
 
 type EventItem = {
   eventId: string;
@@ -145,10 +146,15 @@ type RegistrationItem = {
   uniqueCode: string;
   eventId: string;
   eventName: string;
+  eventStartDate?: string | null;
+  eventEndDate?: string | null;
+  eventTime?: string | null;
+  venue?: string | null;
   firstName: string;
   surname: string;
   email: string;
   city?: string;
+  attendeeCategory?: "vip" | "hcl_other" | null;
   organization?: string;
   currentDesignation?: string;
   designation?: string;
@@ -168,12 +174,22 @@ type RegistrationItem = {
   transportNeeded?: boolean;
   transportLocation?: string;
   adminNotes?: string;
+  agreedToPrivacy?: boolean | null;
+  admissionStatus?: string | null;
+  admissionUpdatedAt?: string | null;
+  lastEmailBlastAt?: string | null;
   registrationSource?: "manual" | "online";
   participationStatus: ParticipationStatus;
   attendanceRsvpStatus?: AttendanceRsvpStatus;
   attendanceRsvpAt?: string | null;
   createdAt: string;
   participationTimestamp?: string;
+  waitlistEmailStatus?: string | null;
+  waitlistEmailSentAt?: string | null;
+  waitlistEmailError?: string | null;
+  waitlistWhatsAppStatus?: string | null;
+  waitlistWhatsAppSentAt?: string | null;
+  waitlistWhatsAppError?: string | null;
   emailSequence?: Record<EmailSequenceKey, EmailSequenceEntryView>;
   whatsappSequence?: Record<WhatsAppSequenceKey, EmailSequenceEntryView>;
 };
@@ -218,6 +234,7 @@ function buildRegistrationDetailFields(row: RegistrationItem): DetailField[] {
   push("Email", row.email);
   push("Mobile Number", row.mobileNumber);
   push("City", row.city);
+  push("Attendee Category", attendeeCategoryCsv(row));
   const whatsapp =
     row.whatsappNumber?.trim() || (row.addToWhatsapp ? row.mobileNumber : undefined);
   push("WhatsApp Number", whatsapp);
@@ -274,6 +291,10 @@ function whatsappCsvValue(row: RegistrationItem): string {
   return row.whatsappNumber?.trim() || (row.addToWhatsapp ? row.mobileNumber?.trim() || "" : "");
 }
 
+function attendeeCategoryCsv(row: RegistrationItem): string {
+  return row.attendeeCategory ? ATTENDEE_CATEGORY_LABELS[row.attendeeCategory] : "";
+}
+
 function customDesignationCsv(row: RegistrationItem): string {
   if (row.currentDesignation?.trim() === REGISTRATION_DESIGNATION_OTHER) {
     return row.designation?.trim() || "";
@@ -281,130 +302,142 @@ function customDesignationCsv(row: RegistrationItem): string {
   return "";
 }
 
-function buildRegistrationsCsv(rows: RegistrationItem[]): string {
-  const optionalColumns: {
-    header: string;
-    value: (r: RegistrationItem) => string;
-    hasData: (r: RegistrationItem) => boolean;
-  }[] = [
-    {
-      header: "City",
-      value: (r) => r.city || "",
-      hasData: (r) => Boolean(r.city?.trim()),
-    },
-    {
-      header: "WhatsApp Number",
-      value: whatsappCsvValue,
-      hasData: (r) => Boolean(whatsappCsvValue(r)),
-    },
-    {
-      header: "Your Current Organisation",
-      value: (r) => r.organization || "",
-      hasData: (r) => Boolean(r.organization?.trim()),
-    },
-    {
-      header: "Your Current Designation",
-      value: (r) => getEffectiveDesignation(r),
-      hasData: (r) => Boolean(getEffectiveDesignation(r).trim()),
-    },
-    {
-      header: "Please specify your designation",
-      value: customDesignationCsv,
-      hasData: (r) => Boolean(customDesignationCsv(r)),
-    },
+function seqStatusCsv(
+  seq: Record<string, EmailSequenceEntryView> | undefined,
+  key: string
+): string {
+  return seq?.[key]?.status ?? "";
+}
+
+function seqSentAtCsv(
+  seq: Record<string, EmailSequenceEntryView> | undefined,
+  key: string
+): string {
+  const sentAt = seq?.[key]?.sentAt;
+  return sentAt ? formatDate(sentAt) : "";
+}
+
+function seqErrorCsv(
+  seq: Record<string, EmailSequenceEntryView> | undefined,
+  key: string
+): string {
+  return seq?.[key]?.error ?? "";
+}
+
+function dateCsv(value?: string | null): string {
+  return value ? formatDate(value) : "";
+}
+
+type CsvColumn = { header: string; value: (r: RegistrationItem) => string };
+
+/**
+ * Every registration field stored in the database, in a fixed column set.
+ * Columns are always emitted, even when no row has a value for them.
+ */
+function registrationCsvColumns(): CsvColumn[] {
+  const columns: CsvColumn[] = [
+    { header: "First Name", value: (r) => r.firstName || "" },
+    { header: "Surname", value: (r) => r.surname || "" },
+    { header: "Email", value: (r) => r.email || "" },
+    { header: "Mobile Number", value: (r) => r.mobileNumber || "" },
+    { header: "City", value: (r) => r.city || "" },
+    { header: "Attendee Category", value: (r) => attendeeCategoryCsv(r) },
+    { header: "WhatsApp Number", value: whatsappCsvValue },
+    { header: "Add To WhatsApp", value: (r) => yesNoCsv(r.addToWhatsapp) },
+    { header: "Your Current Organisation", value: (r) => r.organization || "" },
+    { header: "Your Current Designation", value: (r) => getEffectiveDesignation(r) },
+    { header: "Please specify your designation", value: customDesignationCsv },
     {
       header: "Have you worked, studied, or partnered with Vineet Nayar?",
       value: (r) => yesNoCsv(r.workedWithVineet),
-      hasData: (r) => r.workedWithVineet != null,
     },
     {
       header: "Tell us more about where or how you connected?",
       value: (r) => r.workedWithVineetDetails || "",
-      hasData: (r) => Boolean(r.workedWithVineetDetails?.trim()),
     },
-    {
-      header: "Why would you like to attend this event?",
-      value: (r) => r.whyAttend || "",
-      hasData: (r) => Boolean(r.whyAttend?.trim()),
-    },
+    { header: "Why would you like to attend this event?", value: (r) => r.whyAttend || "" },
+    { header: "Question for Vineet", value: (r) => r.questionForVineet || "" },
     {
       header:
         "Would you like to have your copy of Humans First, Machines Second signed by Vineet Nayar?",
       value: (r) => yesNoCsv(r.signedCopyInterested),
-      hasData: (r) => r.signedCopyInterested != null,
     },
+    { header: "Apparel - sizes", value: (r) => r.apparelSize || "" },
+    { header: "Overnight Stay", value: (r) => yesNoCsv(r.overnightStay) },
+    { header: "Passport/NIC", value: (r) => r.passportNic || "" },
+    { header: "Identity Card Or Passport", value: (r) => r.identityCardOrPassport || "" },
+    { header: "Transport", value: (r) => yesNoCsv(r.transportNeeded) },
+    { header: "Location", value: (r) => (r.transportNeeded ? r.transportLocation || "" : "") },
+    { header: "Coming with how many persons?", value: (r) => r.specialComment || "" },
+    { header: "Agreed To Privacy", value: (r) => yesNoCsv(r.agreedToPrivacy) },
+    { header: "Admin Notes", value: (r) => r.adminNotes || "" },
+    { header: "Registration Source", value: (r) => r.registrationSource || "" },
+    { header: "Registration code", value: (r) => r.uniqueCode || "" },
+    { header: "Event ID", value: (r) => r.eventId || "" },
+    { header: "Event Name", value: (r) => r.eventName || "" },
+    { header: "Event Start Date", value: (r) => dateCsv(r.eventStartDate) },
+    { header: "Event End Date", value: (r) => dateCsv(r.eventEndDate) },
+    { header: "Event Time", value: (r) => r.eventTime || "" },
+    { header: "Venue", value: (r) => r.venue || "" },
+    { header: "Admission Status", value: (r) => r.admissionStatus || "" },
+    { header: "Admission Updated At", value: (r) => dateCsv(r.admissionUpdatedAt) },
     {
-      header: "Apparel - sizes",
-      value: (r) => r.apparelSize || "",
-      hasData: (r) => Boolean(r.apparelSize?.trim()),
+      header: "Status",
+      value: (r) => ((r.participationStatus || "registered") === "attended" ? "Attended" : "Registered"),
     },
-    {
-      header: "Overnight Stay",
-      value: (r) => yesNoCsv(r.overnightStay),
-      hasData: (r) => r.overnightStay != null,
-    },
-    {
-      header: "Passport/NIC",
-      value: (r) => r.passportNic || "",
-      hasData: (r) => Boolean(r.passportNic?.trim()),
-    },
-    {
-      header: "Transport",
-      value: (r) => (r.transportNeeded == null ? "" : r.transportNeeded ? "Yes" : "No"),
-      hasData: (r) => r.transportNeeded != null,
-    },
-    {
-      header: "Location",
-      value: (r) => (r.transportNeeded ? r.transportLocation || "" : ""),
-      hasData: (r) => Boolean(r.transportNeeded && r.transportLocation?.trim()),
-    },
-    {
-      header: "Coming with how many persons?",
-      value: (r) => r.specialComment || "",
-      hasData: (r) => Boolean(r.specialComment?.trim()),
-    },
-    {
-      header: "Attended on",
-      value: (r) => (r.participationTimestamp ? formatDate(r.participationTimestamp) : ""),
-      hasData: (r) => Boolean(r.participationTimestamp),
-    },
-    {
-      header: "RSVP Status",
-      value: (r) => attendanceRsvpLabel(getAttendanceRsvpStatus(r)),
-      hasData: (r) => getAttendanceRsvpStatus(r) !== "pending" || Boolean(r.attendanceRsvpAt),
-    },
-    {
-      header: "RSVP At",
-      value: (r) => (r.attendanceRsvpAt ? formatDate(r.attendanceRsvpAt) : ""),
-      hasData: (r) => Boolean(r.attendanceRsvpAt),
-    },
+    { header: "Attended on", value: (r) => dateCsv(r.participationTimestamp) },
+    { header: "RSVP Status", value: (r) => attendanceRsvpLabel(getAttendanceRsvpStatus(r)) },
+    { header: "RSVP At", value: (r) => dateCsv(r.attendanceRsvpAt) },
+    { header: "Waitlist Email Status", value: (r) => r.waitlistEmailStatus || "" },
+    { header: "Waitlist Email Sent At", value: (r) => dateCsv(r.waitlistEmailSentAt) },
+    { header: "Waitlist Email Error", value: (r) => r.waitlistEmailError || "" },
+    { header: "Waitlist WhatsApp Status", value: (r) => r.waitlistWhatsAppStatus || "" },
+    { header: "Waitlist WhatsApp Sent At", value: (r) => dateCsv(r.waitlistWhatsAppSentAt) },
+    { header: "Waitlist WhatsApp Error", value: (r) => r.waitlistWhatsAppError || "" },
+    { header: "Last Email Blast At", value: (r) => dateCsv(r.lastEmailBlastAt) },
+    { header: "Registered on", value: (r) => dateCsv(r.createdAt) },
   ];
 
-  const activeOptional = optionalColumns.filter((col) => rows.some((r) => col.hasData(r)));
+  for (const key of EMAIL_SEQUENCE_ORDER) {
+    const label = EMAIL_SEQUENCE_LABELS[key];
+    columns.push({
+      header: `Email ${key} (${label}) Status`,
+      value: (r) => seqStatusCsv(r.emailSequence, key),
+    });
+    columns.push({
+      header: `Email ${key} (${label}) Sent At`,
+      value: (r) => seqSentAtCsv(r.emailSequence, key),
+    });
+    columns.push({
+      header: `Email ${key} (${label}) Error`,
+      value: (r) => seqErrorCsv(r.emailSequence, key),
+    });
+  }
 
-  const headers = [
-    "First Name",
-    "Surname",
-    "Email",
-    "Mobile Number",
-    ...activeOptional.map((col) => col.header),
-    "Registration code",
-    "Status",
-    "Registered on",
-  ];
+  for (const key of WHATSAPP_SEQUENCE_ORDER) {
+    const label = WHATSAPP_SEQUENCE_LABELS[key];
+    columns.push({
+      header: `WhatsApp ${key} (${label}) Status`,
+      value: (r) => seqStatusCsv(r.whatsappSequence, key),
+    });
+    columns.push({
+      header: `WhatsApp ${key} (${label}) Sent At`,
+      value: (r) => seqSentAtCsv(r.whatsappSequence, key),
+    });
+    columns.push({
+      header: `WhatsApp ${key} (${label}) Error`,
+      value: (r) => seqErrorCsv(r.whatsappSequence, key),
+    });
+  }
 
-  const headerLine = headers.map(escapeCsvCell).join(",");
+  return columns;
+}
+
+function buildRegistrationsCsv(rows: RegistrationItem[]): string {
+  const columns = registrationCsvColumns();
+  const headerLine = columns.map((col) => escapeCsvCell(col.header)).join(",");
   const dataLines = rows.map((r) =>
-    [
-      r.firstName,
-      r.surname,
-      r.email,
-      r.mobileNumber || "",
-      ...activeOptional.map((col) => col.value(r)),
-      r.uniqueCode,
-      (r.participationStatus || "registered") === "attended" ? "Attended" : "Registered",
-      formatDate(r.createdAt),
-    ].map(escapeCsvCell).join(",")
+    columns.map((col) => escapeCsvCell(col.value(r))).join(",")
   );
   return [headerLine, ...dataLines].join("\r\n");
 }

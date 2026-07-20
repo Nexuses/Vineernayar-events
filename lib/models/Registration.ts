@@ -5,6 +5,9 @@ import {
   createInitialWhatsAppSequence,
   type WhatsAppSequenceStatus,
 } from "../whatsapp-sequence";
+import type { AttendeeCategory } from "../attendee-category";
+
+export type { AttendeeCategory };
 
 export type ParticipationStatus = "registered" | "attended";
 export type AdmissionStatus = "waitlisted" | "confirmed" | "rejected";
@@ -28,6 +31,8 @@ export interface RegistrationDoc {
   city?: string;
   /** How this registration was created */
   registrationSource?: RegistrationSource;
+  /** Attendee category (VIP / HCL-Other); collected on manual admin registration only */
+  attendeeCategory?: AttendeeCategory;
   organization?: string;
   currentDesignation?: string;
   designation?: string;
