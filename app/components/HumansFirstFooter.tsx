@@ -12,7 +12,7 @@
  * Fonts used: Inter + Caveat (for Contact Us highlight)
  */
 
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 export const HUMANS_FIRST_FOOTER_CONFIG = {
   logoSrc: "/assets/figma/logo.png",
@@ -71,6 +71,8 @@ export type HumansFirstFooterProps = {
   config?: HumansFirstFooterConfig;
   className?: string;
   style?: CSSProperties;
+  /** Rendered inside the <footer> element, after the visible footer content. */
+  children?: ReactNode;
 };
 
 function QuickLinkItem({ link }: { link: QuickLink }) {
@@ -104,6 +106,7 @@ export function HumansFirstFooter({
   config = HUMANS_FIRST_FOOTER_CONFIG,
   className,
   style,
+  children,
 }: HumansFirstFooterProps) {
   const rootClassName = ["hf-footer", className].filter(Boolean).join(" ");
 
@@ -160,6 +163,7 @@ export function HumansFirstFooter({
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img className="hf-footer-graphic" src={config.graphicSrc} alt={config.graphicAlt} />
         <p className="hf-footer-copyright">{config.copyright}</p>
+        {children}
       </footer>
     </>
   );
