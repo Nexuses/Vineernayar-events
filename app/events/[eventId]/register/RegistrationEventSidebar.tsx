@@ -16,6 +16,8 @@ type RegistrationEventSidebarProps = {
   countdownStartIso?: string;
   countdownEndIso?: string;
   hasAgenda?: boolean;
+  /** When true, hide the countdown/date/time and show "Coming Soon" instead. */
+  hideDateTime?: boolean;
 };
 
 export function RegistrationEventSidebar({
@@ -28,9 +30,10 @@ export function RegistrationEventSidebar({
   countdownStartIso,
   countdownEndIso,
   hasAgenda = false,
+  hideDateTime = false,
 }: RegistrationEventSidebarProps) {
   const countdownInitial =
-    countdownStartIso && countdownEndIso
+    !hideDateTime && countdownStartIso && countdownEndIso
       ? getCountdownState(
           new Date(countdownStartIso).getTime(),
           new Date(countdownEndIso).getTime()
@@ -49,7 +52,7 @@ export function RegistrationEventSidebar({
       </div>
 
       <div className="space-y-0 bg-[#f5f5f5] p-4 sm:p-6">
-        {countdownStartIso && countdownEndIso && countdownInitial ? (
+        {!hideDateTime && countdownStartIso && countdownEndIso && countdownInitial ? (
           <div className="-mt-5">
             <EventCountdown
               startIso={countdownStartIso}
@@ -60,23 +63,36 @@ export function RegistrationEventSidebar({
         ) : null}
 
         <div className="mt-3 divide-y divide-zinc-300">
-          <div className="flex items-center gap-3 py-3.5">
-            <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-full bg-[#f3e31d]">
-              <CalendarIcon className="h-6 w-6 text-zinc-900" />
+          {hideDateTime ? (
+            <div className="flex items-center gap-3 py-3.5">
+              <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-full bg-[#f3e31d]">
+                <CalendarIcon className="h-6 w-6 text-zinc-900" />
+              </div>
+              <p className="text-base font-bold tracking-tight text-zinc-900 sm:text-[18px]">
+                Coming Soon
+              </p>
             </div>
-            <p className="text-base font-bold tracking-tight text-zinc-900 sm:text-[18px]">
-              {formatEventDate(eventStartDate)}
-            </p>
-          </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-3 py-3.5">
+                <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-full bg-[#f3e31d]">
+                  <CalendarIcon className="h-6 w-6 text-zinc-900" />
+                </div>
+                <p className="text-base font-bold tracking-tight text-zinc-900 sm:text-[18px]">
+                  {formatEventDate(eventStartDate)}
+                </p>
+              </div>
 
-          <div className="flex items-center gap-3 py-3.5">
-            <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-full bg-[#f3e31d]">
-              <ClockIcon className="h-6 w-6 text-zinc-900" />
-            </div>
-            <p className="text-base font-bold tracking-tight text-zinc-900 sm:text-[18px]">
-              {getEventTimeDisplay({ eventStartDate, eventEndDate, eventTime })}
-            </p>
-          </div>
+              <div className="flex items-center gap-3 py-3.5">
+                <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-full bg-[#f3e31d]">
+                  <ClockIcon className="h-6 w-6 text-zinc-900" />
+                </div>
+                <p className="text-base font-bold tracking-tight text-zinc-900 sm:text-[18px]">
+                  {getEventTimeDisplay({ eventStartDate, eventEndDate, eventTime })}
+                </p>
+              </div>
+            </>
+          )}
 
           {venue ? (
             <div className="flex items-start gap-3 py-3.5">

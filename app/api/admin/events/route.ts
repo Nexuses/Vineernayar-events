@@ -71,6 +71,7 @@ export async function POST(request: Request) {
     let requireTransport: boolean;
     let published: boolean;
     let showPassQr: boolean;
+    let hideDateTime: boolean;
     let transportLocationsParsed: string[];
     let agendaParsed: ReturnType<typeof eventAgendaFromJsonBody>;
     let seatLimitRaw: unknown;
@@ -102,6 +103,7 @@ export async function POST(request: Request) {
       requireTransport = formData.get("requireTransport") === "true" || formData.get("requireTransport") === "1";
       published = formData.get("published") === "true" || formData.get("published") === "1";
       showPassQr = formData.get("showPassQr") !== "false" && formData.get("showPassQr") !== "0";
+      hideDateTime = formData.get("hideDateTime") === "true" || formData.get("hideDateTime") === "1";
       seatLimitRaw = formData.get("seatLimit");
       transportLocationsParsed = transportLocationsFromFormData(formData);
       agendaParsed = eventAgendaFromFormData(formData);
@@ -135,6 +137,7 @@ export async function POST(request: Request) {
       requireTransport = !!body.requireTransport;
       published = !!body.published;
       showPassQr = body.showPassQr === undefined ? true : !!body.showPassQr;
+      hideDateTime = !!body.hideDateTime;
       seatLimitRaw = body.seatLimit;
       transportLocationsParsed = transportLocationsFromJsonBody(body);
       agendaParsed = eventAgendaFromJsonBody(body);
@@ -219,6 +222,7 @@ export async function POST(request: Request) {
       requireTransport: !!requireTransport,
       published: !!published,
       showPassQr: !!showPassQr,
+      hideDateTime: !!hideDateTime,
       transportLocations: collectTransport ? transportLocationsParsed : [],
       agenda: agendaParsed,
       seatLimit,

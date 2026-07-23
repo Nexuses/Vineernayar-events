@@ -131,6 +131,7 @@ export function RegistrationHubView({
                 countdownStartIso={countdownRange?.start.toISOString()}
                 countdownEndIso={countdownRange?.end.toISOString()}
                 hasAgenda={hasAgendaContent}
+                hideDateTime={event.hideDateTime === true}
               />
             </StickySidebarShell>
           </aside>

@@ -30,6 +30,7 @@ type EventItem = {
   eventTime?: string;
   seatLimit?: number;
   showPassQr?: boolean;
+  hideDateTime?: boolean;
 };
 
 export default function EditEventPage() {
@@ -50,6 +51,7 @@ export default function EditEventPage() {
   const [registrationType, setRegistrationType] = useState<"open_for_all" | "invitees_only">("invitees_only");
   const [published, setPublished] = useState(true);
   const [showPassQr, setShowPassQr] = useState(true);
+  const [hideDateTime, setHideDateTime] = useState(false);
   const [seatLimit, setSeatLimit] = useState("");
   const [eventBannerUrl, setEventBannerUrl] = useState("");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -89,6 +91,7 @@ export default function EditEventPage() {
         setRegistrationType(data.registrationType === "open_for_all" ? "open_for_all" : "invitees_only");
         setPublished(!!data.published);
         setShowPassQr(data.showPassQr !== false);
+        setHideDateTime(data.hideDateTime === true);
         setSeatLimit(
           typeof data.seatLimit === "number" && data.seatLimit > 0
             ? String(data.seatLimit)
@@ -132,6 +135,7 @@ export default function EditEventPage() {
         formData.set("registrationType", registrationType);
         formData.set("published", published ? "true" : "false");
         formData.set("showPassQr", showPassQr ? "true" : "false");
+        formData.set("hideDateTime", hideDateTime ? "true" : "false");
         formData.set("seatLimit", seatLimit.trim());
         formData.set("bannerFile", bannerFile);
         res = await fetch(`/api/admin/events/${eventId}`, { method: "PUT", body: formData });
@@ -155,6 +159,7 @@ export default function EditEventPage() {
             registrationType,
             published,
             showPassQr,
+            hideDateTime,
             seatLimit: seatLimitValue,
           }),
         });
@@ -177,6 +182,7 @@ export default function EditEventPage() {
           : ""
       );
       setShowPassQr(data.showPassQr !== false);
+      setHideDateTime(data.hideDateTime === true);
       setBannerFile(null);
     } catch {
       setError("Something went wrong");
@@ -387,6 +393,21 @@ export default function EditEventPage() {
               <option value="published">Publish</option>
               <option value="unpublished">Unpublish</option>
             </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-700">Date &amp; time on event page</label>
+            <select
+              value={hideDateTime ? "hide" : "show"}
+              onChange={(e) => setHideDateTime(e.target.value === "hide")}
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="show">Show date &amp; time</option>
+              <option value="hide">Hide &mdash; show &ldquo;Coming Soon&rdquo;</option>
+            </select>
+            <p className="mt-1 text-xs text-zinc-500">
+              Hiding also removes the countdown. The venue still shows. The agenda section is not
+              affected &mdash; edit it separately if it mentions dates.
+            </p>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700">QR on event pass</label>
