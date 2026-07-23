@@ -15,12 +15,14 @@ const footerConfig = {
   })),
 };
 
+// The LinkedIn Insight Tag is mounted here, inside the <footer> element, and
+// nowhere else. Keep it to a single mount — a second one elsewhere duplicates
+// the <noscript> fallback pixel and double-counts no-JavaScript visitors.
 export function Footer() {
   return (
-    <>
-      <HumansFirstFooter config={footerConfig} contactHref={MARKETING_SITE_URL} />
-      <LinkedInInsightTag idSuffix="-footer" />
-    </>
+    <HumansFirstFooter config={footerConfig} contactHref={MARKETING_SITE_URL}>
+      <LinkedInInsightTag />
+    </HumansFirstFooter>
   );
 }
 

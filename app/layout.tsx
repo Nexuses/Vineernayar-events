@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { GoogleTagManagerBody, GoogleTagManagerHead } from "@/app/components/GoogleTagManager";
-import { LinkedInInsightTag } from "@/app/components/LinkedInInsightTag";
 import { Caveat, Inter } from "next/font/google";
 import { BRAND_LOGO_URL, BRAND_NAME } from "@/lib/constants";
 import "./globals.css";
@@ -69,7 +68,8 @@ export default function RootLayout({
             `,
           }}
         />
-        <LinkedInInsightTag />
+        {/* LinkedIn Insight Tag is mounted inside the <footer> element — see
+            app/components/Footer.tsx. Do not add a second mount here. */}
       </body>
     </html>
   );

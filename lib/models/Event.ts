@@ -72,6 +72,11 @@ export interface EventDoc {
   seatLimit?: number;
   /** When false, event pass hides the QR box but keeps the unique ID in the header */
   showPassQr?: boolean;
+  /**
+   * When true, the public event page hides the countdown, date and time and
+   * shows "Coming Soon" instead. The venue is still shown.
+   */
+  hideDateTime?: boolean;
   createdAt: Date;
 }
 
@@ -202,6 +207,7 @@ export async function createEvent(data: Omit<EventDoc, "_id" | "eventId" | "crea
     requireWhatsAppNumber: data.requireWhatsAppNumber ?? false,
     seatLimit: data.seatLimit,
     showPassQr: data.showPassQr ?? true,
+    hideDateTime: data.hideDateTime ?? false,
     slug: data.slug,
     createdAt: new Date(),
   };
@@ -314,6 +320,7 @@ export async function updateEvent(
   if (data.requirePassportNic !== undefined) update.requirePassportNic = data.requirePassportNic;
   if (data.requireWhatsAppNumber !== undefined) update.requireWhatsAppNumber = data.requireWhatsAppNumber;
   if (data.showPassQr !== undefined) update.showPassQr = data.showPassQr;
+  if (data.hideDateTime !== undefined) update.hideDateTime = data.hideDateTime;
   if (data.seatLimit !== undefined) {
     if (data.seatLimit === null) {
       unset.seatLimit = "";

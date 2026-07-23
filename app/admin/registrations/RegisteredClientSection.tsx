@@ -302,131 +302,169 @@ function customDesignationCsv(row: RegistrationItem): string {
   return "";
 }
 
-function seqStatusCsv(
-  seq: Record<string, EmailSequenceEntryView> | undefined,
-  key: string
-): string {
-  return seq?.[key]?.status ?? "";
-}
-
-function seqSentAtCsv(
-  seq: Record<string, EmailSequenceEntryView> | undefined,
-  key: string
-): string {
-  const sentAt = seq?.[key]?.sentAt;
-  return sentAt ? formatDate(sentAt) : "";
-}
-
-function seqErrorCsv(
-  seq: Record<string, EmailSequenceEntryView> | undefined,
-  key: string
-): string {
-  return seq?.[key]?.error ?? "";
-}
-
 function dateCsv(value?: string | null): string {
   return value ? formatDate(value) : "";
 }
 
-type CsvColumn = { header: string; value: (r: RegistrationItem) => string };
+// Email is optional for manual (backend) registrations; when none is given the
+// system stores a placeholder like manual-<event>-<digits>@hfms.internal. Those
+// are not real addresses, so they are blanked out in the export.
+function realEmailCsv(row: RegistrationItem): string {
+  const email = row.email?.trim() || "";
+  if (!email || email.endsWith("@hfms.internal")) return "";
+  return email;
+}
+
+// "Coming with how many persons" is stored as a sentence
+// ("Coming with 2 additional persons") on manual/bulk registrations. The export
+// shows just the number.
+function accompanyingPersonsCsv(row: RegistrationItem): string {
+  const match = row.specialComment?.match(/(\d+)/);
+  return match ? match[1] : "";
+}
+
+// A reminder counts as "sent" only when its sequence entry status is "sent".
+// Returns the sent date when known, otherwise a plain "Sent".
+function reminderSentCsv(
+  seq: Record<string, EmailSequenceEntryView> | undefined,
+  key: string
+): string {
+  const entry = seq?.[key];
+  if (!entry || entry.status !== "sent") return "";
+  return entry.sentAt ? formatDate(entry.sentAt) : "Sent";
+}
+
+type CsvColumn = {
+  header: string;
+  value: (r: RegistrationItem) => string;
+  // When set, the column is included only if at least one exported row has data.
+  hasData?: (r: RegistrationItem) => boolean;
+};
 
 /**
- * Every registration field stored in the database, in a fixed column set.
- * Columns are always emitted, even when no row has a value for them.
+ * Registration export columns.
+ *
+ * Only fields actually collected by the public and manual registration forms
+ * are included, plus the registration date/time and the reminder emails /
+ * WhatsApp messages that have been sent. Optional columns are dropped entirely
+ * when no exported row has any data for them, so an event that does not collect
+ * (say) apparel size never shows that column.
  */
 function registrationCsvColumns(): CsvColumn[] {
+  const nonEmpty =
+    (get: (r: RegistrationItem) => string) => (r: RegistrationItem) =>
+      Boolean(get(r).trim());
+
   const columns: CsvColumn[] = [
+    // Core identity — always present.
     { header: "First Name", value: (r) => r.firstName || "" },
     { header: "Surname", value: (r) => r.surname || "" },
-    { header: "Email", value: (r) => r.email || "" },
+    { header: "Email", value: realEmailCsv, hasData: nonEmpty(realEmailCsv) },
     { header: "Mobile Number", value: (r) => r.mobileNumber || "" },
-    { header: "City", value: (r) => r.city || "" },
-    { header: "Attendee Category", value: (r) => attendeeCategoryCsv(r) },
-    { header: "WhatsApp Number", value: whatsappCsvValue },
-    { header: "Add To WhatsApp", value: (r) => yesNoCsv(r.addToWhatsapp) },
-    { header: "Your Current Organisation", value: (r) => r.organization || "" },
-    { header: "Your Current Designation", value: (r) => getEffectiveDesignation(r) },
-    { header: "Please specify your designation", value: customDesignationCsv },
+
+    // Collected form fields — shown only when at least one row has a value.
+    { header: "City", value: (r) => r.city || "", hasData: nonEmpty((r) => r.city || "") },
+    {
+      header: "Attendee Category",
+      value: attendeeCategoryCsv,
+      hasData: nonEmpty(attendeeCategoryCsv),
+    },
+    {
+      header: "WhatsApp Number",
+      value: whatsappCsvValue,
+      hasData: nonEmpty(whatsappCsvValue),
+    },
+    {
+      header: "Coming with how many persons",
+      value: accompanyingPersonsCsv,
+      hasData: nonEmpty(accompanyingPersonsCsv),
+    },
+    {
+      header: "Your Current Organisation",
+      value: (r) => r.organization || "",
+      hasData: nonEmpty((r) => r.organization || ""),
+    },
+    {
+      header: "Your Current Designation",
+      value: (r) => getEffectiveDesignation(r),
+      hasData: nonEmpty((r) => getEffectiveDesignation(r)),
+    },
+    {
+      header: "Please specify your designation",
+      value: customDesignationCsv,
+      hasData: nonEmpty(customDesignationCsv),
+    },
     {
       header: "Have you worked, studied, or partnered with Vineet Nayar?",
       value: (r) => yesNoCsv(r.workedWithVineet),
+      hasData: (r) => r.workedWithVineet != null,
     },
     {
       header: "Tell us more about where or how you connected?",
       value: (r) => r.workedWithVineetDetails || "",
+      hasData: nonEmpty((r) => r.workedWithVineetDetails || ""),
     },
-    { header: "Why would you like to attend this event?", value: (r) => r.whyAttend || "" },
-    { header: "Question for Vineet", value: (r) => r.questionForVineet || "" },
+    {
+      header: "Why would you like to attend this event?",
+      value: (r) => r.whyAttend || "",
+      hasData: nonEmpty((r) => r.whyAttend || ""),
+    },
     {
       header:
         "Would you like to have your copy of Humans First, Machines Second signed by Vineet Nayar?",
       value: (r) => yesNoCsv(r.signedCopyInterested),
+      hasData: (r) => r.signedCopyInterested != null,
     },
-    { header: "Apparel - sizes", value: (r) => r.apparelSize || "" },
-    { header: "Overnight Stay", value: (r) => yesNoCsv(r.overnightStay) },
-    { header: "Passport/NIC", value: (r) => r.passportNic || "" },
-    { header: "Identity Card Or Passport", value: (r) => r.identityCardOrPassport || "" },
-    { header: "Transport", value: (r) => yesNoCsv(r.transportNeeded) },
-    { header: "Location", value: (r) => (r.transportNeeded ? r.transportLocation || "" : "") },
-    { header: "Coming with how many persons?", value: (r) => r.specialComment || "" },
-    { header: "Agreed To Privacy", value: (r) => yesNoCsv(r.agreedToPrivacy) },
-    { header: "Admin Notes", value: (r) => r.adminNotes || "" },
-    { header: "Registration Source", value: (r) => r.registrationSource || "" },
-    { header: "Registration code", value: (r) => r.uniqueCode || "" },
-    { header: "Event ID", value: (r) => r.eventId || "" },
-    { header: "Event Name", value: (r) => r.eventName || "" },
-    { header: "Event Start Date", value: (r) => dateCsv(r.eventStartDate) },
-    { header: "Event End Date", value: (r) => dateCsv(r.eventEndDate) },
-    { header: "Event Time", value: (r) => r.eventTime || "" },
-    { header: "Venue", value: (r) => r.venue || "" },
-    { header: "Admission Status", value: (r) => r.admissionStatus || "" },
-    { header: "Admission Updated At", value: (r) => dateCsv(r.admissionUpdatedAt) },
+    {
+      header: "Apparel - sizes",
+      value: (r) => r.apparelSize || "",
+      hasData: nonEmpty((r) => r.apparelSize || ""),
+    },
+    {
+      header: "Overnight Stay",
+      value: (r) => yesNoCsv(r.overnightStay),
+      hasData: (r) => r.overnightStay != null,
+    },
+    {
+      header: "Passport/NIC",
+      value: (r) => r.passportNic || "",
+      hasData: nonEmpty((r) => r.passportNic || ""),
+    },
+    {
+      header: "Transport",
+      value: (r) => yesNoCsv(r.transportNeeded),
+      hasData: (r) => r.transportNeeded != null,
+    },
+    {
+      header: "Transport Location",
+      value: (r) => (r.transportNeeded ? r.transportLocation || "" : ""),
+      hasData: (r) => Boolean(r.transportNeeded && r.transportLocation?.trim()),
+    },
+
+    // Record identity + timing — always present.
+    { header: "Registration Code", value: (r) => r.uniqueCode || "" },
     {
       header: "Status",
-      value: (r) => ((r.participationStatus || "registered") === "attended" ? "Attended" : "Registered"),
+      value: (r) =>
+        (r.participationStatus || "registered") === "attended" ? "Attended" : "Registered",
     },
-    { header: "Attended on", value: (r) => dateCsv(r.participationTimestamp) },
-    { header: "RSVP Status", value: (r) => attendanceRsvpLabel(getAttendanceRsvpStatus(r)) },
-    { header: "RSVP At", value: (r) => dateCsv(r.attendanceRsvpAt) },
-    { header: "Waitlist Email Status", value: (r) => r.waitlistEmailStatus || "" },
-    { header: "Waitlist Email Sent At", value: (r) => dateCsv(r.waitlistEmailSentAt) },
-    { header: "Waitlist Email Error", value: (r) => r.waitlistEmailError || "" },
-    { header: "Waitlist WhatsApp Status", value: (r) => r.waitlistWhatsAppStatus || "" },
-    { header: "Waitlist WhatsApp Sent At", value: (r) => dateCsv(r.waitlistWhatsAppSentAt) },
-    { header: "Waitlist WhatsApp Error", value: (r) => r.waitlistWhatsAppError || "" },
-    { header: "Last Email Blast At", value: (r) => dateCsv(r.lastEmailBlastAt) },
-    { header: "Registered on", value: (r) => dateCsv(r.createdAt) },
+    { header: "Registered On", value: (r) => dateCsv(r.createdAt) },
   ];
 
+  // Reminder emails / WhatsApp messages sent — one column per reminder, shown
+  // only when at least one exported row has received it.
   for (const key of EMAIL_SEQUENCE_ORDER) {
-    const label = EMAIL_SEQUENCE_LABELS[key];
     columns.push({
-      header: `Email ${key} (${label}) Status`,
-      value: (r) => seqStatusCsv(r.emailSequence, key),
-    });
-    columns.push({
-      header: `Email ${key} (${label}) Sent At`,
-      value: (r) => seqSentAtCsv(r.emailSequence, key),
-    });
-    columns.push({
-      header: `Email ${key} (${label}) Error`,
-      value: (r) => seqErrorCsv(r.emailSequence, key),
+      header: `Email sent - ${EMAIL_SEQUENCE_LABELS[key]}`,
+      value: (r) => reminderSentCsv(r.emailSequence, key),
+      hasData: (r) => reminderSentCsv(r.emailSequence, key) !== "",
     });
   }
-
   for (const key of WHATSAPP_SEQUENCE_ORDER) {
-    const label = WHATSAPP_SEQUENCE_LABELS[key];
     columns.push({
-      header: `WhatsApp ${key} (${label}) Status`,
-      value: (r) => seqStatusCsv(r.whatsappSequence, key),
-    });
-    columns.push({
-      header: `WhatsApp ${key} (${label}) Sent At`,
-      value: (r) => seqSentAtCsv(r.whatsappSequence, key),
-    });
-    columns.push({
-      header: `WhatsApp ${key} (${label}) Error`,
-      value: (r) => seqErrorCsv(r.whatsappSequence, key),
+      header: `WhatsApp sent - ${WHATSAPP_SEQUENCE_LABELS[key]}`,
+      value: (r) => reminderSentCsv(r.whatsappSequence, key),
+      hasData: (r) => reminderSentCsv(r.whatsappSequence, key) !== "",
     });
   }
 
@@ -434,7 +472,9 @@ function registrationCsvColumns(): CsvColumn[] {
 }
 
 function buildRegistrationsCsv(rows: RegistrationItem[]): string {
-  const columns = registrationCsvColumns();
+  const columns = registrationCsvColumns().filter(
+    (col) => !col.hasData || rows.some((r) => col.hasData!(r))
+  );
   const headerLine = columns.map((col) => escapeCsvCell(col.header)).join(",");
   const dataLines = rows.map((r) =>
     columns.map((col) => escapeCsvCell(col.value(r))).join(",")

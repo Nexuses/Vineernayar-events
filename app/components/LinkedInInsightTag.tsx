@@ -3,15 +3,19 @@ import Script from "next/script";
 const LINKEDIN_PARTNER_ID =
   process.env.NEXT_PUBLIC_LINKEDIN_PARTNER_ID?.trim() || "9627468";
 
-type LinkedInInsightTagProps = {
-  idSuffix?: string;
-};
-
-export function LinkedInInsightTag({ idSuffix = "" }: LinkedInInsightTagProps) {
+/**
+ * LinkedIn Insight Tag.
+ *
+ * Mount this exactly once, at the end of <body> in the root layout — that is
+ * what LinkedIn means by "add it to the footer of your site". Mounting it a
+ * second time duplicates the <noscript> fallback pixel, which double-counts
+ * visitors who have JavaScript disabled.
+ */
+export function LinkedInInsightTag() {
   return (
     <>
       <Script
-        id={`linkedin-partner${idSuffix}`}
+        id="linkedin-partner"
         strategy="afterInteractive"
         dangerouslySetInnerHTML={{
           __html: `
@@ -29,7 +33,7 @@ export function LinkedInInsightTag({ idSuffix = "" }: LinkedInInsightTagProps) {
         }}
       />
       <Script
-        id={`linkedin-insight${idSuffix}`}
+        id="linkedin-insight"
         src="https://snap.licdn.com/li.lms-analytics/insight.min.js"
         strategy="afterInteractive"
       />
