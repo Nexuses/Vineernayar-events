@@ -21,8 +21,11 @@ import {
 import {
   getEffectiveDesignation,
   REGISTRATION_DESIGNATION_OTHER,
+  REGISTRATION_DESIGNATION_SELECT_OPTIONS,
+  REGISTRATION_FIELD_LIMITS,
+  trimToFieldLimit,
 } from "@/lib/registration-field-limits";
-import { ATTENDEE_CATEGORY_LABELS } from "@/lib/attendee-category";
+import { ATTENDEE_CATEGORY_LABELS, ATTENDEE_CATEGORY_OPTIONS } from "@/lib/attendee-category";
 
 type EventItem = {
   eventId: string;
@@ -509,6 +512,219 @@ function RegistrationDetailGrid({ row }: { row: RegistrationItem }) {
   );
 }
 
+const editInputClass =
+  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500";
+const editLabelClass = "mb-1 block text-xs font-medium text-zinc-600";
+
+// A placeholder email (generated for manual registrations without an email) is
+// not a real address, so it is shown as blank in the edit form.
+function editableEmail(row: RegistrationItem): string {
+  const email = row.email?.trim() || "";
+  return email.endsWith("@hfms.internal") ? "" : email;
+}
+
+function EditRegistrationForm({
+  row,
+  onCancel,
+  onSaved,
+}: {
+  row: RegistrationItem;
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const [firstName, setFirstName] = useState(row.firstName || "");
+  const [surname, setSurname] = useState(row.surname || "");
+  const [email, setEmail] = useState(editableEmail(row));
+  const [mobileNumber, setMobileNumber] = useState(row.mobileNumber || "");
+  const [city, setCity] = useState(row.city || "");
+  const [organization, setOrganization] = useState(row.organization || "");
+  const [currentDesignation, setCurrentDesignation] = useState(row.currentDesignation || "");
+  const [designation, setDesignation] = useState(row.designation || "");
+  const [attendeeCategory, setAttendeeCategory] = useState(row.attendeeCategory || "");
+  const [adminNotes, setAdminNotes] = useState(row.adminNotes || "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/registrations/${row._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fields: {
+            firstName,
+            surname,
+            email,
+            mobileNumber,
+            city,
+            organization,
+            currentDesignation,
+            designation:
+              currentDesignation === REGISTRATION_DESIGNATION_OTHER ? designation : "",
+            attendeeCategory,
+            adminNotes,
+          },
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "Could not save changes");
+        return;
+      }
+      onSaved();
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="rounded-lg border border-zinc-200 bg-white p-4">
+      <h3 className="mb-3 text-sm font-semibold text-zinc-700">Edit registration</h3>
+
+      {error ? (
+        <p className="mb-3 rounded-md bg-red-100 px-3 py-2 text-sm text-red-700">{error}</p>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <label className={editLabelClass}>First name *</label>
+          <input
+            className={editInputClass}
+            value={firstName}
+            onChange={(e) => setFirstName(trimToFieldLimit(e.target.value, REGISTRATION_FIELD_LIMITS.firstName))}
+            maxLength={REGISTRATION_FIELD_LIMITS.firstName}
+            required
+          />
+        </div>
+        <div>
+          <label className={editLabelClass}>Surname</label>
+          <input
+            className={editInputClass}
+            value={surname}
+            onChange={(e) => setSurname(trimToFieldLimit(e.target.value, REGISTRATION_FIELD_LIMITS.surname))}
+            maxLength={REGISTRATION_FIELD_LIMITS.surname}
+          />
+        </div>
+        <div>
+          <label className={editLabelClass}>Email</label>
+          <input
+            type="email"
+            className={editInputClass}
+            value={email}
+            onChange={(e) => setEmail(trimToFieldLimit(e.target.value, REGISTRATION_FIELD_LIMITS.email))}
+            maxLength={REGISTRATION_FIELD_LIMITS.email}
+            placeholder="Leave blank if none"
+          />
+        </div>
+        <div>
+          <label className={editLabelClass}>Mobile number *</label>
+          <input
+            type="tel"
+            className={editInputClass}
+            value={mobileNumber}
+            onChange={(e) => setMobileNumber(e.target.value)}
+            placeholder="+91XXXXXXXXXX"
+            required
+          />
+        </div>
+        <div>
+          <label className={editLabelClass}>City</label>
+          <input
+            className={editInputClass}
+            value={city}
+            onChange={(e) => setCity(trimToFieldLimit(e.target.value, REGISTRATION_FIELD_LIMITS.city))}
+            maxLength={REGISTRATION_FIELD_LIMITS.city}
+          />
+        </div>
+        <div>
+          <label className={editLabelClass}>Organisation</label>
+          <input
+            className={editInputClass}
+            value={organization}
+            onChange={(e) => setOrganization(trimToFieldLimit(e.target.value, REGISTRATION_FIELD_LIMITS.organization))}
+            maxLength={REGISTRATION_FIELD_LIMITS.organization}
+          />
+        </div>
+        <div>
+          <label className={editLabelClass}>Current designation</label>
+          <select
+            className={editInputClass}
+            value={currentDesignation}
+            onChange={(e) => setCurrentDesignation(e.target.value)}
+          >
+            <option value="">— None —</option>
+            {REGISTRATION_DESIGNATION_SELECT_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </div>
+        {currentDesignation === REGISTRATION_DESIGNATION_OTHER ? (
+          <div>
+            <label className={editLabelClass}>Please specify designation *</label>
+            <input
+              className={editInputClass}
+              value={designation}
+              onChange={(e) => setDesignation(trimToFieldLimit(e.target.value, REGISTRATION_FIELD_LIMITS.designation))}
+              maxLength={REGISTRATION_FIELD_LIMITS.designation}
+              required
+            />
+          </div>
+        ) : null}
+        <div>
+          <label className={editLabelClass}>Attendee category</label>
+          <select
+            className={editInputClass}
+            value={attendeeCategory}
+            onChange={(e) => setAttendeeCategory(e.target.value)}
+          >
+            <option value="">— None —</option>
+            {ATTENDEE_CATEGORY_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <label className={editLabelClass}>Admin notes</label>
+        <textarea
+          className={editInputClass}
+          value={adminNotes}
+          onChange={(e) => setAdminNotes(e.target.value)}
+          rows={2}
+        />
+      </div>
+
+      <div className="mt-4 flex gap-2">
+        <button
+          type="submit"
+          disabled={saving}
+          className="rounded-md bg-brand-500 px-4 py-2 text-sm font-semibold text-zinc-900 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saving ? "Saving…" : "Save changes"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={saving}
+          className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function TrashIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -563,6 +779,7 @@ export function RegisteredClientSection({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [rsvpFilter, setRsvpFilter] = useState<RsvpFilter>("all");
@@ -831,7 +1048,13 @@ export function RegisteredClientSection({
                   {paginatedRegistrations.map((r) => (
                     <React.Fragment key={r._id || r.uniqueCode}>
                       <tr
-                        onClick={() => setExpandedId((prev) => (prev === r._id ? null : r._id))}
+                        onClick={() =>
+                          setExpandedId((prev) => {
+                            const next = prev === r._id ? null : r._id;
+                            if (next !== r._id) setEditingId(null);
+                            return next;
+                          })
+                        }
                         className="cursor-pointer border-b border-zinc-100 transition-colors hover:bg-zinc-50"
                       >
                         <td className="px-2 py-3">
@@ -890,10 +1113,31 @@ export function RegisteredClientSection({
                       {expandedId === r._id && (
                         <tr key={`${r._id}-details`} className="bg-zinc-50">
                           <td colSpan={readOnly ? 5 : 6} className="px-4 py-4">
+                            {!readOnly && editingId === r._id ? (
+                              <EditRegistrationForm
+                                row={r}
+                                onCancel={() => setEditingId(null)}
+                                onSaved={() => {
+                                  setEditingId(null);
+                                  fetchRegistrations();
+                                }}
+                              />
+                            ) : (
                             <div className="rounded-lg border border-zinc-200 bg-white p-4">
-                              <h3 className="mb-3 text-sm font-semibold text-zinc-700">
-                                Full details
-                              </h3>
+                              <div className="mb-3 flex items-center justify-between gap-2">
+                                <h3 className="text-sm font-semibold text-zinc-700">
+                                  Full details
+                                </h3>
+                                {!readOnly ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingId(r._id)}
+                                    className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                                  >
+                                    Edit
+                                  </button>
+                                ) : null}
+                              </div>
                               <RegistrationDetailGrid row={r} />
 
                               <div className="mt-6 border-t border-zinc-200 pt-4">
@@ -996,6 +1240,7 @@ export function RegisteredClientSection({
                                 </div>
                               </div>
                             </div>
+                            )}
                           </td>
                         </tr>
                       )}

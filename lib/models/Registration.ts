@@ -193,6 +193,55 @@ export async function findActiveRegistrationByEventAndMobile(
   });
 }
 
+/** Fields an admin may edit on an existing registration from the guest list. */
+export type EditableRegistrationFields = Partial<
+  Pick<
+    RegistrationDoc,
+    | "firstName"
+    | "surname"
+    | "email"
+    | "mobileNumber"
+    | "city"
+    | "organization"
+    | "currentDesignation"
+    | "designation"
+    | "attendeeCategory"
+    | "adminNotes"
+  >
+>;
+
+/**
+ * Update the editable contact/profile fields of a registration.
+ *
+ * Keys present in `patch` are set; keys explicitly set to undefined are unset
+ * (removed from the document), so clearing an optional field works.
+ */
+export async function updateRegistrationFields(
+  id: string,
+  patch: EditableRegistrationFields
+): Promise<boolean> {
+  const col = await getRegistrationsCollection();
+  if (!ObjectId.isValid(id)) return false;
+
+  const set: Record<string, unknown> = {};
+  const unset: Record<string, ""> = {};
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) {
+      unset[key] = "";
+    } else {
+      set[key] = value;
+    }
+  }
+
+  const update: Record<string, unknown> = {};
+  if (Object.keys(set).length > 0) update.$set = set;
+  if (Object.keys(unset).length > 0) update.$unset = unset;
+  if (Object.keys(update).length === 0) return false;
+
+  const result = await col.updateOne({ _id: new ObjectId(id) }, update);
+  return result.matchedCount > 0;
+}
+
 export async function updateAdmissionStatus(
   id: string,
   admissionStatus: AdmissionStatus
