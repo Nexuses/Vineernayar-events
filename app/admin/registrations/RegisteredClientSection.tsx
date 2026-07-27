@@ -525,13 +525,16 @@ function editableEmail(row: RegistrationItem): string {
 
 function EditRegistrationForm({
   row,
+  events,
   onCancel,
   onSaved,
 }: {
   row: RegistrationItem;
+  events: EventItem[];
   onCancel: () => void;
   onSaved: () => void;
 }) {
+  const [eventId, setEventId] = useState(row.eventId || "");
   const [firstName, setFirstName] = useState(row.firstName || "");
   const [surname, setSurname] = useState(row.surname || "");
   const [email, setEmail] = useState(editableEmail(row));
@@ -545,8 +548,20 @@ function EditRegistrationForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const isTransfer = eventId !== row.eventId;
+  const targetEventName = events.find((ev) => ev.eventId === eventId)?.eventName || "";
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (
+      isTransfer &&
+      !confirm(
+        `Move ${row.firstName} ${row.surname}`.trim() +
+          ` to "${targetEventName}"? Their pass will update to the new event.`
+      )
+    ) {
+      return;
+    }
     setError("");
     setSaving(true);
     try {
@@ -555,6 +570,7 @@ function EditRegistrationForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fields: {
+            eventId,
             firstName,
             surname,
             email,
@@ -589,6 +605,29 @@ function EditRegistrationForm({
       {error ? (
         <p className="mb-3 rounded-md bg-red-100 px-3 py-2 text-sm text-red-700">{error}</p>
       ) : null}
+
+      <div className="mb-3">
+        <label className={editLabelClass}>Event</label>
+        <select
+          className={editInputClass}
+          value={eventId}
+          onChange={(e) => setEventId(e.target.value)}
+        >
+          {events.map((ev) => (
+            <option key={ev.eventId} value={ev.eventId}>
+              {ev.dropdownLabel}
+            </option>
+          ))}
+          {events.some((ev) => ev.eventId === row.eventId) ? null : (
+            <option value={row.eventId}>{row.eventName}</option>
+          )}
+        </select>
+        {isTransfer ? (
+          <p className="mt-1 text-xs text-amber-700">
+            This attendee will be moved to “{targetEventName}”. Their pass updates to the new event.
+          </p>
+        ) : null}
+      </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
@@ -1116,6 +1155,7 @@ export function RegisteredClientSection({
                             {!readOnly && editingId === r._id ? (
                               <EditRegistrationForm
                                 row={r}
+                                events={events}
                                 onCancel={() => setEditingId(null)}
                                 onSaved={() => {
                                   setEditingId(null);

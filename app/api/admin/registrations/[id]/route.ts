@@ -22,11 +22,13 @@ import {
 } from "@/lib/registration-field-limits";
 import { isAttendeeCategory } from "@/lib/attendee-category";
 import { normalizePhoneForOtp } from "@/lib/otp-store";
+import { getEventByEventId } from "@/lib/models/Event";
 import {
   assertCanModifyAdminData,
   assertEventAccess,
   getAdminSession,
   unauthorizedResponse,
+  type AdminSession,
 } from "@/lib/admin-access";
 
 function buildPlaceholderEmail(eventId: string, mobileNumber: string): string {
@@ -41,7 +43,8 @@ function str(value: unknown): string {
 async function handleRegistrationEdit(
   id: string,
   reg: RegistrationDoc,
-  fields: Record<string, unknown>
+  fields: Record<string, unknown>,
+  session: AdminSession
 ): Promise<NextResponse> {
   const firstName = str(fields.firstName);
   if (!firstName) {
@@ -55,6 +58,22 @@ async function handleRegistrationEdit(
   const designationCustom = str(fields.designation);
   const attendeeCategoryRaw = str(fields.attendeeCategory);
   const adminNotes = str(fields.adminNotes);
+
+  // Event transfer — when a different eventId is supplied, the attendee is
+  // moved to that event. Uniqueness is then checked against the target event,
+  // and the denormalized event details are copied over.
+  const requestedEventId = str(fields.eventId);
+  let targetEventId = reg.eventId;
+  let targetEvent: Awaited<ReturnType<typeof getEventByEventId>> = null;
+  if (requestedEventId && requestedEventId !== reg.eventId) {
+    const denied = assertEventAccess(session, requestedEventId);
+    if (denied) return denied;
+    targetEvent = await getEventByEventId(requestedEventId);
+    if (!targetEvent) {
+      return NextResponse.json({ error: "Destination event not found" }, { status: 400 });
+    }
+    targetEventId = requestedEventId;
+  }
 
   // Mobile — required, normalized to E.164.
   const mobileNormalized = normalizePhoneForOtp(str(fields.mobileNumber));
@@ -88,7 +107,7 @@ async function handleRegistrationEdit(
     return NextResponse.json({ error: "Invalid attendee category" }, { status: 400 });
   }
 
-  const email = emailRaw || buildPlaceholderEmail(reg.eventId, mobileNormalized);
+  const email = emailRaw || buildPlaceholderEmail(targetEventId, mobileNormalized);
 
   const lengthError = validateRegistrationFieldLengths({
     firstName,
@@ -102,9 +121,10 @@ async function handleRegistrationEdit(
   }
 
   // Uniqueness — a real email or the mobile must not collide with a different
-  // (non-rejected) registration in the same event.
+  // (non-rejected) registration in the target event (the destination event when
+  // transferring, otherwise the current event).
   if (emailRaw) {
-    const clash = await findRegistrationByEventAndEmail(reg.eventId, emailRaw);
+    const clash = await findRegistrationByEventAndEmail(targetEventId, emailRaw);
     if (
       clash &&
       clash._id?.toString() !== id &&
@@ -116,7 +136,7 @@ async function handleRegistrationEdit(
       );
     }
   }
-  const mobileClash = await findActiveRegistrationByEventAndMobile(reg.eventId, mobileNormalized);
+  const mobileClash = await findActiveRegistrationByEventAndMobile(targetEventId, mobileNormalized);
   if (mobileClash && mobileClash._id?.toString() !== id) {
     return NextResponse.json(
       { error: "This mobile number is already registered for this event" },
@@ -151,8 +171,19 @@ async function handleRegistrationEdit(
     ? (attendeeCategoryRaw as EditableRegistrationFields["attendeeCategory"])
     : undefined;
 
+  // Transfer — copy the destination event's id and denormalized details so the
+  // attendee (and their pass) now belong to the target event.
+  if (targetEvent) {
+    patch.eventId = targetEvent.eventId;
+    patch.eventName = targetEvent.eventName;
+    patch.eventStartDate = targetEvent.eventStartDate;
+    patch.eventEndDate = targetEvent.eventEndDate;
+    patch.eventTime = targetEvent.eventTime;
+    patch.venue = targetEvent.venue;
+  }
+
   await updateRegistrationFields(id, patch);
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, transferred: Boolean(targetEvent) });
 }
 
 async function ensureRegistrationAccess(id: string) {
@@ -180,7 +211,12 @@ export async function PATCH(
 
     // Field edit from the guest list: body carries a `fields` object.
     if (body && typeof body === "object" && body.fields && typeof body.fields === "object") {
-      return handleRegistrationEdit(id, access.reg, body.fields as Record<string, unknown>);
+      return handleRegistrationEdit(
+        id,
+        access.reg,
+        body.fields as Record<string, unknown>,
+        access.session
+      );
     }
 
     const { participationStatus } = body as { participationStatus?: string };

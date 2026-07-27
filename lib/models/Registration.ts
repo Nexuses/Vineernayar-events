@@ -193,7 +193,12 @@ export async function findActiveRegistrationByEventAndMobile(
   });
 }
 
-/** Fields an admin may edit on an existing registration from the guest list. */
+/**
+ * Fields an admin may edit on an existing registration from the guest list.
+ *
+ * The event fields (eventId + denormalized event details) are only set when an
+ * attendee is transferred to a different event.
+ */
 export type EditableRegistrationFields = Partial<
   Pick<
     RegistrationDoc,
@@ -207,6 +212,12 @@ export type EditableRegistrationFields = Partial<
     | "designation"
     | "attendeeCategory"
     | "adminNotes"
+    | "eventId"
+    | "eventName"
+    | "eventStartDate"
+    | "eventEndDate"
+    | "eventTime"
+    | "venue"
   >
 >;
 
