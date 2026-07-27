@@ -17,6 +17,7 @@ export const REGISTRATION_PROFILE_OPTIONS = [
   "Middle Manager",
   "Senior Manager",
   "TiE Member",
+  "SHRM",
 ] as const;
 
 export const REGISTRATION_DESIGNATION_OTHER = "Other" as const;
