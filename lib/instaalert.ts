@@ -59,24 +59,32 @@ export async function sendOtpSms(phone: string, otp: string): Promise<void> {
   const dest = phone.replace(/\D/g, "");
   const message = buildOtpMessage(otp, senderId);
 
-  let url =
-    `${INSTAALERTS_API_URL}?ver=1.0&encrpt=0` +
-    `&key=${encodeURIComponent(apiKey)}` +
-    `&send=${encodeURIComponent(senderId)}` +
-    `&dest=${dest}` +
-    `&text=${encodeURI(message)}`;
+  // POST the parameters as an application/x-www-form-urlencoded body. The SMS
+  // text is passed as-is; URLSearchParams applies the form encoding, so no
+  // manual encoding of the message is needed.
+  const form = new URLSearchParams();
+  form.set("ver", "1.0");
+  form.set("encrpt", "0");
+  form.set("key", apiKey);
+  form.set("send", senderId);
+  form.set("dest", dest);
+  form.set("text", message);
 
   if (dltEntityId) {
-    url += `&dlt_entity_id=${encodeURIComponent(dltEntityId)}`;
+    form.set("dlt_entity_id", dltEntityId);
   }
   if (dltTemplateId) {
-    url += `&dlt_template_id=${encodeURIComponent(dltTemplateId)}`;
+    form.set("dlt_template_id", dltTemplateId);
   }
   if (dltTmId) {
-    url += `&dlt_tm_id=${encodeURIComponent(dltTmId)}`;
+    form.set("dlt_tm_id", dltTmId);
   }
 
-  const response = await fetch(url);
+  const response = await fetch(INSTAALERTS_API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: form,
+  });
   const body = (await response.text()).trim();
 
   console.info("[InstaAlerts OTP]", {
