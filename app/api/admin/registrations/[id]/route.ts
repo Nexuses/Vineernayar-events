@@ -121,9 +121,17 @@ async function handleRegistrationEdit(
   }
 
   // Uniqueness — a real email or the mobile must not collide with a different
-  // (non-rejected) registration in the target event (the destination event when
-  // transferring, otherwise the current event).
-  if (emailRaw) {
+  // (non-rejected) registration in the target event. Only check when the value
+  // actually changed (or when transferring to another event); editing other
+  // fields must never be blocked by the record's own existing email/mobile, even
+  // if a duplicate of it exists in the data.
+  const isTransfer = Boolean(targetEvent);
+  const currentMobile = normalizePhoneForOtp(reg.mobileNumber || "");
+  const mobileChanged = mobileNormalized !== currentMobile;
+  const currentEmail = (reg.email || "").trim().toLowerCase();
+  const emailChanged = emailRaw !== "" && emailRaw !== currentEmail;
+
+  if (emailRaw && (emailChanged || isTransfer)) {
     const clash = await findRegistrationByEventAndEmail(targetEventId, emailRaw);
     if (
       clash &&
@@ -136,12 +144,14 @@ async function handleRegistrationEdit(
       );
     }
   }
-  const mobileClash = await findActiveRegistrationByEventAndMobile(targetEventId, mobileNormalized);
-  if (mobileClash && mobileClash._id?.toString() !== id) {
-    return NextResponse.json(
-      { error: "This mobile number is already registered for this event" },
-      { status: 409 }
-    );
+  if (mobileChanged || isTransfer) {
+    const mobileClash = await findActiveRegistrationByEventAndMobile(targetEventId, mobileNormalized);
+    if (mobileClash && mobileClash._id?.toString() !== id) {
+      return NextResponse.json(
+        { error: "This mobile number is already registered for this event" },
+        { status: 409 }
+      );
+    }
   }
 
   const patch: EditableRegistrationFields = {
