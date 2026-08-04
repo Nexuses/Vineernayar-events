@@ -30,6 +30,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     ],
   },
   { href: "/admin/email-blast", label: "Email Blast", subManagerHidden: true },
+  { href: "/admin/email-stats", label: "Email Stats" },
   { href: "/admin/scan", label: "QR Scanning", subManagerHidden: true },
 ];
 

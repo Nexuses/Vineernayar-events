@@ -11,6 +11,7 @@ import { getPublicSiteUrl } from "./site-url";
 import {
   getRegistrationsCollection,
   listAllRegistrations,
+  listRegistrationsByEventId,
   isConfirmedRegistration,
   type RegistrationDoc,
 } from "./models/Registration";
@@ -263,6 +264,31 @@ export async function sendTestEmailSequenceForRegistration(
     const message = err instanceof Error ? err.message : "Send failed";
     return { ok: false, error: message };
   }
+}
+
+/**
+ * Manually send one sequence email to every confirmed registration of an event
+ * that has not already received it — regardless of the schedule window. Used by
+ * the admin "Send now" trigger.
+ */
+export async function sendSequenceToPendingForEvent(
+  eventId: string,
+  key: EmailSequenceKey
+): Promise<{ attempted: number; sent: number; failed: number }> {
+  const registrations = await listRegistrationsByEventId(eventId);
+  let attempted = 0;
+  let sent = 0;
+  let failed = 0;
+
+  for (const reg of registrations) {
+    if (reg.emailSequence?.[key]?.status === "sent") continue;
+    attempted += 1;
+    const ok = await sendEmailSequenceForRegistration(reg, key);
+    if (ok) sent += 1;
+    else failed += 1;
+  }
+
+  return { attempted, sent, failed };
 }
 
 export async function processDueEmailSequences(now: Date = new Date()): Promise<{
