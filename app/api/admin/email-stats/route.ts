@@ -1,11 +1,37 @@
 import { NextResponse } from "next/server";
 import { getEmailSequenceStats } from "@/lib/models/Registration";
+import { getEventByEventId } from "@/lib/models/Event";
+import { getEventCountdownRange } from "@/lib/date-utils";
+import type { EmailSequenceKey } from "@/lib/email-sequence";
 import {
   assertEventAccess,
   getAdminSession,
   listEventsForAdmin,
   unauthorizedResponse,
 } from "@/lib/admin-access";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Approximate scheduled send instant per email, from the event dates. */
+function buildSchedule(event: {
+  eventStartDate: Date;
+  eventEndDate: Date;
+  eventTime?: string;
+}): Record<EmailSequenceKey, string | null> {
+  const start = new Date(event.eventStartDate).getTime();
+  const end = new Date(event.eventEndDate ?? event.eventStartDate).getTime();
+  const range = getEventCountdownRange({
+    eventStartDate: event.eventStartDate,
+    eventEndDate: event.eventEndDate ?? event.eventStartDate,
+    eventTime: event.eventTime,
+  });
+  return {
+    seq1: null, // sent on registration/acceptance, not on a fixed date
+    seq2: new Date(start - 2 * DAY_MS).toISOString(),
+    seq3: range ? new Date(range.start.getTime() - DAY_MS).toISOString() : null,
+    seq4: new Date(end + DAY_MS).toISOString(),
+  };
+}
 
 export async function GET(request: Request) {
   const session = await getAdminSession();
@@ -18,8 +44,12 @@ export async function GET(request: Request) {
     if (eventId) {
       const denied = assertEventAccess(session, eventId);
       if (denied) return denied;
-      const stats = await getEmailSequenceStats([eventId]);
-      return NextResponse.json(stats);
+      const [stats, event] = await Promise.all([
+        getEmailSequenceStats([eventId]),
+        getEventByEventId(eventId),
+      ]);
+      const schedule = event ? buildSchedule(event) : null;
+      return NextResponse.json({ ...stats, schedule });
     }
 
     // No event selected — aggregate across every event this admin can access.

@@ -1,4 +1,4 @@
-import { getAdminSession, listEventsForAdmin } from "@/lib/admin-access";
+import { getAdminRole, getAdminSession, listEventsForAdmin } from "@/lib/admin-access";
 import { redirect } from "next/navigation";
 import { formatEventDropdownLabel } from "@/lib/event-option-label";
 import { EmailStatsSection } from "./EmailStatsSection";
@@ -7,6 +7,7 @@ export default async function EmailStatsPage() {
   const session = await getAdminSession();
   if (!session) redirect("/admin/login");
 
+  const canTrigger = getAdminRole(session) !== "sub_manager";
   const events = await listEventsForAdmin(session);
   const eventList = events.map((e) => ({
     eventId: e.eventId,
@@ -20,7 +21,7 @@ export default async function EmailStatsPage() {
         Delivery stats for each automated email, per event. Select an event or view all events
         together.
       </p>
-      <EmailStatsSection events={eventList} />
+      <EmailStatsSection events={eventList} canTrigger={canTrigger} />
     </div>
   );
 }

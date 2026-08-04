@@ -17,6 +17,45 @@ type RecipientPreview = {
   email: string;
 };
 
+type BlastCampaign = {
+  subject: string;
+  audience: string;
+  total: number;
+  sent: number;
+  failed: number;
+  sentBy: string;
+  sentAt: string;
+};
+
+type BlastStatus = {
+  campaigns: BlastCampaign[];
+  campaignCount: number;
+  totalSent: number;
+  totalFailed: number;
+  audience: string;
+  audienceTotal: number;
+  pending: number;
+};
+
+const BLAST_AUDIENCE_LABELS: Record<string, string> = {
+  confirmed: "Confirmed",
+  waitlisted: "Waitlisted",
+  all: "All",
+};
+
+function formatBlastDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
 const AUDIENCE_OPTIONS: { value: BlastAudience; label: string }[] = [
   { value: "confirmed", label: "Confirmed registrants" },
   { value: "waitlisted", label: "Waitlisted" },
@@ -82,6 +121,7 @@ export function EmailBlastSection({
   const [recipientCount, setRecipientCount] = useState(0);
   const [recipientPreview, setRecipientPreview] = useState<RecipientPreview[]>([]);
   const [loadingRecipients, setLoadingRecipients] = useState(false);
+  const [blastStatus, setBlastStatus] = useState<BlastStatus | null>(null);
   const [subject, setSubject] = useState("");
   const [html, setHtml] = useState(EMAIL_BLAST_DEFAULT_HTML);
   const [testEmail, setTestEmail] = useState(adminEmail);
@@ -133,6 +173,24 @@ export function EmailBlastSection({
         setRecipientPreview([]);
       })
       .finally(() => setLoadingRecipients(false));
+  }, [selectedEventId, audience]);
+
+  function fetchBlastStatus() {
+    if (!selectedEventId) {
+      setBlastStatus(null);
+      return;
+    }
+    fetch(
+      `/api/admin/email-blast/logs?eventId=${encodeURIComponent(selectedEventId)}&audience=${encodeURIComponent(audience)}`
+    )
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setBlastStatus(data && !data.error ? data : null))
+      .catch(() => setBlastStatus(null));
+  }
+
+  useEffect(() => {
+    fetchBlastStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEventId, audience]);
 
   async function handleSendTest() {
@@ -218,6 +276,7 @@ export function EmailBlastSection({
       } else {
         setMessage(`Campaign sent successfully to ${data.sent} recipient(s).`);
       }
+      fetchBlastStatus();
     } catch {
       setError("Unable to send campaign");
     } finally {
@@ -393,6 +452,71 @@ export function EmailBlastSection({
           </button>
         </div>
       </div>
+
+      {selectedEventId ? (
+        <div className="rounded-lg border border-zinc-200 bg-white">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 px-4 py-3">
+            <h3 className="text-sm font-semibold text-zinc-800">Blast status</h3>
+            <div className="flex flex-wrap gap-4 text-sm">
+              <span className="text-zinc-600">
+                Campaigns: <span className="font-semibold text-zinc-900">{blastStatus?.campaignCount ?? 0}</span>
+              </span>
+              <span className="text-green-700">
+                Sent: <span className="font-semibold">{blastStatus?.totalSent ?? 0}</span>
+              </span>
+              <span className="text-red-600">
+                Failed: <span className="font-semibold">{blastStatus?.totalFailed ?? 0}</span>
+              </span>
+              <span className="text-amber-600">
+                Pending: <span className="font-semibold">{blastStatus?.pending ?? 0}</span>
+              </span>
+            </div>
+          </div>
+
+          {blastStatus?.pending != null ? (
+            <p className="border-b border-zinc-100 px-4 py-2 text-xs text-zinc-500">
+              Pending = {BLAST_AUDIENCE_LABELS[blastStatus.audience] ?? blastStatus.audience}{" "}
+              recipients who have never received a blast yet ({blastStatus.pending} of{" "}
+              {blastStatus.audienceTotal}).
+            </p>
+          ) : null}
+
+          {blastStatus && blastStatus.campaigns.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-200 bg-zinc-50 text-left text-zinc-600">
+                    <th className="px-4 py-2 font-medium">Sent at</th>
+                    <th className="px-4 py-2 font-medium">Subject</th>
+                    <th className="px-4 py-2 font-medium">Audience</th>
+                    <th className="px-4 py-2 font-medium text-right">Recipients</th>
+                    <th className="px-4 py-2 font-medium text-right">Sent</th>
+                    <th className="px-4 py-2 font-medium text-right">Failed</th>
+                    <th className="px-4 py-2 font-medium">By</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {blastStatus.campaigns.map((c, i) => (
+                    <tr key={`${c.sentAt}-${i}`} className="border-b border-zinc-100">
+                      <td className="px-4 py-2 whitespace-nowrap text-zinc-700">{formatBlastDate(c.sentAt)}</td>
+                      <td className="px-4 py-2 text-zinc-900">{c.subject}</td>
+                      <td className="px-4 py-2 text-zinc-600">
+                        {BLAST_AUDIENCE_LABELS[c.audience] ?? c.audience}
+                      </td>
+                      <td className="px-4 py-2 text-right text-zinc-900">{c.total}</td>
+                      <td className="px-4 py-2 text-right font-medium text-green-700">{c.sent}</td>
+                      <td className="px-4 py-2 text-right text-red-600">{c.failed}</td>
+                      <td className="px-4 py-2 text-zinc-500">{c.sentBy}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="px-4 py-4 text-sm text-zinc-500">No blasts sent for this event yet.</p>
+          )}
+        </div>
+      ) : null}
 
       {showPreviewModal ? (
         <HtmlPreviewModal
