@@ -1,6 +1,11 @@
 import { getDb } from "../mongodb";
 import { ObjectId, type Filter } from "mongodb";
-import { createInitialEmailSequence, type EmailSequenceStatus } from "../email-sequence";
+import {
+  createInitialEmailSequence,
+  EMAIL_SEQUENCE_ORDER,
+  type EmailSequenceKey,
+  type EmailSequenceStatus,
+} from "../email-sequence";
 import {
   createInitialWhatsAppSequence,
   type WhatsAppSequenceStatus,
@@ -425,6 +430,56 @@ export async function countRegistrationsByEventId(eventId: string): Promise<numb
 export async function countWaitlistedByEventId(eventId: string): Promise<number> {
   const col = await getRegistrationsCollection();
   return col.countDocuments({ eventId, ...waitlistedAdmissionFilter() });
+}
+
+export type EmailSequenceStat = {
+  /** Send was attempted (delivered or failed). */
+  triggered: number;
+  sent: number;
+  failed: number;
+  /** Scheduled but not yet attempted. */
+  pending: number;
+  total: number;
+};
+
+/**
+ * Per-email-type delivery stats over confirmed registrations. When eventIds is
+ * given, stats are limited to those events; otherwise all confirmed
+ * registrations are counted.
+ */
+export async function getEmailSequenceStats(
+  eventIds?: string[]
+): Promise<{ total: number; perSeq: Record<EmailSequenceKey, EmailSequenceStat> }> {
+  const col = await getRegistrationsCollection();
+  const filter: Filter<RegistrationDoc> = eventIds
+    ? { eventId: { $in: eventIds }, ...confirmedAdmissionFilter() }
+    : confirmedAdmissionFilter();
+
+  const regs = await col.find(filter, { projection: { emailSequence: 1 } }).toArray();
+
+  const perSeq = {} as Record<EmailSequenceKey, EmailSequenceStat>;
+  for (const key of EMAIL_SEQUENCE_ORDER) {
+    perSeq[key] = { triggered: 0, sent: 0, failed: 0, pending: 0, total: 0 };
+  }
+
+  for (const reg of regs) {
+    for (const key of EMAIL_SEQUENCE_ORDER) {
+      const status = reg.emailSequence?.[key]?.status ?? "pending";
+      const stat = perSeq[key];
+      stat.total += 1;
+      if (status === "sent") {
+        stat.sent += 1;
+        stat.triggered += 1;
+      } else if (status === "failed") {
+        stat.failed += 1;
+        stat.triggered += 1;
+      } else {
+        stat.pending += 1;
+      }
+    }
+  }
+
+  return { total: regs.length, perSeq };
 }
 
 export async function getRegistrationCountsByEventIds(
