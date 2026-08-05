@@ -30,6 +30,7 @@ type EventItem = {
   eventTime?: string;
   seatLimit?: number;
   showPassQr?: boolean;
+  attachPassToConfirmation?: boolean;
   hideDateTime?: boolean;
 };
 
@@ -51,6 +52,7 @@ export default function EditEventPage() {
   const [registrationType, setRegistrationType] = useState<"open_for_all" | "invitees_only">("invitees_only");
   const [published, setPublished] = useState(true);
   const [showPassQr, setShowPassQr] = useState(true);
+  const [attachPassToConfirmation, setAttachPassToConfirmation] = useState(true);
   const [hideDateTime, setHideDateTime] = useState(false);
   const [seatLimit, setSeatLimit] = useState("");
   const [eventBannerUrl, setEventBannerUrl] = useState("");
@@ -91,6 +93,7 @@ export default function EditEventPage() {
         setRegistrationType(data.registrationType === "open_for_all" ? "open_for_all" : "invitees_only");
         setPublished(!!data.published);
         setShowPassQr(data.showPassQr !== false);
+        setAttachPassToConfirmation(data.attachPassToConfirmation !== false);
         setHideDateTime(data.hideDateTime === true);
         setSeatLimit(
           typeof data.seatLimit === "number" && data.seatLimit > 0
@@ -135,6 +138,7 @@ export default function EditEventPage() {
         formData.set("registrationType", registrationType);
         formData.set("published", published ? "true" : "false");
         formData.set("showPassQr", showPassQr ? "true" : "false");
+        formData.set("attachPassToConfirmation", attachPassToConfirmation ? "true" : "false");
         formData.set("hideDateTime", hideDateTime ? "true" : "false");
         formData.set("seatLimit", seatLimit.trim());
         formData.set("bannerFile", bannerFile);
@@ -159,6 +163,7 @@ export default function EditEventPage() {
             registrationType,
             published,
             showPassQr,
+            attachPassToConfirmation,
             hideDateTime,
             seatLimit: seatLimitValue,
           }),
@@ -182,6 +187,7 @@ export default function EditEventPage() {
           : ""
       );
       setShowPassQr(data.showPassQr !== false);
+      setAttachPassToConfirmation(data.attachPassToConfirmation !== false);
       setHideDateTime(data.hideDateTime === true);
       setBannerFile(null);
     } catch {
@@ -407,6 +413,21 @@ export default function EditEventPage() {
             <p className="mt-1 text-xs text-zinc-500">
               Hiding also removes the countdown. The venue still shows. The agenda section is not
               affected &mdash; edit it separately if it mentions dates.
+            </p>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-700">Pass PDF on confirmation email</label>
+            <select
+              value={attachPassToConfirmation ? "attach" : "no"}
+              onChange={(e) => setAttachPassToConfirmation(e.target.value === "attach")}
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="attach">Attach pass PDF</option>
+              <option value="no">Do not attach pass PDF</option>
+            </select>
+            <p className="mt-1 text-xs text-zinc-500">
+              Controls the registration confirmation email only. The calendar invite and the pass
+              link in the email are always kept.
             </p>
           </div>
           <div>

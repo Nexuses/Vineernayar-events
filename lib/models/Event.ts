@@ -73,6 +73,12 @@ export interface EventDoc {
   /** When false, event pass hides the QR box but keeps the unique ID in the header */
   showPassQr?: boolean;
   /**
+   * When false, the registration confirmation email omits the pass PDF
+   * attachment (the calendar .ics invite and the in-email pass link are kept).
+   * Defaults to true.
+   */
+  attachPassToConfirmation?: boolean;
+  /**
    * When true, the public event page hides the countdown, date and time and
    * shows "Coming Soon" instead. The venue is still shown.
    */
@@ -207,6 +213,7 @@ export async function createEvent(data: Omit<EventDoc, "_id" | "eventId" | "crea
     requireWhatsAppNumber: data.requireWhatsAppNumber ?? false,
     seatLimit: data.seatLimit,
     showPassQr: data.showPassQr ?? true,
+    attachPassToConfirmation: data.attachPassToConfirmation ?? true,
     hideDateTime: data.hideDateTime ?? false,
     slug: data.slug,
     createdAt: new Date(),
@@ -320,6 +327,8 @@ export async function updateEvent(
   if (data.requirePassportNic !== undefined) update.requirePassportNic = data.requirePassportNic;
   if (data.requireWhatsAppNumber !== undefined) update.requireWhatsAppNumber = data.requireWhatsAppNumber;
   if (data.showPassQr !== undefined) update.showPassQr = data.showPassQr;
+  if (data.attachPassToConfirmation !== undefined)
+    update.attachPassToConfirmation = data.attachPassToConfirmation;
   if (data.hideDateTime !== undefined) update.hideDateTime = data.hideDateTime;
   if (data.seatLimit !== undefined) {
     if (data.seatLimit === null) {

@@ -23,6 +23,7 @@ export default function CreateEventPage() {
   const [registrationType, setRegistrationType] = useState<"open_for_all" | "invitees_only">("invitees_only");
   const [published, setPublished] = useState(true);
   const [showPassQr, setShowPassQr] = useState(true);
+  const [attachPassToConfirmation, setAttachPassToConfirmation] = useState(true);
   const [hideDateTime, setHideDateTime] = useState(false);
   const [seatLimit, setSeatLimit] = useState("");
   const [eventBannerUrl, setEventBannerUrl] = useState("");
@@ -56,6 +57,7 @@ export default function CreateEventPage() {
         formData.set("registrationType", registrationType);
         formData.set("published", published ? "true" : "false");
         formData.set("showPassQr", showPassQr ? "true" : "false");
+        formData.set("attachPassToConfirmation", attachPassToConfirmation ? "true" : "false");
         formData.set("hideDateTime", hideDateTime ? "true" : "false");
         if (seatLimit.trim()) formData.set("seatLimit", seatLimit.trim());
         formData.set("bannerFile", bannerFile);
@@ -80,6 +82,7 @@ export default function CreateEventPage() {
             registrationType,
             published,
             showPassQr,
+            attachPassToConfirmation,
             hideDateTime,
             ...(seatLimit.trim() ? { seatLimit: Number.parseInt(seatLimit.trim(), 10) } : {}),
           }),
@@ -300,6 +303,21 @@ export default function CreateEventPage() {
               <option value="published">Publish</option>
               <option value="unpublished">Unpublish</option>
             </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-700">Pass PDF on confirmation email</label>
+            <select
+              value={attachPassToConfirmation ? "attach" : "no"}
+              onChange={(e) => setAttachPassToConfirmation(e.target.value === "attach")}
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="attach">Attach pass PDF</option>
+              <option value="no">Do not attach pass PDF</option>
+            </select>
+            <p className="mt-1 text-xs text-zinc-500">
+              Controls the registration confirmation email only. The calendar invite and the pass
+              link in the email are always kept.
+            </p>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700">QR on event pass</label>
