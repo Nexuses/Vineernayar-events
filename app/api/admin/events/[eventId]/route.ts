@@ -84,6 +84,7 @@ export async function PUT(
     let requireTransport: boolean | undefined;
     let published: boolean | undefined;
     let showPassQr: boolean | undefined;
+    let attachPassToConfirmation: boolean | undefined;
     let hideDateTime: boolean | undefined;
     let transportLocationsParsed: string[] = [];
     let agendaParsed: ReturnType<typeof eventAgendaFromJsonBody> = [];
@@ -128,6 +129,9 @@ export async function PUT(
       published = pub === "true" || pub === "1" ? true : pub === "false" || pub === "0" ? false : undefined;
       const hdt = formData.get("hideDateTime");
       hideDateTime = hdt === "true" || hdt === "1" ? true : hdt === "false" || hdt === "0" ? false : undefined;
+      const apc = formData.get("attachPassToConfirmation");
+      attachPassToConfirmation =
+        apc === "true" || apc === "1" ? true : apc === "false" || apc === "0" ? false : undefined;
       const spq = formData.get("showPassQr");
       showPassQr = spq === "true" || spq === "1" ? true : spq === "false" || spq === "0" ? false : undefined;
       if (formData.has("seatLimit")) {
@@ -171,6 +175,8 @@ export async function PUT(
       requireTransport = body.requireTransport;
       published = body.published === undefined ? undefined : !!body.published;
       showPassQr = body.showPassQr === undefined ? undefined : !!body.showPassQr;
+      attachPassToConfirmation =
+        body.attachPassToConfirmation === undefined ? undefined : !!body.attachPassToConfirmation;
       hideDateTime = body.hideDateTime === undefined ? undefined : !!body.hideDateTime;
       if ("seatLimit" in body) {
         seatLimitProvided = true;
@@ -284,6 +290,7 @@ export async function PUT(
       ...(collectTransport !== undefined && { collectTransport }),
       ...(published !== undefined && { published }),
       ...(showPassQr !== undefined && { showPassQr }),
+      ...(attachPassToConfirmation !== undefined && { attachPassToConfirmation }),
       ...(hideDateTime !== undefined && { hideDateTime }),
       ...(requireWhatsAppNumber !== undefined && { requireWhatsAppNumber }),
       ...(requireApparelSize !== undefined && { requireApparelSize }),

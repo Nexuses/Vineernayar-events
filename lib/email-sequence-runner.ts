@@ -20,6 +20,12 @@ import { ObjectId } from "mongodb";
 
 const SEQUENCES_WITH_PASS_ATTACHMENTS = new Set<EmailSequenceKey>(["seq1", "seq2", "seq3"]);
 
+/** Whether the confirmation email should carry the pass PDF for this event (default yes). */
+async function shouldAttachConfirmationPass(eventId: string): Promise<boolean> {
+  const event = await getEventByEventId(eventId);
+  return event?.attachPassToConfirmation !== false;
+}
+
 async function buildPassUrl(eventId: string, uniqueCode: string): Promise<string> {
   const base = getPublicSiteUrl();
   const event = await getEventByEventId(eventId);
@@ -58,7 +64,8 @@ function toPassEmailData(reg: RegistrationDoc, passUrl: string): PassEmailData {
 
 async function buildPassEmailAttachments(
   reg: RegistrationDoc,
-  passUrl: string
+  passUrl: string,
+  includePdf = true
 ): Promise<SequenceEmailAttachments> {
   let passPdfBuffer: Buffer | undefined;
   let passIcsBuffer: Buffer | undefined;
@@ -66,21 +73,23 @@ async function buildPassEmailAttachments(
   const event = await getEventByEventId(reg.eventId);
 
   try {
-    passPdfBuffer = await generateFullPassPdf({
-      firstName: reg.firstName,
-      surname: reg.surname,
-      email: reg.email,
-      mobileNumber: reg.mobileNumber,
-      eventName: reg.eventName,
-      eventStartDate: reg.eventStartDate,
-      eventEndDate: reg.eventEndDate,
-      eventTime: reg.eventTime,
-      venue: reg.venue,
-      uniqueCode: reg.uniqueCode,
-      createdAt: reg.createdAt,
-      showPassQr: event?.showPassQr !== false,
-      priorityPass: reg.workedWithVineet === true,
-    });
+    if (includePdf) {
+      passPdfBuffer = await generateFullPassPdf({
+        firstName: reg.firstName,
+        surname: reg.surname,
+        email: reg.email,
+        mobileNumber: reg.mobileNumber,
+        eventName: reg.eventName,
+        eventStartDate: reg.eventStartDate,
+        eventEndDate: reg.eventEndDate,
+        eventTime: reg.eventTime,
+        venue: reg.venue,
+        uniqueCode: reg.uniqueCode,
+        createdAt: reg.createdAt,
+        showPassQr: event?.showPassQr !== false,
+        priorityPass: reg.workedWithVineet === true,
+      });
+    }
   } catch (err) {
     console.error("Pass PDF generation for email failed:", err);
   }
@@ -214,13 +223,16 @@ export async function sendEmailSequenceForRegistration(
     let emailAttachments: SequenceEmailAttachments | undefined;
 
     if (SEQUENCES_WITH_PASS_ATTACHMENTS.has(key)) {
+      // Per-event: the confirmation email (seq1) can omit the pass PDF while
+      // still sending the calendar invite and the in-email pass link.
+      const includePdf = key === "seq1" ? await shouldAttachConfirmationPass(reg.eventId) : true;
       emailAttachments =
         opts?.passPdfBuffer || opts?.passIcsBuffer
           ? {
-              passPdfBuffer: opts.passPdfBuffer,
+              passPdfBuffer: includePdf ? opts.passPdfBuffer : undefined,
               passIcsBuffer: opts.passIcsBuffer,
             }
-          : await buildPassEmailAttachments(reg, passUrl);
+          : await buildPassEmailAttachments(reg, passUrl, includePdf);
     }
 
     const ok = await sendSequenceEmail(data, key, emailAttachments);
@@ -251,7 +263,8 @@ export async function sendTestEmailSequenceForRegistration(
     let emailAttachments: SequenceEmailAttachments | undefined;
 
     if (SEQUENCES_WITH_PASS_ATTACHMENTS.has(key)) {
-      emailAttachments = await buildPassEmailAttachments(reg, passUrl);
+      const includePdf = key === "seq1" ? await shouldAttachConfirmationPass(reg.eventId) : true;
+      emailAttachments = await buildPassEmailAttachments(reg, passUrl, includePdf);
     }
 
     const ok = await sendSequenceEmail(data, key, emailAttachments);
