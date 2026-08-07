@@ -73,9 +73,11 @@ export interface EventDoc {
   /** When false, event pass hides the QR box but keeps the unique ID in the header */
   showPassQr?: boolean;
   /**
-   * When false, the registration confirmation email omits the pass PDF
-   * attachment (the calendar .ics invite and the in-email pass link are kept).
-   * Defaults to true.
+   * When false, the pass PDF attachment is omitted from every automated email
+   * for this event — the registration confirmation and both reminders. The
+   * calendar .ics invite and the in-email pass link are always kept. Defaults
+   * to true. (Field name kept for backward compatibility; it governs all
+   * emails, not just the confirmation.)
    */
   attachPassToConfirmation?: boolean;
   /**

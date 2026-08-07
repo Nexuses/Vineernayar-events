@@ -20,8 +20,12 @@ import { ObjectId } from "mongodb";
 
 const SEQUENCES_WITH_PASS_ATTACHMENTS = new Set<EmailSequenceKey>(["seq1", "seq2", "seq3"]);
 
-/** Whether the confirmation email should carry the pass PDF for this event (default yes). */
-async function shouldAttachConfirmationPass(eventId: string): Promise<boolean> {
+/**
+ * Whether emails for this event should carry the pass PDF (default yes).
+ * When the event's attachPassToConfirmation flag is false, the pass PDF is
+ * omitted from every email — the confirmation and both reminders.
+ */
+async function shouldAttachPassPdf(eventId: string): Promise<boolean> {
   const event = await getEventByEventId(eventId);
   return event?.attachPassToConfirmation !== false;
 }
@@ -223,9 +227,9 @@ export async function sendEmailSequenceForRegistration(
     let emailAttachments: SequenceEmailAttachments | undefined;
 
     if (SEQUENCES_WITH_PASS_ATTACHMENTS.has(key)) {
-      // Per-event: the confirmation email (seq1) can omit the pass PDF while
-      // still sending the calendar invite and the in-email pass link.
-      const includePdf = key === "seq1" ? await shouldAttachConfirmationPass(reg.eventId) : true;
+      // Per-event: emails can omit the pass PDF (confirmation and both
+      // reminders) while still sending the calendar invite and the pass link.
+      const includePdf = await shouldAttachPassPdf(reg.eventId);
       emailAttachments =
         opts?.passPdfBuffer || opts?.passIcsBuffer
           ? {
@@ -263,7 +267,7 @@ export async function sendTestEmailSequenceForRegistration(
     let emailAttachments: SequenceEmailAttachments | undefined;
 
     if (SEQUENCES_WITH_PASS_ATTACHMENTS.has(key)) {
-      const includePdf = key === "seq1" ? await shouldAttachConfirmationPass(reg.eventId) : true;
+      const includePdf = await shouldAttachPassPdf(reg.eventId);
       emailAttachments = await buildPassEmailAttachments(reg, passUrl, includePdf);
     }
 

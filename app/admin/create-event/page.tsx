@@ -305,7 +305,7 @@ export default function CreateEventPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-700">Pass PDF on confirmation email</label>
+            <label className="mb-1 block text-sm font-medium text-zinc-700">Pass PDF on emails</label>
             <select
               value={attachPassToConfirmation ? "attach" : "no"}
               onChange={(e) => setAttachPassToConfirmation(e.target.value === "attach")}
@@ -315,8 +315,8 @@ export default function CreateEventPage() {
               <option value="no">Do not attach pass PDF</option>
             </select>
             <p className="mt-1 text-xs text-zinc-500">
-              Controls the registration confirmation email only. The calendar invite and the pass
-              link in the email are always kept.
+              Controls the pass PDF on all automated emails (confirmation and reminders). The
+              calendar invite and the pass link in the email are always kept.
             </p>
           </div>
           <div>
