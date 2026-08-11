@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getEmailSequenceStats } from "@/lib/models/Registration";
-import { getEventByEventId } from "@/lib/models/Event";
+import { getEventByEventId, normalizeEmailsEnabled } from "@/lib/models/Event";
 import { getEventCountdownRange } from "@/lib/date-utils";
 import type { EmailSequenceKey } from "@/lib/email-sequence";
 import {
@@ -49,7 +49,8 @@ export async function GET(request: Request) {
         getEventByEventId(eventId),
       ]);
       const schedule = event ? buildSchedule(event) : null;
-      return NextResponse.json({ ...stats, schedule });
+      const emailsEnabled = event ? normalizeEmailsEnabled(event.emailsEnabled) : null;
+      return NextResponse.json({ ...stats, schedule, emailsEnabled });
     }
 
     // No event selected — aggregate across every event this admin can access.

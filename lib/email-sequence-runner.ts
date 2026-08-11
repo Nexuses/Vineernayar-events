@@ -5,7 +5,7 @@ import { resolveSequenceWhatsAppMessageText } from "./whatsapp-template-resolve"
 import { sendEnablexWhatsAppText } from "./enablex-whatsapp";
 import { generateIcs } from "./ics";
 import { generateFullPassPdf } from "./pass-pdf";
-import { getEventByEventId } from "./models/Event";
+import { getEventByEventId, type EventDoc } from "./models/Event";
 import { getEventPassPath } from "./event-path";
 import { getPublicSiteUrl } from "./site-url";
 import {
@@ -28,6 +28,23 @@ const SEQUENCES_WITH_PASS_ATTACHMENTS = new Set<EmailSequenceKey>(["seq1", "seq2
 async function shouldAttachPassPdf(eventId: string): Promise<boolean> {
   const event = await getEventByEventId(eventId);
   return event?.attachPassToConfirmation !== false;
+}
+
+/** Whether a given automated email is turned on for this event (default yes). */
+export function isEmailSequenceEnabled(
+  event: EventDoc | null | undefined,
+  key: EmailSequenceKey
+): boolean {
+  return event?.emailsEnabled?.[key] !== false;
+}
+
+/** Loads the event and reports whether the given automated email is enabled. */
+export async function isEmailEnabledForEvent(
+  eventId: string,
+  key: EmailSequenceKey
+): Promise<boolean> {
+  const event = await getEventByEventId(eventId);
+  return isEmailSequenceEnabled(event, key);
 }
 
 async function buildPassUrl(eventId: string, uniqueCode: string): Promise<string> {
@@ -318,12 +335,23 @@ export async function processDueEmailSequences(now: Date = new Date()): Promise<
   let sent = 0;
   let failed = 0;
 
+  // Cache events so each is loaded once per run, not once per registration.
+  const eventCache = new Map<string, EventDoc | null>();
+  const getEvent = async (eventId: string) => {
+    if (!eventCache.has(eventId)) eventCache.set(eventId, await getEventByEventId(eventId));
+    return eventCache.get(eventId) ?? null;
+  };
+
   for (const reg of registrations) {
     if (!isConfirmedRegistration(reg)) continue;
+
+    const event = await getEvent(reg.eventId);
 
     for (const key of ["seq2", "seq3", "seq4"] as EmailSequenceKey[]) {
       const current = reg.emailSequence?.[key];
       if (current?.status === "sent") continue;
+      // Skip emails the event has turned off.
+      if (!isEmailSequenceEnabled(event, key)) continue;
       if (!isSequenceDue(key, reg, now)) continue;
 
       processed += 1;

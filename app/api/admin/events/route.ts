@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { parseEventDateTime, resolveEventDatesFromAdminFields } from "@/lib/date-utils";
-import { createEvent } from "@/lib/models/Event";
+import { createEvent, normalizeEmailsEnabled } from "@/lib/models/Event";
 import { validateEventSlugForSave } from "@/lib/validate-event-slug";
 import { saveBannerFile } from "@/lib/banner-upload";
 import { parseSeatLimit } from "@/lib/parse-seat-limit";
@@ -42,6 +42,15 @@ export async function GET() {
   }
 }
 
+function safeJsonParse(value: FormDataEntryValue | null): unknown {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
+}
+
 export async function POST(request: Request) {
   const session = await getAdminSession();
   if (!session) return unauthorizedResponse();
@@ -72,6 +81,7 @@ export async function POST(request: Request) {
     let published: boolean;
     let showPassQr: boolean;
     let attachPassToConfirmation: boolean;
+    let emailsEnabledRaw: unknown;
     let hideDateTime: boolean;
     let transportLocationsParsed: string[];
     let agendaParsed: ReturnType<typeof eventAgendaFromJsonBody>;
@@ -107,6 +117,7 @@ export async function POST(request: Request) {
       attachPassToConfirmation =
         formData.get("attachPassToConfirmation") !== "false" &&
         formData.get("attachPassToConfirmation") !== "0";
+      emailsEnabledRaw = safeJsonParse(formData.get("emailsEnabled"));
       hideDateTime = formData.get("hideDateTime") === "true" || formData.get("hideDateTime") === "1";
       seatLimitRaw = formData.get("seatLimit");
       transportLocationsParsed = transportLocationsFromFormData(formData);
@@ -143,6 +154,7 @@ export async function POST(request: Request) {
       showPassQr = body.showPassQr === undefined ? true : !!body.showPassQr;
       attachPassToConfirmation =
         body.attachPassToConfirmation === undefined ? true : !!body.attachPassToConfirmation;
+      emailsEnabledRaw = body.emailsEnabled;
       hideDateTime = !!body.hideDateTime;
       seatLimitRaw = body.seatLimit;
       transportLocationsParsed = transportLocationsFromJsonBody(body);
@@ -229,6 +241,7 @@ export async function POST(request: Request) {
       published: !!published,
       showPassQr: !!showPassQr,
       attachPassToConfirmation: !!attachPassToConfirmation,
+      emailsEnabled: normalizeEmailsEnabled(emailsEnabledRaw),
       hideDateTime: !!hideDateTime,
       transportLocations: collectTransport ? transportLocationsParsed : [],
       agenda: agendaParsed,

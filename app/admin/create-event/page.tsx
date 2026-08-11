@@ -6,6 +6,11 @@ import { EventAgendaEditor } from "@/app/admin/components/EventAgendaEditor";
 import { slugFromEventName } from "@/lib/event-slug";
 import type { EventAgendaItem } from "@/lib/event-agenda";
 import { getEventPublicPath } from "@/lib/event-path";
+import {
+  EventEmailToggles,
+  DEFAULT_EMAILS_ENABLED,
+  type EmailsEnabled,
+} from "@/app/admin/components/EventEmailToggles";
 
 export default function CreateEventPage() {
   const [eventName, setEventName] = useState("");
@@ -24,6 +29,7 @@ export default function CreateEventPage() {
   const [published, setPublished] = useState(true);
   const [showPassQr, setShowPassQr] = useState(true);
   const [attachPassToConfirmation, setAttachPassToConfirmation] = useState(true);
+  const [emailsEnabled, setEmailsEnabled] = useState<EmailsEnabled>(DEFAULT_EMAILS_ENABLED);
   const [hideDateTime, setHideDateTime] = useState(false);
   const [seatLimit, setSeatLimit] = useState("");
   const [eventBannerUrl, setEventBannerUrl] = useState("");
@@ -58,6 +64,7 @@ export default function CreateEventPage() {
         formData.set("published", published ? "true" : "false");
         formData.set("showPassQr", showPassQr ? "true" : "false");
         formData.set("attachPassToConfirmation", attachPassToConfirmation ? "true" : "false");
+        formData.set("emailsEnabled", JSON.stringify(emailsEnabled));
         formData.set("hideDateTime", hideDateTime ? "true" : "false");
         if (seatLimit.trim()) formData.set("seatLimit", seatLimit.trim());
         formData.set("bannerFile", bannerFile);
@@ -83,6 +90,7 @@ export default function CreateEventPage() {
             published,
             showPassQr,
             attachPassToConfirmation,
+            emailsEnabled,
             hideDateTime,
             ...(seatLimit.trim() ? { seatLimit: Number.parseInt(seatLimit.trim(), 10) } : {}),
           }),
@@ -346,6 +354,9 @@ export default function CreateEventPage() {
             <p className="mt-1 text-xs text-zinc-500">
               Hiding also removes the countdown. The venue still shows. The agenda section is not affected &mdash; edit it separately if it mentions dates.
             </p>
+          </div>
+          <div className="sm:col-span-2">
+            <EventEmailToggles value={emailsEnabled} onChange={setEmailsEnabled} />
           </div>
           <div className="flex items-end">
             <button type="submit" disabled={loading}

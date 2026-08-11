@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { sendEmailSequenceForRegistration } from "@/lib/email-sequence-runner";
+import {
+  sendEmailSequenceForRegistration,
+  isEmailEnabledForEvent,
+} from "@/lib/email-sequence-runner";
 import { getEventByEventId } from "@/lib/models/Event";
 import {
   countRegistrationsByEventId,
@@ -161,7 +164,10 @@ export async function POST(request: Request) {
 
     let emailSent = false;
     try {
-      emailSent = await sendEmailSequenceForRegistration(reg, "seq1");
+      // Only send the confirmation if it is turned on for this event.
+      if (await isEmailEnabledForEvent(reg.eventId, "seq1")) {
+        emailSent = await sendEmailSequenceForRegistration(reg, "seq1");
+      }
     } catch (err) {
       console.error("Manual register confirmation email failed:", err);
     }
