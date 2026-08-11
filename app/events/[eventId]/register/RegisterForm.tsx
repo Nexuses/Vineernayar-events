@@ -444,7 +444,7 @@ export function RegisterForm({
 
       <div>
         <label className={labelClass}>
-          Mobile Number <span className="text-red-600">*</span>
+          Mobile Number (WhatsApp Number) <span className="text-red-600">*</span>
         </label>
         <div className="flex gap-2.5">
           <div className="relative w-[9.5rem] shrink-0 sm:w-36">
