@@ -8,6 +8,12 @@ import { RichDescriptionEditor } from "@/app/admin/components/RichDescriptionEdi
 import { EventAgendaEditor } from "@/app/admin/components/EventAgendaEditor";
 import { getEventPublicPath } from "@/lib/event-path";
 import type { EventAgendaItem } from "@/lib/event-agenda";
+import {
+  EventEmailToggles,
+  DEFAULT_EMAILS_ENABLED,
+  emailsEnabledFrom,
+  type EmailsEnabled,
+} from "@/app/admin/components/EventEmailToggles";
 
 type EventItem = {
   _id: string;
@@ -32,6 +38,7 @@ type EventItem = {
   showPassQr?: boolean;
   attachPassToConfirmation?: boolean;
   hideDateTime?: boolean;
+  emailsEnabled?: Record<string, boolean>;
 };
 
 export default function EditEventPage() {
@@ -53,6 +60,7 @@ export default function EditEventPage() {
   const [published, setPublished] = useState(true);
   const [showPassQr, setShowPassQr] = useState(true);
   const [attachPassToConfirmation, setAttachPassToConfirmation] = useState(true);
+  const [emailsEnabled, setEmailsEnabled] = useState<EmailsEnabled>(DEFAULT_EMAILS_ENABLED);
   const [hideDateTime, setHideDateTime] = useState(false);
   const [seatLimit, setSeatLimit] = useState("");
   const [eventBannerUrl, setEventBannerUrl] = useState("");
@@ -94,6 +102,7 @@ export default function EditEventPage() {
         setPublished(!!data.published);
         setShowPassQr(data.showPassQr !== false);
         setAttachPassToConfirmation(data.attachPassToConfirmation !== false);
+        setEmailsEnabled(emailsEnabledFrom(data.emailsEnabled));
         setHideDateTime(data.hideDateTime === true);
         setSeatLimit(
           typeof data.seatLimit === "number" && data.seatLimit > 0
@@ -139,6 +148,7 @@ export default function EditEventPage() {
         formData.set("published", published ? "true" : "false");
         formData.set("showPassQr", showPassQr ? "true" : "false");
         formData.set("attachPassToConfirmation", attachPassToConfirmation ? "true" : "false");
+        formData.set("emailsEnabled", JSON.stringify(emailsEnabled));
         formData.set("hideDateTime", hideDateTime ? "true" : "false");
         formData.set("seatLimit", seatLimit.trim());
         formData.set("bannerFile", bannerFile);
@@ -164,6 +174,7 @@ export default function EditEventPage() {
             published,
             showPassQr,
             attachPassToConfirmation,
+            emailsEnabled,
             hideDateTime,
             seatLimit: seatLimitValue,
           }),
@@ -188,6 +199,7 @@ export default function EditEventPage() {
       );
       setShowPassQr(data.showPassQr !== false);
       setAttachPassToConfirmation(data.attachPassToConfirmation !== false);
+      setEmailsEnabled(emailsEnabledFrom(data.emailsEnabled));
       setHideDateTime(data.hideDateTime === true);
       setBannerFile(null);
     } catch {
@@ -443,6 +455,9 @@ export default function EditEventPage() {
             <p className="mt-1 text-xs text-zinc-500">
               The unique pass ID always stays in the header. This only controls the QR box on passes and PDFs.
             </p>
+          </div>
+          <div className="sm:col-span-2">
+            <EventEmailToggles value={emailsEnabled} onChange={setEmailsEnabled} />
           </div>
           <div className="flex items-end gap-3">
             <button type="submit" disabled={loading}

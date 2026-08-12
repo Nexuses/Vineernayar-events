@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { parseEventDateTime, resolveEventDatesFromAdminFields, toEventDateInput } from "@/lib/date-utils";
-import { getEventById, updateEvent } from "@/lib/models/Event";
+import { getEventById, updateEvent, normalizeEmailsEnabled } from "@/lib/models/Event";
 import { validateEventSlugForSave } from "@/lib/validate-event-slug";
 import { saveBannerFile } from "@/lib/banner-upload";
 import { parseSeatLimit } from "@/lib/parse-seat-limit";
@@ -85,6 +85,7 @@ export async function PUT(
     let published: boolean | undefined;
     let showPassQr: boolean | undefined;
     let attachPassToConfirmation: boolean | undefined;
+    let emailsEnabledRaw: unknown;
     let hideDateTime: boolean | undefined;
     let transportLocationsParsed: string[] = [];
     let agendaParsed: ReturnType<typeof eventAgendaFromJsonBody> = [];
@@ -130,6 +131,10 @@ export async function PUT(
       const hdt = formData.get("hideDateTime");
       hideDateTime = hdt === "true" || hdt === "1" ? true : hdt === "false" || hdt === "0" ? false : undefined;
       const apc = formData.get("attachPassToConfirmation");
+      const emailsEnabledField = formData.get("emailsEnabled");
+      if (typeof emailsEnabledField === "string" && emailsEnabledField.trim()) {
+        try { emailsEnabledRaw = JSON.parse(emailsEnabledField); } catch { emailsEnabledRaw = undefined; }
+      }
       attachPassToConfirmation =
         apc === "true" || apc === "1" ? true : apc === "false" || apc === "0" ? false : undefined;
       const spq = formData.get("showPassQr");
@@ -177,6 +182,7 @@ export async function PUT(
       showPassQr = body.showPassQr === undefined ? undefined : !!body.showPassQr;
       attachPassToConfirmation =
         body.attachPassToConfirmation === undefined ? undefined : !!body.attachPassToConfirmation;
+      emailsEnabledRaw = body.emailsEnabled;
       hideDateTime = body.hideDateTime === undefined ? undefined : !!body.hideDateTime;
       if ("seatLimit" in body) {
         seatLimitProvided = true;
@@ -291,6 +297,7 @@ export async function PUT(
       ...(published !== undefined && { published }),
       ...(showPassQr !== undefined && { showPassQr }),
       ...(attachPassToConfirmation !== undefined && { attachPassToConfirmation }),
+      ...(emailsEnabledRaw !== undefined && { emailsEnabled: normalizeEmailsEnabled(emailsEnabledRaw) }),
       ...(hideDateTime !== undefined && { hideDateTime }),
       ...(requireWhatsAppNumber !== undefined && { requireWhatsAppNumber }),
       ...(requireApparelSize !== undefined && { requireApparelSize }),

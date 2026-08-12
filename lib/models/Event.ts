@@ -10,6 +10,30 @@ import {
 } from "../registration-window";
 import type { EventAgendaItem } from "../event-agenda";
 
+/** Which automated emails are turned on for an event (seq1..seq4). */
+export type EventEmailsEnabled = {
+  seq1: boolean;
+  seq2: boolean;
+  seq3: boolean;
+  seq4: boolean;
+};
+
+const EMAIL_KEYS = ["seq1", "seq2", "seq3", "seq4"] as const;
+
+/** Normalize arbitrary input into an all-keys EventEmailsEnabled (default on). */
+export function normalizeEmailsEnabled(raw: unknown): EventEmailsEnabled {
+  const obj = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const on = (v: unknown) => v !== false && v !== "false" && v !== "0" && v !== 0;
+  return {
+    seq1: on(obj.seq1),
+    seq2: on(obj.seq2),
+    seq3: on(obj.seq3),
+    seq4: on(obj.seq4),
+  };
+}
+
+export { EMAIL_KEYS };
+
 export type { RegistrationWindowStatus };
 export {
   getRegistrationWindowStatus,
@@ -80,6 +104,14 @@ export interface EventDoc {
    * emails, not just the confirmation.)
    */
   attachPassToConfirmation?: boolean;
+  /**
+   * Which automated emails are turned on for this event. A key set to false
+   * stops that email from sending automatically (confirmation on registration,
+   * or the scheduled reminders). Missing keys default to enabled. The manual
+   * "Send now" trigger is unaffected. seq1 = confirmation, seq2 = 2-day
+   * reminder, seq3 = 24-hr reminder, seq4 = post-event thank you.
+   */
+  emailsEnabled?: EventEmailsEnabled;
   /**
    * When true, the public event page hides the countdown, date and time and
    * shows "Coming Soon" instead. The venue is still shown.
@@ -216,6 +248,7 @@ export async function createEvent(data: Omit<EventDoc, "_id" | "eventId" | "crea
     seatLimit: data.seatLimit,
     showPassQr: data.showPassQr ?? true,
     attachPassToConfirmation: data.attachPassToConfirmation ?? true,
+    emailsEnabled: normalizeEmailsEnabled(data.emailsEnabled),
     hideDateTime: data.hideDateTime ?? false,
     slug: data.slug,
     createdAt: new Date(),
@@ -331,6 +364,8 @@ export async function updateEvent(
   if (data.showPassQr !== undefined) update.showPassQr = data.showPassQr;
   if (data.attachPassToConfirmation !== undefined)
     update.attachPassToConfirmation = data.attachPassToConfirmation;
+  if (data.emailsEnabled !== undefined)
+    update.emailsEnabled = normalizeEmailsEnabled(data.emailsEnabled);
   if (data.hideDateTime !== undefined) update.hideDateTime = data.hideDateTime;
   if (data.seatLimit !== undefined) {
     if (data.seatLimit === null) {

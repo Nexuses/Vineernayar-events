@@ -25,6 +25,7 @@ type StatsResponse = {
   total: number;
   perSeq: Record<EmailSequenceKey, SeqStat>;
   schedule?: Record<EmailSequenceKey, string | null> | null;
+  emailsEnabled?: Record<EmailSequenceKey, boolean> | null;
 };
 
 function formatSchedule(iso: string | null | undefined): { text: string; past: boolean } {
@@ -200,10 +201,16 @@ export function EmailStatsSection({
                   ? formatSchedule(stats.schedule[key])
                   : { text: EMAIL_SEQUENCE_SCHEDULE[key], past: false };
                 const pending = s?.pending ?? 0;
+                const emailOff = stats?.emailsEnabled ? stats.emailsEnabled[key] === false : false;
                 return (
                   <tr key={key} className="border-b border-zinc-100">
                     <td className="px-4 py-3 font-medium text-zinc-900">
                       {EMAIL_SEQUENCE_LABELS[key]}
+                      {emailOff ? (
+                        <span className="ml-2 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-600">
+                          Off
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 text-zinc-500">
                       {sched.text}
@@ -240,7 +247,11 @@ export function EmailStatsSection({
             (delivered or failed). <span className="font-medium">Sent</span> = accepted by the mail
             provider. <span className="font-medium">Pending</span> = scheduled, not yet sent.
           </p>
-          <p className="mt-1">Opened and Clicks tracking is coming soon.</p>
+          <p className="mt-1">
+            Opened and Clicks tracking is coming soon. An <span className="font-medium">Off</span>{" "}
+            email will not send automatically for this event (turn it on in the event settings);
+            &ldquo;Send now&rdquo; still works.
+          </p>
           {showActions ? (
             <p className="mt-1">
               <span className="font-medium">Send now</span> sends that email to confirmed attendees
