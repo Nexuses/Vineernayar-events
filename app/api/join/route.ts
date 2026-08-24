@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isJoinEmailConfigured, sendJoinEmails } from "@/lib/join-email";
-import { JOIN_CITIES } from "@/lib/join-cities";
+import { buildJoinCities } from "@/lib/join-cities";
+import { listPublishedEvents } from "@/lib/models/Event";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -22,7 +23,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Please enter a valid email address." }, { status: 400 });
     }
 
-    if (!JOIN_CITIES.includes(city as (typeof JOIN_CITIES)[number])) {
+    // Validate against the cities currently published on the platform.
+    const cities = buildJoinCities(await listPublishedEvents());
+    if (!cities.includes(city)) {
       return NextResponse.json({ error: "Please choose a valid city." }, { status: 400 });
     }
 
