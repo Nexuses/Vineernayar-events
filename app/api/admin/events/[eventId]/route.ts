@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { parseEventDateTime, resolveEventDatesFromAdminFields, toEventDateInput } from "@/lib/date-utils";
-import { getEventById, updateEvent, normalizeEmailsEnabled } from "@/lib/models/Event";
+import {
+  getEventById,
+  updateEvent,
+  normalizeEmailsEnabled,
+  eventDatesChanged,
+} from "@/lib/models/Event";
+import { sendRescheduleNotices } from "@/lib/reschedule-notice";
 import { validateEventSlugForSave } from "@/lib/validate-event-slug";
 import { saveBannerFile } from "@/lib/banner-upload";
 import { parseSeatLimit } from "@/lib/parse-seat-limit";
@@ -86,6 +92,7 @@ export async function PUT(
     let showPassQr: boolean | undefined;
     let attachPassToConfirmation: boolean | undefined;
     let emailsEnabledRaw: unknown;
+    let notifyReschedule = false;
     let hideDateTime: boolean | undefined;
     let transportLocationsParsed: string[] = [];
     let agendaParsed: ReturnType<typeof eventAgendaFromJsonBody> = [];
@@ -131,6 +138,8 @@ export async function PUT(
       const hdt = formData.get("hideDateTime");
       hideDateTime = hdt === "true" || hdt === "1" ? true : hdt === "false" || hdt === "0" ? false : undefined;
       const apc = formData.get("attachPassToConfirmation");
+      notifyReschedule =
+        formData.get("notifyReschedule") === "true" || formData.get("notifyReschedule") === "1";
       const emailsEnabledField = formData.get("emailsEnabled");
       if (typeof emailsEnabledField === "string" && emailsEnabledField.trim()) {
         try { emailsEnabledRaw = JSON.parse(emailsEnabledField); } catch { emailsEnabledRaw = undefined; }
@@ -183,6 +192,7 @@ export async function PUT(
       attachPassToConfirmation =
         body.attachPassToConfirmation === undefined ? undefined : !!body.attachPassToConfirmation;
       emailsEnabledRaw = body.emailsEnabled;
+      notifyReschedule = !!body.notifyReschedule;
       hideDateTime = body.hideDateTime === undefined ? undefined : !!body.hideDateTime;
       if ("seatLimit" in body) {
         seatLimitProvided = true;
@@ -316,7 +326,22 @@ export async function PUT(
     if (!updated) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
-    return NextResponse.json(updated);
+
+    // Moving an event is silent by default. Registrations are carried across and
+    // their reminders re-armed for the new date by updateEvent; attendees are
+    // only told about the change when the admin explicitly opts in.
+    const rescheduled = eventDatesChanged(existing, updated);
+    let rescheduleNotice: { total: number; sent: number; failed: number } | undefined;
+    if (rescheduled && notifyReschedule) {
+      try {
+        rescheduleNotice = await sendRescheduleNotices(updated);
+      } catch (err) {
+        console.error("Reschedule notice send failed:", err);
+        rescheduleNotice = { total: 0, sent: 0, failed: 0 };
+      }
+    }
+
+    return NextResponse.json({ ...updated, rescheduled, rescheduleNotice });
   } catch (err) {
     console.error("Update event error:", err);
     const message = err instanceof Error ? err.message : "Something went wrong";

@@ -268,6 +268,34 @@ export async function syncEventDetailsToRegistrations(
   return result.modifiedCount;
 }
 
+/** The date-driven emails: the two reminders and the post-event thank you. */
+const DATE_BASED_SEQUENCE_KEYS: EmailSequenceKey[] = ["seq2", "seq3", "seq4"];
+
+/**
+ * Re-arm the date-driven emails for an event after it has been rescheduled.
+ *
+ * The reminders and thank-you are scheduled relative to the event date, so once
+ * the date moves, any that already went out for the old date are reset to
+ * pending and will fire again at the correct time relative to the new date.
+ * Nothing is sent here — this only re-arms the schedule.
+ *
+ * The registration confirmation (seq1) is deliberately untouched: it confirms a
+ * registration rather than announcing a date.
+ *
+ * Returns the number of registrations re-armed.
+ */
+export async function reArmDateBasedSequencesForEvent(eventId: string): Promise<number> {
+  const col = await getRegistrationsCollection();
+  const set: Record<string, unknown> = {};
+  for (const key of DATE_BASED_SEQUENCE_KEYS) {
+    // Reset both channels so their reported status matches what will be sent.
+    set[`emailSequence.${key}`] = { status: "pending" };
+    set[`whatsappSequence.${key}`] = { status: "pending" };
+  }
+  const result = await col.updateMany({ eventId }, { $set: set });
+  return result.modifiedCount;
+}
+
 /**
  * Update the editable contact/profile fields of a registration.
  *
