@@ -227,6 +227,48 @@ export type EditableRegistrationFields = Partial<
 >;
 
 /**
+ * Copy an event's current details onto every registration for that event.
+ *
+ * Registrations denormalize the event name/date/time/venue at creation time, so
+ * rescheduling an event would otherwise leave existing registrations (and their
+ * passes and email scheduling) pinned to the old date. Called whenever an event
+ * update changes one of these fields.
+ *
+ * Returns the number of registrations updated.
+ */
+export async function syncEventDetailsToRegistrations(
+  eventId: string,
+  details: {
+    eventName?: string;
+    eventStartDate?: Date;
+    eventEndDate?: Date;
+    eventTime?: string;
+    venue?: string;
+  }
+): Promise<number> {
+  const col = await getRegistrationsCollection();
+
+  const set: Record<string, unknown> = {};
+  const unset: Record<string, ""> = {};
+  if (details.eventName !== undefined) set.eventName = details.eventName;
+  if (details.eventStartDate !== undefined) set.eventStartDate = details.eventStartDate;
+  if (details.eventEndDate !== undefined) set.eventEndDate = details.eventEndDate;
+  if (details.venue !== undefined) set.venue = details.venue;
+  if (details.eventTime !== undefined) {
+    if (details.eventTime) set.eventTime = details.eventTime;
+    else unset.eventTime = "";
+  }
+
+  const ops: Record<string, unknown> = {};
+  if (Object.keys(set).length > 0) ops.$set = set;
+  if (Object.keys(unset).length > 0) ops.$unset = unset;
+  if (Object.keys(ops).length === 0) return 0;
+
+  const result = await col.updateMany({ eventId }, ops);
+  return result.modifiedCount;
+}
+
+/**
  * Update the editable contact/profile fields of a registration.
  *
  * Keys present in `patch` are set; keys explicitly set to undefined are unset

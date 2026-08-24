@@ -9,6 +9,7 @@ import {
   type RegistrationWindowStatus,
 } from "../registration-window";
 import type { EventAgendaItem } from "../event-agenda";
+import { syncEventDetailsToRegistrations } from "./Registration";
 
 /** Which automated emails are turned on for an event (seq1..seq4). */
 export type EventEmailsEnabled = {
@@ -387,5 +388,32 @@ export async function updateEvent(
     updateOps,
     { returnDocument: "after" }
   );
-  return result ?? null;
+  if (!result) return null;
+
+  // Registrations denormalize the event name/date/time/venue. Keep them in sync
+  // so an existing attendee's pass, emails and email scheduling follow the
+  // event when it is renamed, moved or rescheduled.
+  const touchesDenormalized =
+    data.eventName !== undefined ||
+    data.eventStartDate !== undefined ||
+    data.eventEndDate !== undefined ||
+    data.eventTime !== undefined ||
+    data.venue !== undefined;
+
+  if (touchesDenormalized) {
+    try {
+      await syncEventDetailsToRegistrations(result.eventId, {
+        ...(data.eventName !== undefined && { eventName: result.eventName }),
+        ...(data.eventStartDate !== undefined && { eventStartDate: result.eventStartDate }),
+        ...(data.eventEndDate !== undefined && { eventEndDate: result.eventEndDate }),
+        ...(data.eventTime !== undefined && { eventTime: result.eventTime ?? "" }),
+        ...(data.venue !== undefined && { venue: result.venue }),
+      });
+    } catch (err) {
+      // The event itself is saved; a sync failure must not fail the update.
+      console.error("Failed to sync event details to registrations:", err);
+    }
+  }
+
+  return result;
 }
