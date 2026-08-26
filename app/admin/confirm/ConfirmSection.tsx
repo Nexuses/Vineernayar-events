@@ -118,15 +118,6 @@ export function ConfirmSection({
     e.preventDefault();
     if (readOnly || !selectedEventId || !csvFile) return;
 
-    const eventName = events.find((ev) => ev.eventId === selectedEventId)?.eventName || "this event";
-    if (
-      !confirm(
-        `Upload this list for "${eventName}"?\n\nEveryone in the file will be sent a confirmation email, including anyone who already received one.`
-      )
-    ) {
-      return;
-    }
-
     setError("");
     setResult(null);
     setUploading(true);
