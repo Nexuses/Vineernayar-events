@@ -80,7 +80,7 @@ function formatWhen(iso?: string | null): string {
   });
 }
 
-export function ConfirmSection({
+export function ReconfirmSection({
   events,
   readOnly,
 }: {
@@ -138,7 +138,7 @@ export function ConfirmSection({
     setChecking(true);
     try {
       const csv = await csvFile.text();
-      const res = await fetch("/api/admin/confirm/upload", {
+      const res = await fetch("/api/admin/reconfirm/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventId: selectedEventId, csv, dryRun: true }),
@@ -169,7 +169,7 @@ export function ConfirmSection({
     setError("");
     setUploading(true);
     try {
-      const res = await fetch("/api/admin/confirm/upload", {
+      const res = await fetch("/api/admin/reconfirm/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventId: selectedEventId, csv }),
@@ -203,11 +203,11 @@ export function ConfirmSection({
   return (
     <div className="mt-6 space-y-6">
       <div>
-        <label htmlFor="confirm-event" className="mb-2 block text-sm font-medium text-zinc-700">
+        <label htmlFor="reconfirm-event" className="mb-2 block text-sm font-medium text-zinc-700">
           Select event
         </label>
         <select
-          id="confirm-event"
+          id="reconfirm-event"
           value={selectedEventId}
           onChange={(e) => {
             setSelectedEventId(e.target.value);
@@ -313,11 +313,11 @@ export function ConfirmSection({
           ) : null}
 
           <div className="mt-4">
-            <label htmlFor="confirm-csv" className="mb-1.5 block text-sm font-medium text-zinc-700">
+            <label htmlFor="reconfirm-csv" className="mb-1.5 block text-sm font-medium text-zinc-700">
               CSV file
             </label>
             <input
-              id="confirm-csv"
+              id="reconfirm-csv"
               ref={fileRef}
               type="file"
               accept=".csv,text/csv"

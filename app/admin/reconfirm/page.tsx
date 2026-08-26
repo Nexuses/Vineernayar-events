@@ -1,9 +1,9 @@
 import { getAdminRole, getAdminSession, listEventsForAdmin } from "@/lib/admin-access";
 import { redirect } from "next/navigation";
 import { formatEventDropdownLabel } from "@/lib/event-option-label";
-import { ConfirmSection } from "./ConfirmSection";
+import { ReconfirmSection } from "./ReconfirmSection";
 
-export default async function ConfirmPage() {
+export default async function ReconfirmPage() {
   const session = await getAdminSession();
   if (!session) redirect("/admin/login");
 
@@ -17,12 +17,12 @@ export default async function ConfirmPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-zinc-900 sm:text-2xl">Confirm</h1>
+      <h1 className="text-xl font-bold text-zinc-900 sm:text-2xl">Reconfirm</h1>
       <p className="mt-1 text-sm text-zinc-600">
         Upload an attendee list to register anyone missing and send them a confirmation email, then
         track who has confirmed.
       </p>
-      <ConfirmSection events={eventList} readOnly={readOnly} />
+      <ReconfirmSection events={eventList} readOnly={readOnly} />
     </div>
   );
 }
