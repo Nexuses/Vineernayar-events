@@ -15,6 +15,11 @@ import { getEventPassPath } from "@/lib/event-path";
 import { getPublicSiteUrl } from "@/lib/site-url";
 import type { EmailTemplateKey } from "@/lib/email-template-keys";
 import {
+  RECONFIRM_PLACEHOLDERS,
+  DEFAULT_RECONFIRM_BODY_HTML,
+  buildReconfirmHtml,
+} from "@/lib/reconfirm-template";
+import {
   appendAttendanceRsvpToEmailHtml,
   isAttendanceRsvpSequenceKey,
 } from "@/lib/attendance-rsvp";
@@ -77,6 +82,14 @@ export const EMAIL_TEMPLATE_DEFINITIONS: EmailTemplateDefinition[] = [
     group: "Event registration emails",
     placeholders: SEQUENCE_PLACEHOLDERS,
   })),
+  {
+    key: "reconfirm",
+    label: "Re-confirmation request",
+    schedule: "When a list is uploaded in Reconfirm",
+    subject: "Please confirm your attendance: {{eventName}}",
+    group: "Event registration emails",
+    placeholders: RECONFIRM_PLACEHOLDERS,
+  },
   {
     key: "join_thank_you",
     label: "Join movement — thank you",
@@ -165,6 +178,9 @@ export function sequenceContextToVars(ctx: SequenceRenderContext): Record<string
 export function getDefaultTemplateHtml(key: EmailTemplateKey): string {
   if (key === "join_thank_you") return JOIN_THANK_YOU_HTML;
   if (key === "join_notify") return JOIN_NOTIFY_HTML;
+  // Only the message body is editable; the details block and the
+  // "I'll be attending" button are always appended when the email is sent.
+  if (key === "reconfirm") return DEFAULT_RECONFIRM_BODY_HTML;
   return buildSequenceEmailHtml(key as EmailSequenceKey, getSampleSequenceContext());
 }
 
@@ -181,6 +197,24 @@ export function getPreviewHtml(
   const ctx = sampleContext ?? getSampleSequenceContext();
   const html = customHtml?.trim();
   let rendered: string;
+
+  // The re-confirmation preview always assembles the fixed details block and
+  // the "I'll be attending" button around the edited body, so the editor shows
+  // exactly what recipients get — including the parts that cannot be removed.
+  if (key === "reconfirm") {
+    return buildReconfirmHtml(
+      {
+        firstName: ctx.firstName,
+        surname: "",
+        eventName: ctx.eventName,
+        eventDate: ctx.eventDateLong || ctx.eventDateDetail,
+        eventTime: ctx.eventTime,
+        venue: ctx.venue,
+      },
+      ctx.confirmAttendingUrl || "#",
+      html
+    );
+  }
 
   if (html) {
     if (key === "join_thank_you" || key === "join_notify") {
