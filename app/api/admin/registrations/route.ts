@@ -66,6 +66,10 @@ export async function GET(request: Request) {
         r.lastEmailBlastAt instanceof Date
           ? r.lastEmailBlastAt.toISOString()
           : r.lastEmailBlastAt ?? null,
+      confirmationEmailSentAt:
+        r.confirmationEmailSentAt instanceof Date
+          ? r.confirmationEmailSentAt.toISOString()
+          : r.confirmationEmailSentAt ?? null,
       participationStatus: r.participationStatus || "registered",
       attendanceRsvpStatus: r.attendanceRsvpStatus ?? "pending",
       attendanceRsvpAt:

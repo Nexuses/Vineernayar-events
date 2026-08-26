@@ -5,6 +5,9 @@ import type { AttendanceRsvpIntent } from "@/lib/attendance-rsvp";
 
 type LoadedState = {
   eventName: string;
+  eventDate: string;
+  eventTime: string;
+  venue: string;
   firstName: string;
   email: string;
   attendanceRsvpStatus: "pending" | "reconfirmed" | "declined";
@@ -41,6 +44,9 @@ export function ConfirmAttendanceForm({
         if (!cancelled) {
           setLoaded({
             eventName: data.eventName,
+            eventDate: data.eventDate ?? "",
+            eventTime: data.eventTime ?? "",
+            venue: data.venue ?? "",
             firstName: data.firstName,
             email: data.email,
             attendanceRsvpStatus: data.attendanceRsvpStatus ?? "pending",
@@ -134,9 +140,28 @@ export function ConfirmAttendanceForm({
         </p>
       </div>
 
-      <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-700">
-        <p className="font-medium text-zinc-900">{loaded.eventName}</p>
-        <p className="mt-1">Hi {loaded.firstName},</p>
+      <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-4">
+        <p className="text-base font-semibold text-zinc-900">{loaded.eventName}</p>
+        <dl className="mt-3 space-y-1.5 text-sm">
+          {loaded.eventDate ? (
+            <div className="flex gap-2">
+              <dt className="w-14 shrink-0 text-zinc-500">Date</dt>
+              <dd className="font-medium text-zinc-900">{loaded.eventDate}</dd>
+            </div>
+          ) : null}
+          {loaded.eventTime ? (
+            <div className="flex gap-2">
+              <dt className="w-14 shrink-0 text-zinc-500">Time</dt>
+              <dd className="font-medium text-zinc-900">{loaded.eventTime}</dd>
+            </div>
+          ) : null}
+          {loaded.venue ? (
+            <div className="flex gap-2">
+              <dt className="w-14 shrink-0 text-zinc-500">Venue</dt>
+              <dd className="font-medium text-zinc-900">{loaded.venue}</dd>
+            </div>
+          ) : null}
+        </dl>
       </div>
 
       {error ? (

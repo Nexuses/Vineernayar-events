@@ -90,6 +90,11 @@ export interface RegistrationDoc {
   waitlistWhatsAppError?: string;
   /** Set when this registration receives an admin email blast */
   lastEmailBlastAt?: Date;
+  /**
+   * When the re-confirmation email (the one carrying the "I'll be attending"
+   * button) was last sent to this attendee from the Confirm module.
+   */
+  confirmationEmailSentAt?: Date;
   createdAt: Date;
 }
 

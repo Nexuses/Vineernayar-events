@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { formatEventDate, getEventTimeDisplay } from "@/lib/date-utils";
 import type { AttendanceRsvpIntent } from "@/lib/attendance-rsvp";
 import { getPublishedEventByParam } from "@/lib/models/Event";
 import {
@@ -56,6 +57,14 @@ export async function GET(
     return NextResponse.json({
       eventId: event.eventId,
       eventName: event.eventName,
+      // Event details for the confirmation card on the landing page.
+      eventDate: formatEventDate(event.eventStartDate),
+      eventTime: getEventTimeDisplay({
+        eventStartDate: event.eventStartDate,
+        eventEndDate: event.eventEndDate,
+        eventTime: event.eventTime,
+      }),
+      venue: event.venue ?? "",
       firstName: reg.firstName,
       email: reg.email,
       attendanceRsvpStatus: reg.attendanceRsvpStatus ?? "pending",
