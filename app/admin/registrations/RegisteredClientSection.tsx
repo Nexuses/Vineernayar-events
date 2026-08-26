@@ -185,6 +185,7 @@ type RegistrationItem = {
   participationStatus: ParticipationStatus;
   attendanceRsvpStatus?: AttendanceRsvpStatus;
   attendanceRsvpAt?: string | null;
+  confirmationEmailSentAt?: string | null;
   createdAt: string;
   participationTimestamp?: string;
   waitlistEmailStatus?: string | null;
@@ -450,6 +451,22 @@ function registrationCsvColumns(): CsvColumn[] {
       header: "Status",
       value: (r) =>
         (r.participationStatus || "registered") === "attended" ? "Attended" : "Registered",
+    },
+    // Reconfirmation. The status column is always present so the final guest
+    // list shows it even before anyone has responded.
+    {
+      header: "Reconfirmed",
+      value: (r) => attendanceRsvpLabel(getAttendanceRsvpStatus(r)),
+    },
+    {
+      header: "Reconfirmed On",
+      value: (r) => dateCsv(r.attendanceRsvpAt),
+      hasData: (r) => Boolean(r.attendanceRsvpAt),
+    },
+    {
+      header: "Reconfirmation Email Sent",
+      value: (r) => dateCsv(r.confirmationEmailSentAt),
+      hasData: (r) => Boolean(r.confirmationEmailSentAt),
     },
     { header: "Registered On", value: (r) => dateCsv(r.createdAt) },
   ];
@@ -1035,7 +1052,7 @@ export function RegisteredClientSection({
 
                 <FilterSelect
                   id="registrations-rsvp-filter"
-                  label="RSVP"
+                  label="Reconfirm"
                   value={rsvpFilter}
                   onChange={(value) => setRsvpFilter(value as RsvpFilter)}
                 >
