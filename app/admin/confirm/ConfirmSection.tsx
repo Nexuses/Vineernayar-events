@@ -18,6 +18,17 @@ type Attendee = {
 
 type UploadIssue = { row: number; name: string; error: string };
 
+type NewContact = { row: number; name: string; email: string };
+
+type PreviewResult = {
+  total: number;
+  willRegister: number;
+  alreadyRegistered: number;
+  failed: number;
+  newContacts: NewContact[];
+  truncatedNewContacts: number;
+};
+
 type UploadResult = {
   total: number;
   registered: number;
@@ -79,6 +90,9 @@ export function ConfirmSection({
   const [selectedEventId, setSelectedEventId] = useState("");
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [preview, setPreview] = useState<PreviewResult | null>(null);
+  const [pendingCsv, setPendingCsv] = useState<string>("");
   const [error, setError] = useState("");
   const [result, setResult] = useState<UploadResult | null>(null);
   const [attendees, setAttendees] = useState<Attendee[] | null>(null);
@@ -114,15 +128,47 @@ export function ConfirmSection({
     }
   }
 
+  /** Step 1 — check the file. Nothing is registered or sent yet. */
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault();
     if (readOnly || !selectedEventId || !csvFile) return;
 
     setError("");
     setResult(null);
-    setUploading(true);
+    setChecking(true);
     try {
       const csv = await csvFile.text();
+      const res = await fetch("/api/admin/confirm/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: selectedEventId, csv, dryRun: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "Unable to read the file");
+        return;
+      }
+      setPendingCsv(csv);
+      if (data.willRegister > 0) {
+        // Contacts appearing for the first time need an explicit go-ahead
+        // before they are auto-registered.
+        setPreview(data);
+      } else {
+        await runUpload(csv);
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  /** Step 2 — actually register the new contacts and send the emails. */
+  async function runUpload(csv: string) {
+    setPreview(null);
+    setError("");
+    setUploading(true);
+    try {
       const res = await fetch("/api/admin/confirm/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -135,6 +181,7 @@ export function ConfirmSection({
       }
       setResult(data);
       setCsvFile(null);
+      setPendingCsv("");
       if (fileRef.current) fileRef.current.value = "";
       await refreshAttendees();
     } catch {
@@ -286,12 +333,83 @@ export function ConfirmSection({
 
           <button
             type="submit"
-            disabled={uploading || !csvFile}
+            disabled={uploading || checking || !csvFile}
             className="mt-5 rounded-md bg-brand-500 px-5 py-2.5 text-sm font-semibold text-zinc-900 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {uploading ? "Uploading & sending…" : "Upload and send confirmation emails"}
+            {checking
+              ? "Checking file…"
+              : uploading
+                ? "Uploading & sending…"
+                : "Upload and send confirmation emails"}
           </button>
         </form>
+      ) : null}
+
+      {preview ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="new-contacts-title"
+        >
+          <div className="w-full max-w-lg overflow-hidden rounded-xl bg-white shadow-xl">
+            <div className="border-b border-zinc-200 px-5 py-4">
+              <h3 id="new-contacts-title" className="text-base font-semibold text-zinc-900">
+                {preview.willRegister === 1
+                  ? "1 contact is showing up for the first time"
+                  : `${preview.willRegister} contacts are showing up for the first time`}
+              </h3>
+              <p className="mt-1 text-sm text-zinc-600">
+                {preview.willRegister === 1 ? "This contact is" : "These contacts are"} not
+                registered for this event yet. Are you sure you want to send{" "}
+                {preview.willRegister === 1 ? "them" : "them"} a confirmation email and
+                auto-register {preview.willRegister === 1 ? "them" : "them"}?
+              </p>
+            </div>
+
+            <div className="max-h-56 overflow-y-auto px-5 py-3">
+              <ul className="divide-y divide-zinc-100 text-sm">
+                {preview.newContacts.map((c) => (
+                  <li key={`${c.row}-${c.email}`} className="flex justify-between gap-3 py-1.5">
+                    <span className="font-medium text-zinc-900">{c.name}</span>
+                    <span className="truncate text-zinc-500">{c.email}</span>
+                  </li>
+                ))}
+              </ul>
+              {preview.truncatedNewContacts > 0 ? (
+                <p className="pt-2 text-xs text-zinc-500">
+                  …and {preview.truncatedNewContacts} more.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="border-t border-zinc-200 bg-zinc-50 px-5 py-3">
+              <p className="text-xs text-zinc-600">
+                {preview.alreadyRegistered} already registered will also be emailed
+                {preview.failed > 0 ? ` · ${preview.failed} row(s) will be skipped` : ""}.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => runUpload(pendingCsv)}
+                  className="rounded-md bg-brand-500 px-4 py-2 text-sm font-semibold text-zinc-900 hover:opacity-90"
+                >
+                  Yes, register and send
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreview(null);
+                    setPendingCsv("");
+                  }}
+                  className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-white"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {selectedEventId ? (
