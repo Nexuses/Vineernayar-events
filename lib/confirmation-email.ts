@@ -10,11 +10,23 @@ import { buildReconfirmVars, buildReconfirmHtml } from "@/lib/reconfirm-template
 import type { EventDoc } from "@/lib/models/Event";
 import type { RegistrationDoc } from "@/lib/models/Registration";
 
-/** Absolute URL of the "I'll be attending" landing page for one attendee. */
-export function buildConfirmAttendingUrl(event: EventDoc, uniqueCode: string): string {
+/** Absolute URL of the confirmation landing page for one attendee. */
+function buildRsvpUrl(
+  event: EventDoc,
+  uniqueCode: string,
+  intent: "attending" | "declined"
+): string {
   const base = toAbsolutePublicUrl(getEventPublicPath(event));
-  const params = new URLSearchParams({ code: uniqueCode, intent: "attending" });
+  const params = new URLSearchParams({ code: uniqueCode, intent });
   return `${base}/confirm-attendance?${params.toString()}`;
+}
+
+export function buildConfirmAttendingUrl(event: EventDoc, uniqueCode: string): string {
+  return buildRsvpUrl(event, uniqueCode, "attending");
+}
+
+export function buildConfirmDeclinedUrl(event: EventDoc, uniqueCode: string): string {
+  return buildRsvpUrl(event, uniqueCode, "declined");
 }
 
 export function buildConfirmationSubject(event: Pick<EventDoc, "eventName">): string {
@@ -28,8 +40,12 @@ export function buildConfirmationHtml(
   bodyHtml?: string | null
 ): string {
   const vars = buildReconfirmVars(event, reg);
-  const url = buildConfirmAttendingUrl(event, reg.uniqueCode);
-  return buildReconfirmHtml(vars, url, bodyHtml);
+  return buildReconfirmHtml(
+    vars,
+    buildConfirmAttendingUrl(event, reg.uniqueCode),
+    buildConfirmDeclinedUrl(event, reg.uniqueCode),
+    bodyHtml
+  );
 }
 
 /** Send the re-confirmation email carrying the "I'll be attending" button. */

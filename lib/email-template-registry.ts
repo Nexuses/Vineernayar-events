@@ -210,8 +210,10 @@ export function getPreviewHtml(
         eventDate: ctx.eventDateLong || ctx.eventDateDetail,
         eventTime: ctx.eventTime,
         venue: ctx.venue,
+        directionsUrl: ctx.directionsUrl ?? "",
       },
       ctx.confirmAttendingUrl || "#",
+      ctx.confirmDeclinedUrl || "#",
       html
     );
   }

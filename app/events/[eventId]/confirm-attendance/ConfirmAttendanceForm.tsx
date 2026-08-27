@@ -100,7 +100,7 @@ export function ConfirmAttendanceForm({
 
   const attending = intent === "attending";
   const title = attending ? "Confirm your attendance" : "Update your attendance";
-  const buttonLabel = attending ? "Yes, I am attending" : "I can no longer attend";
+  const buttonLabel = attending ? "Yes, I'll be attending" : "No, I won't attend";
   const successTitle = attending
     ? "Thank you for confirming"
     : "Your response has been recorded";
