@@ -18,7 +18,7 @@ export default async function SecondaryConfirmPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-zinc-900 sm:text-2xl">Secondary Confirm</h1>
+      <h1 className="text-xl font-bold text-zinc-900 sm:text-2xl">Reconfirm</h1>
       <p className="mt-1 text-sm text-zinc-600">
         A second round of confirmation, for when the date or venue has changed. Upload a list to ask
         again — including people who already confirmed the first time — and track the new responses

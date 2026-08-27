@@ -103,7 +103,7 @@ export interface RegistrationDoc {
    */
   confirmationEmailSentAt?: Date;
   /**
-   * Confirmation rounds beyond the first (Secondary Confirm onwards). Round 1
+   * Confirmation rounds beyond the first (Reconfirm onwards). Round 1
    * remains in attendanceRsvpStatus / attendanceRsvpAt / confirmationEmailSentAt
    * for backward compatibility; read through lib/confirmation-rounds helpers.
    */

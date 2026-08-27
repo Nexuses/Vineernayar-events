@@ -17,7 +17,7 @@ export default async function ReconfirmPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-zinc-900 sm:text-2xl">Reconfirm</h1>
+      <h1 className="text-xl font-bold text-zinc-900 sm:text-2xl">Confirm</h1>
       <p className="mt-1 text-sm text-zinc-600">
         Upload an attendee list to register anyone missing and send them a confirmation email, then
         track who has confirmed.

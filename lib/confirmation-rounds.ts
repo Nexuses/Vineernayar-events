@@ -2,8 +2,9 @@
  * Confirmation rounds.
  *
  * An event can ask attendees to confirm more than once — typically after a date
- * change. Round 1 is "Reconfirm", round 2 is "Secondary Confirm", and further
- * rounds are supported without code changes.
+ * change. Round 1 is "Confirm", round 2 is "Reconfirm", and further rounds are
+ * supported without code changes. Every round an attendee has been through is
+ * kept, so the full confirmation history stays readable.
  *
  * Round 1 predates this model, so it is still stored in the original
  * attendanceRsvpStatus / attendanceRsvpAt / confirmationEmailSentAt fields.
@@ -33,16 +34,17 @@ export type RoundBearingRegistration = {
 export const FIRST_ROUND = 1;
 export const SECONDARY_ROUND = 2;
 
-/** "Reconfirm", "Secondary Confirm", "Third Confirm", … */
+/** "Confirm", "Reconfirm", "Reconfirm 2", … */
 export function getRoundLabel(round: number): string {
-  if (round <= 1) return "Reconfirm";
-  if (round === 2) return "Secondary Confirm";
-  const ordinals = ["", "", "Second", "Third", "Fourth", "Fifth", "Sixth"];
-  const word = ordinals[round] ?? `Round ${round}`;
-  return `${word} Confirm`;
+  if (round <= 1) return "Confirm";
+  if (round === 2) return "Reconfirm";
+  return `Reconfirm ${round - 1}`;
 }
 
-/** Slug used in the admin route for a round, e.g. /admin/secondary-confirm. */
+/**
+ * Slug used in the admin route for a round. These predate the Confirm /
+ * Reconfirm naming and are kept so existing bookmarks keep working.
+ */
 export function getRoundSlug(round: number): string {
   if (round <= 1) return "reconfirm";
   if (round === 2) return "secondary-confirm";
@@ -111,4 +113,78 @@ export function confirmationStatusLabel(status?: ConfirmationRoundStatus | null)
   if (status === "reconfirmed") return "Confirmed";
   if (status === "declined") return "Not Attending";
   return "Pending";
+}
+
+function toIso(value?: Date | string | null): string | null {
+  if (!value) return null;
+  return value instanceof Date ? value.toISOString() : value;
+}
+
+export type ConfirmationTimelineEntry = {
+  round: number;
+  /** "Confirm", "Reconfirm", … */
+  roundLabel: string;
+  status: ConfirmationRoundStatus;
+  /** "Confirmed", "Not Attending", "Pending" */
+  statusLabel: string;
+  emailSentAt: string | null;
+  respondedAt: string | null;
+};
+
+/**
+ * Every round this attendee has actually been through, oldest first.
+ *
+ * A round appears as soon as its request email goes out, so a round that is
+ * still awaiting an answer is part of the history too. Earlier rounds are never
+ * replaced by later ones — a person who confirmed and then declined the
+ * reconfirm keeps both entries.
+ */
+export function buildConfirmationTimeline(
+  reg: RoundBearingRegistration
+): ConfirmationTimelineEntry[] {
+  const rounds = new Set<number>();
+  if (reg.confirmationEmailSentAt || reg.attendanceRsvpAt) rounds.add(FIRST_ROUND);
+  for (const r of reg.confirmationRounds ?? []) {
+    if (r.emailSentAt || r.respondedAt) rounds.add(r.round);
+  }
+
+  return [...rounds]
+    .sort((a, b) => a - b)
+    .map((round) => {
+      const r = getRound(reg, round);
+      return {
+        round,
+        roundLabel: getRoundLabel(round),
+        status: r.status,
+        statusLabel: confirmationStatusLabel(r.status),
+        emailSentAt: toIso(r.emailSentAt),
+        respondedAt: toIso(r.respondedAt),
+      };
+    });
+}
+
+/** Short chip text for one round, e.g. "Confirm · Yes", "Reconfirm · No". */
+export function confirmationChipLabel(entry: ConfirmationTimelineEntry): string {
+  if (entry.status === "reconfirmed") return `${entry.roundLabel} · Yes`;
+  if (entry.status === "declined") return `${entry.roundLabel} · No`;
+  return `${entry.roundLabel} · Pending`;
+}
+
+/**
+ * The whole history as one line, for a CSV cell or a tooltip. `formatWhen`
+ * decides the date style so callers stay consistent with their own table.
+ */
+export function formatConfirmationTimeline(
+  reg: RoundBearingRegistration,
+  formatWhen: (value: string | null) => string
+): string {
+  return buildConfirmationTimeline(reg)
+    .map((e) => {
+      const asked = e.emailSentAt ? `asked ${formatWhen(e.emailSentAt)}` : "not asked";
+      const answer = e.respondedAt
+        ? `${e.statusLabel} ${formatWhen(e.respondedAt)}`
+        : e.statusLabel;
+      return `${e.roundLabel}: ${answer} (${asked})`;
+    })
+    .join(" | ");
 }

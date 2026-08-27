@@ -13,11 +13,7 @@ import {
   WHATSAPP_SEQUENCE_SCHEDULE,
   type WhatsAppSequenceKey,
 } from "@/lib/whatsapp-sequence";
-import {
-  attendanceRsvpBadgeClass,
-  attendanceRsvpLabel,
-  type AttendanceRsvpStatus,
-} from "@/lib/attendance-rsvp";
+import { type AttendanceRsvpStatus } from "@/lib/attendance-rsvp";
 import {
   getEffectiveDesignation,
   REGISTRATION_DESIGNATION_OTHER,
@@ -27,12 +23,19 @@ import {
 } from "@/lib/registration-field-limits";
 import { ATTENDEE_CATEGORY_LABELS, ATTENDEE_CATEGORY_OPTIONS } from "@/lib/attendee-category";
 import {
+  FIRST_ROUND,
   SECONDARY_ROUND,
   getRound,
   getEffectiveConfirmation,
+  buildConfirmationTimeline,
+  formatConfirmationTimeline,
   confirmationStatusLabel,
   type ConfirmationRound,
 } from "@/lib/confirmation-rounds";
+import {
+  ConfirmationHistoryChips,
+  ConfirmationHistoryTimeline,
+} from "@/app/admin/ConfirmationHistory";
 
 type EventItem = {
   eventId: string;
@@ -293,13 +296,6 @@ function buildRegistrationDetailFields(row: RegistrationItem): DetailField[] {
   if (row.participationTimestamp) {
     fields.push({ label: "Attended on", value: formatDate(row.participationTimestamp) });
   }
-  fields.push({
-    label: "RSVP status",
-    value: `${attendanceRsvpLabel(getAttendanceRsvpStatus(row))}${
-      row.attendanceRsvpAt ? ` · ${formatDate(row.attendanceRsvpAt)}` : ""
-    }`,
-  });
-
   return fields;
 }
 
@@ -469,35 +465,35 @@ function registrationCsvColumns(): CsvColumn[] {
       value: (r) =>
         (r.participationStatus || "registered") === "attended" ? "Attended" : "Registered",
     },
-    // Reconfirmation. The status column is always present so the final guest
+    // Confirm — round 1. The status column is always present so the final guest
     // list shows it even before anyone has responded.
     {
-      header: "Reconfirmed",
-      value: (r) => attendanceRsvpLabel(getAttendanceRsvpStatus(r)),
+      header: "Confirm",
+      value: (r) => confirmationStatusLabel(getRound(r, FIRST_ROUND).status),
     },
     {
-      header: "Reconfirmed On",
+      header: "Confirmed On",
       value: (r) => dateCsv(r.attendanceRsvpAt),
       hasData: (r) => Boolean(r.attendanceRsvpAt),
     },
     {
-      header: "Reconfirmation Email Sent",
+      header: "Confirm Email Sent",
       value: (r) => dateCsv(r.confirmationEmailSentAt),
       hasData: (r) => Boolean(r.confirmationEmailSentAt),
     },
-    // Secondary Confirm — shown once a second round has been sent.
+    // Reconfirm — round 2, shown once a second round has been sent.
     {
-      header: "Secondary Confirm",
+      header: "Reconfirm",
       value: (r) => confirmationStatusLabel(getRound(r, SECONDARY_ROUND).status),
       hasData: (r) => Boolean(getRound(r, SECONDARY_ROUND).emailSentAt),
     },
     {
-      header: "Secondary Confirmed On",
+      header: "Reconfirmed On",
       value: (r) => dateCsv(getRound(r, SECONDARY_ROUND).respondedAt as string | null),
       hasData: (r) => Boolean(getRound(r, SECONDARY_ROUND).respondedAt),
     },
     {
-      header: "Secondary Confirm Email Sent",
+      header: "Reconfirm Email Sent",
       value: (r) => dateCsv(getRound(r, SECONDARY_ROUND).emailSentAt as string | null),
       hasData: (r) => Boolean(getRound(r, SECONDARY_ROUND).emailSentAt),
     },
@@ -505,6 +501,12 @@ function registrationCsvColumns(): CsvColumn[] {
       header: "Latest Confirmation",
       value: (r) => confirmationStatusLabel(getEffectiveConfirmation(r).status),
       hasData: (r) => Boolean(getRound(r, SECONDARY_ROUND).emailSentAt),
+    },
+    // The whole history in one cell, so a single row tells the full story.
+    {
+      header: "Confirmation History",
+      value: (r) => formatConfirmationTimeline(r, (v) => dateCsv(v)),
+      hasData: (r) => buildConfirmationTimeline(r).length > 0,
     },
     { header: "Registered On", value: (r) => dateCsv(r.createdAt) },
   ];
@@ -1103,7 +1105,7 @@ export function RegisteredClientSection({
 
                 <FilterSelect
                   id="registrations-rsvp-filter"
-                  label="Reconfirm"
+                  label="Confirm"
                   value={rsvpFilter}
                   onChange={(value) => setRsvpFilter(value as RsvpFilter)}
                 >
@@ -1115,7 +1117,7 @@ export function RegisteredClientSection({
 
                 <FilterSelect
                   id="secondary-filter"
-                  label="Secondary Confirm"
+                  label="Reconfirm"
                   value={secondaryFilter}
                   onChange={(value) => setSecondaryFilter(value as SecondaryFilter)}
                 >
@@ -1185,15 +1187,7 @@ export function RegisteredClientSection({
                             <span>
                               {r.firstName} {r.surname}
                             </span>
-                            {getAttendanceRsvpStatus(r) !== "pending" ? (
-                              <span
-                                className={`rounded-full px-2 py-0.5 text-xs font-medium ${attendanceRsvpBadgeClass(
-                                  getAttendanceRsvpStatus(r)
-                                )}`}
-                              >
-                                {attendanceRsvpLabel(getAttendanceRsvpStatus(r))}
-                              </span>
-                            ) : null}
+                            <ConfirmationHistoryChips registration={r} emptyLabel="" />
                           </div>
                         </td>
                         <td className="px-3 py-3 text-zinc-700 sm:px-4">{r.email}</td>
@@ -1260,6 +1254,16 @@ export function RegisteredClientSection({
                                 ) : null}
                               </div>
                               <RegistrationDetailGrid row={r} />
+
+                              <div className="mt-6 border-t border-zinc-200 pt-4">
+                                <h4 className="mb-1 text-sm font-semibold text-zinc-700">
+                                  Confirmation history
+                                </h4>
+                                <p className="mb-3 text-xs text-zinc-500">
+                                  Every confirmation round this attendee has been asked, oldest first.
+                                </p>
+                                <ConfirmationHistoryTimeline registration={r} />
+                              </div>
 
                               <div className="mt-6 border-t border-zinc-200 pt-4">
                                 <h4 className="mb-1 text-sm font-semibold text-zinc-700">

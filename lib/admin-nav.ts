@@ -20,8 +20,8 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { href: "/admin/rejected", label: "Rejected Client" },
   { href: "/admin/manual-register", label: "Manual Register", requiresManualRegister: true },
   { href: "/admin/registrations", label: "Registered Client" },
-  { href: "/admin/reconfirm", label: "Reconfirm", subManagerHidden: true },
-  { href: "/admin/secondary-confirm", label: "Secondary Confirm", subManagerHidden: true },
+  { href: "/admin/reconfirm", label: "Confirm", subManagerHidden: true },
+  { href: "/admin/secondary-confirm", label: "Reconfirm", subManagerHidden: true },
   {
     href: "/admin/messaging-flow",
     label: "Messaging Flow",

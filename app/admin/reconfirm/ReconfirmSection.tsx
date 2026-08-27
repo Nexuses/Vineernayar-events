@@ -9,6 +9,7 @@ import {
   confirmationStatusLabel,
   type ConfirmationRound,
 } from "@/lib/confirmation-rounds";
+import { ConfirmationHistoryChips } from "@/app/admin/ConfirmationHistory";
 
 type EventItem = { eventId: string; eventName: string; dropdownLabel: string };
 
@@ -460,6 +461,7 @@ export function ReconfirmSection({
                     <th className="px-4 py-2.5 font-semibold">Confirmation email sent</th>
                     <th className="px-4 py-2.5 font-semibold">Status</th>
                     <th className="px-4 py-2.5 font-semibold">Confirmed on</th>
+                    <th className="px-4 py-2.5 font-semibold">History</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
@@ -486,6 +488,9 @@ export function ReconfirmSection({
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap text-zinc-600">
                           {formatWhen(r.respondedAt as string | null)}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <ConfirmationHistoryChips registration={a} />
                         </td>
                       </tr>
                     );
