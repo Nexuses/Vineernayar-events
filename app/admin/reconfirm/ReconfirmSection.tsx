@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { attendanceRsvpBadgeClass, attendanceRsvpLabel } from "@/lib/attendance-rsvp";
+import { attendanceRsvpBadgeClass } from "@/lib/attendance-rsvp";
+import {
+  FIRST_ROUND,
+  getRound,
+  getRoundLabel,
+  confirmationStatusLabel,
+  type ConfirmationRound,
+} from "@/lib/confirmation-rounds";
 
 type EventItem = { eventId: string; eventName: string; dropdownLabel: string };
 
@@ -14,6 +21,7 @@ type Attendee = {
   confirmationEmailSentAt?: string | null;
   attendanceRsvpStatus?: "pending" | "reconfirmed" | "declined";
   attendanceRsvpAt?: string | null;
+  confirmationRounds?: ConfirmationRound[] | null;
 };
 
 type UploadIssue = { row: number; name: string; error: string };
@@ -83,10 +91,13 @@ function formatWhen(iso?: string | null): string {
 export function ReconfirmSection({
   events,
   readOnly,
+  round = FIRST_ROUND,
 }: {
   events: EventItem[];
   readOnly: boolean;
+  round?: number;
 }) {
+  const roundLabel = getRoundLabel(round);
   const [selectedEventId, setSelectedEventId] = useState("");
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -141,7 +152,7 @@ export function ReconfirmSection({
       const res = await fetch("/api/admin/reconfirm/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: selectedEventId, csv, dryRun: true }),
+        body: JSON.stringify({ eventId: selectedEventId, csv, round, dryRun: true }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -172,7 +183,7 @@ export function ReconfirmSection({
       const res = await fetch("/api/admin/reconfirm/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: selectedEventId, csv }),
+        body: JSON.stringify({ eventId: selectedEventId, csv, round }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -191,8 +202,8 @@ export function ReconfirmSection({
     }
   }
 
-  const emailed = attendees?.filter((a) => a.confirmationEmailSentAt) ?? [];
-  const confirmedCount = emailed.filter((a) => a.attendanceRsvpStatus === "reconfirmed").length;
+  const emailed = attendees?.filter((a) => getRound(a, round).emailSentAt) ?? [];
+  const confirmedCount = emailed.filter((a) => getRound(a, round).status === "reconfirmed").length;
   const q = search.trim().toLowerCase();
   const visible = q
     ? emailed.filter((a) =>
@@ -416,7 +427,7 @@ export function ReconfirmSection({
         <div className="rounded-lg border border-zinc-200 bg-white">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3">
             <div>
-              <h2 className="text-sm font-semibold text-zinc-800">Confirmation tracking</h2>
+              <h2 className="text-sm font-semibold text-zinc-800">{roundLabel} tracking</h2>
               <p className="mt-0.5 text-xs text-zinc-500">
                 {emailed.length} sent · {confirmedCount} confirmed ·{" "}
                 {emailed.length - confirmedCount} awaiting response
@@ -436,7 +447,7 @@ export function ReconfirmSection({
           ) : visible.length === 0 ? (
             <p className="px-4 py-6 text-sm text-zinc-500">
               {emailed.length === 0
-                ? "No confirmation emails have been sent for this event yet."
+                ? `No ${roundLabel.toLowerCase()} emails have been sent for this event yet.`
                 : "No attendees match your search."}
             </p>
           ) : (
@@ -453,7 +464,8 @@ export function ReconfirmSection({
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
                   {visible.map((a) => {
-                    const status = a.attendanceRsvpStatus ?? "pending";
+                    const r = getRound(a, round);
+                    const status = r.status;
                     return (
                       <tr key={a._id}>
                         <td className="px-4 py-2.5 font-medium text-zinc-900">
@@ -461,7 +473,7 @@ export function ReconfirmSection({
                         </td>
                         <td className="px-4 py-2.5 text-zinc-700">{a.email}</td>
                         <td className="px-4 py-2.5 whitespace-nowrap text-zinc-600">
-                          {formatWhen(a.confirmationEmailSentAt)}
+                          {formatWhen(r.emailSentAt as string | null)}
                         </td>
                         <td className="px-4 py-2.5">
                           <span
@@ -469,11 +481,11 @@ export function ReconfirmSection({
                               status
                             )}`}
                           >
-                            {status === "reconfirmed" ? "Confirmed" : attendanceRsvpLabel(status)}
+                            {confirmationStatusLabel(status)}
                           </span>
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap text-zinc-600">
-                          {formatWhen(a.attendanceRsvpAt)}
+                          {formatWhen(r.respondedAt as string | null)}
                         </td>
                       </tr>
                     );

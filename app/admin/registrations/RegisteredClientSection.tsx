@@ -26,6 +26,13 @@ import {
   trimToFieldLimit,
 } from "@/lib/registration-field-limits";
 import { ATTENDEE_CATEGORY_LABELS, ATTENDEE_CATEGORY_OPTIONS } from "@/lib/attendee-category";
+import {
+  SECONDARY_ROUND,
+  getRound,
+  getEffectiveConfirmation,
+  confirmationStatusLabel,
+  type ConfirmationRound,
+} from "@/lib/confirmation-rounds";
 
 type EventItem = {
   eventId: string;
@@ -38,6 +45,7 @@ type ParticipationStatus = "registered" | "attended";
 type StatusFilter = "all" | "registered" | "attended";
 type RsvpFilter = "all" | "pending" | "reconfirmed" | "declined";
 type SourceFilter = "all" | "manual" | "online";
+type SecondaryFilter = "all" | "pending" | "reconfirmed" | "declined" | "notsent";
 
 const PAGE_SIZE = 25;
 
@@ -125,6 +133,14 @@ function matchesRsvpFilter(row: RegistrationItem, filter: RsvpFilter): boolean {
   return status !== "declined";
 }
 
+function matchesSecondaryFilter(row: RegistrationItem, filter: SecondaryFilter): boolean {
+  if (filter === "all") return true;
+  const r = getRound(row, SECONDARY_ROUND);
+  if (filter === "notsent") return !r.emailSentAt;
+  if (!r.emailSentAt) return false;
+  return r.status === filter;
+}
+
 function getRegistrationSource(row: RegistrationItem): "manual" | "online" {
   if (row.registrationSource === "manual" || row.registrationSource === "online") {
     return row.registrationSource;
@@ -186,6 +202,7 @@ type RegistrationItem = {
   attendanceRsvpStatus?: AttendanceRsvpStatus;
   attendanceRsvpAt?: string | null;
   confirmationEmailSentAt?: string | null;
+  confirmationRounds?: ConfirmationRound[] | null;
   createdAt: string;
   participationTimestamp?: string;
   waitlistEmailStatus?: string | null;
@@ -467,6 +484,27 @@ function registrationCsvColumns(): CsvColumn[] {
       header: "Reconfirmation Email Sent",
       value: (r) => dateCsv(r.confirmationEmailSentAt),
       hasData: (r) => Boolean(r.confirmationEmailSentAt),
+    },
+    // Secondary Confirm — shown once a second round has been sent.
+    {
+      header: "Secondary Confirm",
+      value: (r) => confirmationStatusLabel(getRound(r, SECONDARY_ROUND).status),
+      hasData: (r) => Boolean(getRound(r, SECONDARY_ROUND).emailSentAt),
+    },
+    {
+      header: "Secondary Confirmed On",
+      value: (r) => dateCsv(getRound(r, SECONDARY_ROUND).respondedAt as string | null),
+      hasData: (r) => Boolean(getRound(r, SECONDARY_ROUND).respondedAt),
+    },
+    {
+      header: "Secondary Confirm Email Sent",
+      value: (r) => dateCsv(getRound(r, SECONDARY_ROUND).emailSentAt as string | null),
+      hasData: (r) => Boolean(getRound(r, SECONDARY_ROUND).emailSentAt),
+    },
+    {
+      header: "Latest Confirmation",
+      value: (r) => confirmationStatusLabel(getEffectiveConfirmation(r).status),
+      hasData: (r) => Boolean(getRound(r, SECONDARY_ROUND).emailSentAt),
     },
     { header: "Registered On", value: (r) => dateCsv(r.createdAt) },
   ];
@@ -840,6 +878,7 @@ export function RegisteredClientSection({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [rsvpFilter, setRsvpFilter] = useState<RsvpFilter>("all");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+  const [secondaryFilter, setSecondaryFilter] = useState<SecondaryFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
 
   function fetchRegistrations() {
@@ -883,9 +922,10 @@ export function RegisteredClientSection({
           matchesSearch(row, searchQuery) &&
           matchesStatusFilter(row, statusFilter) &&
           matchesRsvpFilter(row, rsvpFilter) &&
-          matchesSourceFilter(row, sourceFilter)
+          matchesSourceFilter(row, sourceFilter) &&
+          matchesSecondaryFilter(row, secondaryFilter)
       ),
-    [registrations, searchQuery, statusFilter, rsvpFilter, sourceFilter]
+    [registrations, searchQuery, statusFilter, rsvpFilter, sourceFilter, secondaryFilter]
   );
 
   const totalPages = Math.max(1, Math.ceil(filteredRegistrations.length / PAGE_SIZE));
@@ -905,13 +945,24 @@ export function RegisteredClientSection({
       rsvpDeclined: registrations.filter((r) => getAttendanceRsvpStatus(r) === "declined").length,
       manual: registeredClients.filter((r) => getRegistrationSource(r) === "manual").length,
       online: registeredClients.filter((r) => getRegistrationSource(r) === "online").length,
+      sec2Sent: registeredClients.filter((r) => getRound(r, SECONDARY_ROUND).emailSentAt).length,
+      sec2Confirmed: registeredClients.filter(
+        (r) => getRound(r, SECONDARY_ROUND).status === "reconfirmed"
+      ).length,
+      sec2Declined: registeredClients.filter(
+        (r) => getRound(r, SECONDARY_ROUND).status === "declined"
+      ).length,
+      sec2Pending: registeredClients.filter((r) => {
+        const x = getRound(r, SECONDARY_ROUND);
+        return Boolean(x.emailSentAt) && x.status === "pending";
+      }).length,
     }),
     [registrations, registeredClients]
   );
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, rsvpFilter, sourceFilter]);
+  }, [searchQuery, statusFilter, rsvpFilter, sourceFilter, secondaryFilter]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -1060,6 +1111,19 @@ export function RegisteredClientSection({
                   <option value="pending">Pending ({statusCounts.rsvpPending})</option>
                   <option value="reconfirmed">Reconfirmed ({statusCounts.rsvpReconfirmed})</option>
                   <option value="declined">Not Able to Attend ({statusCounts.rsvpDeclined})</option>
+                </FilterSelect>
+
+                <FilterSelect
+                  id="secondary-filter"
+                  label="Secondary Confirm"
+                  value={secondaryFilter}
+                  onChange={(value) => setSecondaryFilter(value as SecondaryFilter)}
+                >
+                  <option value="all">All</option>
+                  <option value="reconfirmed">Confirmed ({statusCounts.sec2Confirmed})</option>
+                  <option value="declined">Not Attending ({statusCounts.sec2Declined})</option>
+                  <option value="pending">Awaiting response ({statusCounts.sec2Pending})</option>
+                  <option value="notsent">Not sent yet</option>
                 </FilterSelect>
 
                 <FilterSelect

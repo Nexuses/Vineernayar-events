@@ -91,6 +91,14 @@ export const EMAIL_TEMPLATE_DEFINITIONS: EmailTemplateDefinition[] = [
     placeholders: RECONFIRM_PLACEHOLDERS,
   },
   {
+    key: "reconfirm_2",
+    label: "Secondary Confirm request",
+    schedule: "When a list is uploaded in Secondary Confirm",
+    subject: "Please confirm again: {{eventName}}",
+    group: "Event registration emails",
+    placeholders: RECONFIRM_PLACEHOLDERS,
+  },
+  {
     key: "join_thank_you",
     label: "Join movement — thank you",
     schedule: "When someone reserves a seat",
@@ -180,7 +188,7 @@ export function getDefaultTemplateHtml(key: EmailTemplateKey): string {
   if (key === "join_notify") return JOIN_NOTIFY_HTML;
   // Only the message body is editable; the details block and the
   // "I'll be attending" button are always appended when the email is sent.
-  if (key === "reconfirm") return DEFAULT_RECONFIRM_BODY_HTML;
+  if (key === "reconfirm" || key === "reconfirm_2") return DEFAULT_RECONFIRM_BODY_HTML;
   return buildSequenceEmailHtml(key as EmailSequenceKey, getSampleSequenceContext());
 }
 
@@ -201,7 +209,7 @@ export function getPreviewHtml(
   // The re-confirmation preview always assembles the fixed details block and
   // the "I'll be attending" button around the edited body, so the editor shows
   // exactly what recipients get — including the parts that cannot be removed.
-  if (key === "reconfirm") {
+  if (key === "reconfirm" || key === "reconfirm_2") {
     return buildReconfirmHtml(
       {
         firstName: ctx.firstName,

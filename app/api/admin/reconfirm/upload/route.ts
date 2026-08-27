@@ -3,7 +3,7 @@ import { getEventByEventId } from "@/lib/models/Event";
 import {
   createRegistration,
   findRegistrationByEventAndEmail,
-  getRegistrationsCollection,
+  markConfirmationEmailSent,
   type RegistrationDoc,
 } from "@/lib/models/Registration";
 import { sendConfirmationEmail } from "@/lib/confirmation-email";
@@ -19,6 +19,7 @@ import {
   unauthorizedResponse,
 } from "@/lib/admin-access";
 import { parseCsvObjects } from "@/lib/csv-parse";
+import { FIRST_ROUND, isConfirmationRound } from "@/lib/confirmation-rounds";
 
 /** Guard against oversized uploads. */
 const MAX_ROWS = 2000;
@@ -110,6 +111,8 @@ export async function POST(request: Request) {
     const csvText = typeof body?.csv === "string" ? body.csv : "";
     // A dry run reports what would happen without registering or emailing.
     const dryRun = body?.dryRun === true;
+    const roundRaw = Number(body?.round ?? FIRST_ROUND);
+    const round = isConfirmationRound(roundRaw) ? roundRaw : FIRST_ROUND;
 
     if (!eventId) {
       return NextResponse.json({ error: "Event is required" }, { status: 400 });
@@ -172,7 +175,6 @@ export async function POST(request: Request) {
       });
     }
 
-    const col = await getRegistrationsCollection();
     const runIssues: RowIssue[] = [...issues];
     let registered = 0;
     let alreadyRegistered = 0;
@@ -215,13 +217,10 @@ export async function POST(request: Request) {
 
       // Every contact in the file is sent the confirmation email.
       try {
-        await sendConfirmationEmail(event, reg);
+        await sendConfirmationEmail(event, reg, round);
         emailed += 1;
         if (reg._id) {
-          await col.updateOne(
-            { _id: reg._id },
-            { $set: { confirmationEmailSentAt: new Date() } }
-          );
+          await markConfirmationEmailSent(reg._id, round);
         }
       } catch (err) {
         console.error(`Confirmation email failed for ${row.email}:`, err);

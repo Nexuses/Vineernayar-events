@@ -11,6 +11,13 @@ import {
   type WhatsAppSequenceStatus,
 } from "../whatsapp-sequence";
 import type { AttendeeCategory } from "../attendee-category";
+import {
+  FIRST_ROUND,
+  type ConfirmationRound,
+  type ConfirmationRoundStatus,
+} from "../confirmation-rounds";
+
+export type { ConfirmationRound, ConfirmationRoundStatus };
 
 export type { AttendeeCategory };
 
@@ -91,10 +98,16 @@ export interface RegistrationDoc {
   /** Set when this registration receives an admin email blast */
   lastEmailBlastAt?: Date;
   /**
-   * When the re-confirmation email (the one carrying the "I'll be attending"
-   * button) was last sent to this attendee from the Confirm module.
+   * When the round-1 re-confirmation email was last sent to this attendee.
+   * Rounds 2 and above are tracked in confirmationRounds.
    */
   confirmationEmailSentAt?: Date;
+  /**
+   * Confirmation rounds beyond the first (Secondary Confirm onwards). Round 1
+   * remains in attendanceRsvpStatus / attendanceRsvpAt / confirmationEmailSentAt
+   * for backward compatibility; read through lib/confirmation-rounds helpers.
+   */
+  confirmationRounds?: ConfirmationRound[];
   createdAt: Date;
 }
 
@@ -271,6 +284,67 @@ export async function syncEventDetailsToRegistrations(
 
   const result = await col.updateMany({ eventId }, ops);
   return result.modifiedCount;
+}
+
+/**
+ * Record that the confirmation email for a round was sent.
+ * Round 1 keeps using the legacy field; later rounds go in confirmationRounds.
+ */
+export async function markConfirmationEmailSent(
+  id: ObjectId,
+  round: number
+): Promise<void> {
+  const col = await getRegistrationsCollection();
+  const now = new Date();
+
+  if (round === FIRST_ROUND) {
+    await col.updateOne({ _id: id }, { $set: { confirmationEmailSentAt: now } });
+    return;
+  }
+
+  // Update the round in place when present, otherwise append it.
+  const updated = await col.updateOne(
+    { _id: id, "confirmationRounds.round": round },
+    { $set: { "confirmationRounds.$.emailSentAt": now } }
+  );
+  if (updated.matchedCount === 0) {
+    await col.updateOne(
+      { _id: id },
+      { $push: { confirmationRounds: { round, status: "pending", emailSentAt: now } } }
+    );
+  }
+}
+
+/** Record an attendee's answer for a round. */
+export async function setConfirmationRoundStatus(
+  id: string,
+  round: number,
+  status: ConfirmationRoundStatus
+): Promise<boolean> {
+  const col = await getRegistrationsCollection();
+  if (!ObjectId.isValid(id)) return false;
+  const _id = new ObjectId(id);
+  const now = new Date();
+
+  if (round === FIRST_ROUND) {
+    const r = await col.updateOne(
+      { _id },
+      { $set: { attendanceRsvpStatus: status, attendanceRsvpAt: now } }
+    );
+    return r.matchedCount > 0;
+  }
+
+  const updated = await col.updateOne(
+    { _id, "confirmationRounds.round": round },
+    { $set: { "confirmationRounds.$.status": status, "confirmationRounds.$.respondedAt": now } }
+  );
+  if (updated.matchedCount > 0) return true;
+
+  const pushed = await col.updateOne(
+    { _id },
+    { $push: { confirmationRounds: { round, status, respondedAt: now } } }
+  );
+  return pushed.matchedCount > 0;
 }
 
 /** The date-driven emails: the two reminders and the post-event thank you. */

@@ -70,6 +70,14 @@ export async function GET(request: Request) {
         r.confirmationEmailSentAt instanceof Date
           ? r.confirmationEmailSentAt.toISOString()
           : r.confirmationEmailSentAt ?? null,
+      confirmationRounds: (r.confirmationRounds ?? []).map((cr) => ({
+        round: cr.round,
+        status: cr.status,
+        emailSentAt:
+          cr.emailSentAt instanceof Date ? cr.emailSentAt.toISOString() : cr.emailSentAt ?? null,
+        respondedAt:
+          cr.respondedAt instanceof Date ? cr.respondedAt.toISOString() : cr.respondedAt ?? null,
+      })),
       participationStatus: r.participationStatus || "registered",
       attendanceRsvpStatus: r.attendanceRsvpStatus ?? "pending",
       attendanceRsvpAt:

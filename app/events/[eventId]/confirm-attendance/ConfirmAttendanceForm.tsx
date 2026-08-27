@@ -17,10 +17,12 @@ export function ConfirmAttendanceForm({
   eventId,
   code,
   intent,
+  round = 1,
 }: {
   eventId: string;
   code: string;
   intent: AttendanceRsvpIntent;
+  round?: number;
 }) {
   const [loaded, setLoaded] = useState<LoadedState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,7 +36,7 @@ export function ConfirmAttendanceForm({
       setLoading(true);
       setError("");
       try {
-        const params = new URLSearchParams({ code, intent });
+        const params = new URLSearchParams({ code, intent, round: String(round) });
         const res = await fetch(`/api/events/${eventId}/confirm-attendance?${params.toString()}`);
         const data = await res.json();
         if (!res.ok) {
@@ -68,7 +70,7 @@ export function ConfirmAttendanceForm({
     return () => {
       cancelled = true;
     };
-  }, [eventId, code, intent]);
+  }, [eventId, code, intent, round]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -83,6 +85,7 @@ export function ConfirmAttendanceForm({
           code,
           email: loaded.email,
           intent,
+          round,
         }),
       });
       const data = await res.json();

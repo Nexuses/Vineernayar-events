@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { formatEventDate, getEventTimeDisplay } from "@/lib/date-utils";
+import { FIRST_ROUND, getRound, isConfirmationRound } from "@/lib/confirmation-rounds";
 import type { AttendanceRsvpIntent } from "@/lib/attendance-rsvp";
 import { getPublishedEventByParam } from "@/lib/models/Event";
 import {
   getRegistrationByCode,
   isConfirmedRegistration,
-  updateAttendanceRsvpStatus,
+  setConfirmationRoundStatus,
   type AttendanceRsvpStatus,
 } from "@/lib/models/Registration";
 
@@ -47,6 +48,8 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const code = searchParams.get("code")?.trim() ?? "";
     const intent = parseIntent(searchParams.get("intent"));
+    const roundRaw = Number(searchParams.get("round") ?? FIRST_ROUND);
+    const roundParam = isConfirmationRound(roundRaw) ? roundRaw : FIRST_ROUND;
 
     const resolved = await resolveRegistration(eventId, code);
     if ("error" in resolved) {
@@ -67,7 +70,8 @@ export async function GET(
       venue: event.venue ?? "",
       firstName: reg.firstName,
       email: reg.email,
-      attendanceRsvpStatus: reg.attendanceRsvpStatus ?? "pending",
+      attendanceRsvpStatus: getRound(reg, roundParam).status,
+      round: roundParam,
       intent,
     });
   } catch (err) {
@@ -104,6 +108,8 @@ export async function POST(
       return NextResponse.json({ error: "Email does not match this registration" }, { status: 400 });
     }
 
+    const roundRaw = Number(body.round ?? FIRST_ROUND);
+    const round = isConfirmationRound(roundRaw) ? roundRaw : FIRST_ROUND;
     const nextStatus = intentToStatus(intent);
     if (reg.attendanceRsvpStatus === nextStatus) {
       return NextResponse.json({
@@ -118,7 +124,7 @@ export async function POST(
       return NextResponse.json({ error: "Registration not found" }, { status: 404 });
     }
 
-    const ok = await updateAttendanceRsvpStatus(id, nextStatus);
+    const ok = await setConfirmationRoundStatus(id, round, nextStatus);
     if (!ok) {
       return NextResponse.json({ error: "Unable to save your response" }, { status: 500 });
     }

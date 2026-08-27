@@ -4,6 +4,7 @@ export type EmailTemplateKey =
   | "seq3"
   | "seq4"
   | "reconfirm"
+  | "reconfirm_2"
   | "join_thank_you"
   | "join_notify";
 
