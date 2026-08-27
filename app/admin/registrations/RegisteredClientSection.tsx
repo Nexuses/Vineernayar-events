@@ -465,35 +465,35 @@ function registrationCsvColumns(): CsvColumn[] {
       value: (r) =>
         (r.participationStatus || "registered") === "attended" ? "Attended" : "Registered",
     },
-    // Confirm — round 1. The status column is always present so the final guest
+    // Reconfirm — round 1. The status column is always present so the final guest
     // list shows it even before anyone has responded.
     {
-      header: "Confirm",
+      header: "Reconfirm",
       value: (r) => confirmationStatusLabel(getRound(r, FIRST_ROUND).status),
     },
     {
-      header: "Confirmed On",
+      header: "Reconfirmed On",
       value: (r) => dateCsv(r.attendanceRsvpAt),
       hasData: (r) => Boolean(r.attendanceRsvpAt),
     },
     {
-      header: "Confirm Email Sent",
+      header: "Reconfirm Email Sent",
       value: (r) => dateCsv(r.confirmationEmailSentAt),
       hasData: (r) => Boolean(r.confirmationEmailSentAt),
     },
-    // Reconfirm — round 2, shown once a second round has been sent.
+    // Reconfirm 2 — shown once a second round has been sent.
     {
-      header: "Reconfirm",
+      header: "Reconfirm 2",
       value: (r) => confirmationStatusLabel(getRound(r, SECONDARY_ROUND).status),
       hasData: (r) => Boolean(getRound(r, SECONDARY_ROUND).emailSentAt),
     },
     {
-      header: "Reconfirmed On",
+      header: "Reconfirm 2 On",
       value: (r) => dateCsv(getRound(r, SECONDARY_ROUND).respondedAt as string | null),
       hasData: (r) => Boolean(getRound(r, SECONDARY_ROUND).respondedAt),
     },
     {
-      header: "Reconfirm Email Sent",
+      header: "Reconfirm 2 Email Sent",
       value: (r) => dateCsv(getRound(r, SECONDARY_ROUND).emailSentAt as string | null),
       hasData: (r) => Boolean(getRound(r, SECONDARY_ROUND).emailSentAt),
     },
@@ -1105,7 +1105,7 @@ export function RegisteredClientSection({
 
                 <FilterSelect
                   id="registrations-rsvp-filter"
-                  label="Confirm"
+                  label="Reconfirm"
                   value={rsvpFilter}
                   onChange={(value) => setRsvpFilter(value as RsvpFilter)}
                 >
@@ -1117,7 +1117,7 @@ export function RegisteredClientSection({
 
                 <FilterSelect
                   id="secondary-filter"
-                  label="Reconfirm"
+                  label="Reconfirm 2"
                   value={secondaryFilter}
                   onChange={(value) => setSecondaryFilter(value as SecondaryFilter)}
                 >

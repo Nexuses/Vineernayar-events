@@ -3,9 +3,19 @@
 import {
   buildConfirmationTimeline,
   confirmationChipLabel,
+  type ConfirmationTimelineEntry,
   type RoundBearingRegistration,
 } from "@/lib/confirmation-rounds";
 import { attendanceRsvpBadgeClass } from "@/lib/attendance-rsvp";
+
+/**
+ * The opening Confirm entry is kept visually quiet — it records that the person
+ * registered, not a yes/no, so the colour is reserved for the answer chips.
+ */
+function badgeClass(entry: ConfirmationTimelineEntry): string {
+  if (entry.kind === "registration") return "bg-zinc-100 text-zinc-700";
+  return attendanceRsvpBadgeClass(entry.status);
+}
 
 function formatWhen(iso?: string | null): string {
   if (!iso) return "—";
@@ -43,11 +53,15 @@ export function ConfirmationHistoryChips({
       {timeline.map((entry) => (
         <span
           key={entry.round}
-          title={`${entry.roundLabel} — ${entry.statusLabel}\nEmail sent: ${formatWhen(
-            entry.emailSentAt
-          )}\nResponded: ${formatWhen(entry.respondedAt)}`}
-          className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${attendanceRsvpBadgeClass(
-            entry.status
+          title={
+            entry.kind === "registration"
+              ? `${entry.roundLabel} — registered ${formatWhen(entry.respondedAt)}`
+              : `${entry.roundLabel} — ${entry.statusLabel}\nEmail sent: ${formatWhen(
+                  entry.emailSentAt
+                )}\nResponded: ${formatWhen(entry.respondedAt)}`
+          }
+          className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass(
+            entry
           )}`}
         >
           {confirmationChipLabel(entry)}
@@ -73,17 +87,23 @@ export function ConfirmationHistoryTimeline({
       {timeline.map((entry) => (
         <li key={entry.round} className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
           <span
-            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${attendanceRsvpBadgeClass(
-              entry.status
+            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass(
+              entry
             )}`}
           >
             {entry.roundLabel}
           </span>
           <span className="font-medium text-zinc-900">{entry.statusLabel}</span>
           <span className="text-zinc-500">
-            {entry.respondedAt ? `on ${formatWhen(entry.respondedAt)}` : "no response yet"}
-            {" · asked "}
-            {formatWhen(entry.emailSentAt)}
+            {entry.kind === "registration" ? (
+              `on ${formatWhen(entry.respondedAt)}`
+            ) : (
+              <>
+                {entry.respondedAt ? `on ${formatWhen(entry.respondedAt)}` : "no response yet"}
+                {" · asked "}
+                {formatWhen(entry.emailSentAt)}
+              </>
+            )}
           </span>
         </li>
       ))}

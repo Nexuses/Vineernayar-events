@@ -2,9 +2,12 @@
  * Confirmation rounds.
  *
  * An event can ask attendees to confirm more than once — typically after a date
- * change. Round 1 is "Confirm", round 2 is "Reconfirm", and further rounds are
- * supported without code changes. Every round an attendee has been through is
- * kept, so the full confirmation history stays readable.
+ * change. Round 1 is "Reconfirm", round 2 is "Reconfirm 2", and further rounds
+ * are supported without code changes.
+ *
+ * The timeline also opens with a "Confirm" entry for the registration itself,
+ * so the history reads Confirm → Reconfirm → Reconfirm 2. Every round is kept:
+ * a later one never replaces an earlier one.
  *
  * Round 1 predates this model, so it is still stored in the original
  * attendanceRsvpStatus / attendanceRsvpAt / confirmationEmailSentAt fields.
@@ -25,6 +28,8 @@ export type ConfirmationRound = {
 
 /** Shape this module needs from a registration; keeps it client-safe. */
 export type RoundBearingRegistration = {
+  /** When the person registered — the "Confirm" entry of the timeline. */
+  createdAt?: Date | string | null;
   attendanceRsvpStatus?: ConfirmationRoundStatus | null;
   attendanceRsvpAt?: Date | string | null;
   confirmationEmailSentAt?: Date | string | null;
@@ -34,12 +39,14 @@ export type RoundBearingRegistration = {
 export const FIRST_ROUND = 1;
 export const SECONDARY_ROUND = 2;
 
-/** "Confirm", "Reconfirm", "Reconfirm 2", … */
+/** "Reconfirm", "Reconfirm 2", "Reconfirm 3", … */
 export function getRoundLabel(round: number): string {
-  if (round <= 1) return "Confirm";
-  if (round === 2) return "Reconfirm";
-  return `Reconfirm ${round - 1}`;
+  if (round <= 1) return "Reconfirm";
+  return `Reconfirm ${round}`;
 }
+
+/** The registration itself, which opens the timeline before any round. */
+export const REGISTRATION_LABEL = "Confirm";
 
 /**
  * Slug used in the admin route for a round. These predate the Confirm /
@@ -121,11 +128,14 @@ function toIso(value?: Date | string | null): string | null {
 }
 
 export type ConfirmationTimelineEntry = {
+  /** "registration" is the opening Confirm entry; the rest are ask/answer rounds. */
+  kind: "registration" | "round";
+  /** 0 for the registration entry, then 1, 2, … */
   round: number;
-  /** "Confirm", "Reconfirm", … */
+  /** "Confirm", "Reconfirm", "Reconfirm 2", … */
   roundLabel: string;
   status: ConfirmationRoundStatus;
-  /** "Confirmed", "Not Attending", "Pending" */
+  /** "Registered", "Confirmed", "Not Attending", "Pending" */
   statusLabel: string;
   emailSentAt: string | null;
   respondedAt: string | null;
@@ -142,29 +152,46 @@ export type ConfirmationTimelineEntry = {
 export function buildConfirmationTimeline(
   reg: RoundBearingRegistration
 ): ConfirmationTimelineEntry[] {
+  const entries: ConfirmationTimelineEntry[] = [];
+
+  const registeredAt = toIso(reg.createdAt);
+  if (registeredAt) {
+    entries.push({
+      kind: "registration",
+      round: 0,
+      roundLabel: REGISTRATION_LABEL,
+      status: "reconfirmed",
+      statusLabel: "Registered",
+      emailSentAt: null,
+      respondedAt: registeredAt,
+    });
+  }
+
   const rounds = new Set<number>();
   if (reg.confirmationEmailSentAt || reg.attendanceRsvpAt) rounds.add(FIRST_ROUND);
   for (const r of reg.confirmationRounds ?? []) {
     if (r.emailSentAt || r.respondedAt) rounds.add(r.round);
   }
 
-  return [...rounds]
-    .sort((a, b) => a - b)
-    .map((round) => {
-      const r = getRound(reg, round);
-      return {
-        round,
-        roundLabel: getRoundLabel(round),
-        status: r.status,
-        statusLabel: confirmationStatusLabel(r.status),
-        emailSentAt: toIso(r.emailSentAt),
-        respondedAt: toIso(r.respondedAt),
-      };
+  for (const round of [...rounds].sort((a, b) => a - b)) {
+    const r = getRound(reg, round);
+    entries.push({
+      kind: "round",
+      round,
+      roundLabel: getRoundLabel(round),
+      status: r.status,
+      statusLabel: confirmationStatusLabel(r.status),
+      emailSentAt: toIso(r.emailSentAt),
+      respondedAt: toIso(r.respondedAt),
     });
+  }
+
+  return entries;
 }
 
-/** Short chip text for one round, e.g. "Confirm · Yes", "Reconfirm · No". */
+/** Short chip text, e.g. "Confirm", "Reconfirm · Yes", "Reconfirm 2 · No". */
 export function confirmationChipLabel(entry: ConfirmationTimelineEntry): string {
+  if (entry.kind === "registration") return entry.roundLabel;
   if (entry.status === "reconfirmed") return `${entry.roundLabel} · Yes`;
   if (entry.status === "declined") return `${entry.roundLabel} · No`;
   return `${entry.roundLabel} · Pending`;
@@ -180,6 +207,9 @@ export function formatConfirmationTimeline(
 ): string {
   return buildConfirmationTimeline(reg)
     .map((e) => {
+      if (e.kind === "registration") {
+        return `${e.roundLabel}: Registered ${formatWhen(e.respondedAt)}`;
+      }
       const asked = e.emailSentAt ? `asked ${formatWhen(e.emailSentAt)}` : "not asked";
       const answer = e.respondedAt
         ? `${e.statusLabel} ${formatWhen(e.respondedAt)}`

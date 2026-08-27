@@ -19,6 +19,7 @@ type Attendee = {
   surname: string;
   email: string;
   mobileNumber?: string;
+  createdAt?: string | null;
   confirmationEmailSentAt?: string | null;
   attendanceRsvpStatus?: "pending" | "reconfirmed" | "declined";
   attendanceRsvpAt?: string | null;
