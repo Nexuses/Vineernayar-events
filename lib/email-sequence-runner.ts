@@ -347,12 +347,25 @@ export async function processDueEmailSequences(now: Date = new Date()): Promise<
 
     const event = await getEvent(reg.eventId);
 
+    // Schedule against the event's CURRENT dates, not the copy stored on the
+    // registration when it was created. Otherwise rescheduling an event leaves
+    // existing registrations scheduled off the old date — which would fire a
+    // reminder or the post-event thank-you at the wrong time.
+    const scheduleReg: RegistrationDoc = event
+      ? {
+          ...reg,
+          eventStartDate: event.eventStartDate,
+          eventEndDate: event.eventEndDate,
+          eventTime: event.eventTime,
+        }
+      : reg;
+
     for (const key of ["seq2", "seq3", "seq4"] as EmailSequenceKey[]) {
       const current = reg.emailSequence?.[key];
       if (current?.status === "sent") continue;
       // Skip emails the event has turned off.
       if (!isEmailSequenceEnabled(event, key)) continue;
-      if (!isSequenceDue(key, reg, now)) continue;
+      if (!isSequenceDue(key, scheduleReg, now)) continue;
 
       processed += 1;
       const ok = await sendEmailSequenceForRegistration(reg, key);

@@ -13,11 +13,7 @@ import {
   WHATSAPP_SEQUENCE_SCHEDULE,
   type WhatsAppSequenceKey,
 } from "@/lib/whatsapp-sequence";
-import {
-  attendanceRsvpBadgeClass,
-  attendanceRsvpLabel,
-  type AttendanceRsvpStatus,
-} from "@/lib/attendance-rsvp";
+import { type AttendanceRsvpStatus } from "@/lib/attendance-rsvp";
 import {
   getEffectiveDesignation,
   REGISTRATION_DESIGNATION_OTHER,
@@ -26,6 +22,20 @@ import {
   trimToFieldLimit,
 } from "@/lib/registration-field-limits";
 import { ATTENDEE_CATEGORY_LABELS, ATTENDEE_CATEGORY_OPTIONS } from "@/lib/attendee-category";
+import {
+  FIRST_ROUND,
+  SECONDARY_ROUND,
+  getRound,
+  getEffectiveConfirmation,
+  buildConfirmationTimeline,
+  formatConfirmationTimeline,
+  confirmationStatusLabel,
+  type ConfirmationRound,
+} from "@/lib/confirmation-rounds";
+import {
+  ConfirmationHistoryChips,
+  ConfirmationHistoryTimeline,
+} from "@/app/admin/ConfirmationHistory";
 
 type EventItem = {
   eventId: string;
@@ -38,6 +48,7 @@ type ParticipationStatus = "registered" | "attended";
 type StatusFilter = "all" | "registered" | "attended";
 type RsvpFilter = "all" | "pending" | "reconfirmed" | "declined";
 type SourceFilter = "all" | "manual" | "online";
+type SecondaryFilter = "all" | "pending" | "reconfirmed" | "declined" | "notsent";
 
 const PAGE_SIZE = 25;
 
@@ -125,6 +136,14 @@ function matchesRsvpFilter(row: RegistrationItem, filter: RsvpFilter): boolean {
   return status !== "declined";
 }
 
+function matchesSecondaryFilter(row: RegistrationItem, filter: SecondaryFilter): boolean {
+  if (filter === "all") return true;
+  const r = getRound(row, SECONDARY_ROUND);
+  if (filter === "notsent") return !r.emailSentAt;
+  if (!r.emailSentAt) return false;
+  return r.status === filter;
+}
+
 function getRegistrationSource(row: RegistrationItem): "manual" | "online" {
   if (row.registrationSource === "manual" || row.registrationSource === "online") {
     return row.registrationSource;
@@ -185,6 +204,8 @@ type RegistrationItem = {
   participationStatus: ParticipationStatus;
   attendanceRsvpStatus?: AttendanceRsvpStatus;
   attendanceRsvpAt?: string | null;
+  confirmationEmailSentAt?: string | null;
+  confirmationRounds?: ConfirmationRound[] | null;
   createdAt: string;
   participationTimestamp?: string;
   waitlistEmailStatus?: string | null;
@@ -275,13 +296,6 @@ function buildRegistrationDetailFields(row: RegistrationItem): DetailField[] {
   if (row.participationTimestamp) {
     fields.push({ label: "Attended on", value: formatDate(row.participationTimestamp) });
   }
-  fields.push({
-    label: "RSVP status",
-    value: `${attendanceRsvpLabel(getAttendanceRsvpStatus(row))}${
-      row.attendanceRsvpAt ? ` · ${formatDate(row.attendanceRsvpAt)}` : ""
-    }`,
-  });
-
   return fields;
 }
 
@@ -450,6 +464,49 @@ function registrationCsvColumns(): CsvColumn[] {
       header: "Status",
       value: (r) =>
         (r.participationStatus || "registered") === "attended" ? "Attended" : "Registered",
+    },
+    // Reconfirm — round 1. The status column is always present so the final guest
+    // list shows it even before anyone has responded.
+    {
+      header: "Reconfirm",
+      value: (r) => confirmationStatusLabel(getRound(r, FIRST_ROUND).status),
+    },
+    {
+      header: "Reconfirmed On",
+      value: (r) => dateCsv(r.attendanceRsvpAt),
+      hasData: (r) => Boolean(r.attendanceRsvpAt),
+    },
+    {
+      header: "Reconfirm Email Sent",
+      value: (r) => dateCsv(r.confirmationEmailSentAt),
+      hasData: (r) => Boolean(r.confirmationEmailSentAt),
+    },
+    // Reconfirm 2 — shown once a second round has been sent.
+    {
+      header: "Reconfirm 2",
+      value: (r) => confirmationStatusLabel(getRound(r, SECONDARY_ROUND).status),
+      hasData: (r) => Boolean(getRound(r, SECONDARY_ROUND).emailSentAt),
+    },
+    {
+      header: "Reconfirm 2 On",
+      value: (r) => dateCsv(getRound(r, SECONDARY_ROUND).respondedAt as string | null),
+      hasData: (r) => Boolean(getRound(r, SECONDARY_ROUND).respondedAt),
+    },
+    {
+      header: "Reconfirm 2 Email Sent",
+      value: (r) => dateCsv(getRound(r, SECONDARY_ROUND).emailSentAt as string | null),
+      hasData: (r) => Boolean(getRound(r, SECONDARY_ROUND).emailSentAt),
+    },
+    {
+      header: "Latest Confirmation",
+      value: (r) => confirmationStatusLabel(getEffectiveConfirmation(r).status),
+      hasData: (r) => Boolean(getRound(r, SECONDARY_ROUND).emailSentAt),
+    },
+    // The whole history in one cell, so a single row tells the full story.
+    {
+      header: "Confirmation History",
+      value: (r) => formatConfirmationTimeline(r, (v) => dateCsv(v)),
+      hasData: (r) => buildConfirmationTimeline(r).length > 0,
     },
     { header: "Registered On", value: (r) => dateCsv(r.createdAt) },
   ];
@@ -823,6 +880,7 @@ export function RegisteredClientSection({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [rsvpFilter, setRsvpFilter] = useState<RsvpFilter>("all");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+  const [secondaryFilter, setSecondaryFilter] = useState<SecondaryFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
 
   function fetchRegistrations() {
@@ -866,9 +924,10 @@ export function RegisteredClientSection({
           matchesSearch(row, searchQuery) &&
           matchesStatusFilter(row, statusFilter) &&
           matchesRsvpFilter(row, rsvpFilter) &&
-          matchesSourceFilter(row, sourceFilter)
+          matchesSourceFilter(row, sourceFilter) &&
+          matchesSecondaryFilter(row, secondaryFilter)
       ),
-    [registrations, searchQuery, statusFilter, rsvpFilter, sourceFilter]
+    [registrations, searchQuery, statusFilter, rsvpFilter, sourceFilter, secondaryFilter]
   );
 
   const totalPages = Math.max(1, Math.ceil(filteredRegistrations.length / PAGE_SIZE));
@@ -888,13 +947,24 @@ export function RegisteredClientSection({
       rsvpDeclined: registrations.filter((r) => getAttendanceRsvpStatus(r) === "declined").length,
       manual: registeredClients.filter((r) => getRegistrationSource(r) === "manual").length,
       online: registeredClients.filter((r) => getRegistrationSource(r) === "online").length,
+      sec2Sent: registeredClients.filter((r) => getRound(r, SECONDARY_ROUND).emailSentAt).length,
+      sec2Confirmed: registeredClients.filter(
+        (r) => getRound(r, SECONDARY_ROUND).status === "reconfirmed"
+      ).length,
+      sec2Declined: registeredClients.filter(
+        (r) => getRound(r, SECONDARY_ROUND).status === "declined"
+      ).length,
+      sec2Pending: registeredClients.filter((r) => {
+        const x = getRound(r, SECONDARY_ROUND);
+        return Boolean(x.emailSentAt) && x.status === "pending";
+      }).length,
     }),
     [registrations, registeredClients]
   );
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, rsvpFilter, sourceFilter]);
+  }, [searchQuery, statusFilter, rsvpFilter, sourceFilter, secondaryFilter]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -1035,7 +1105,7 @@ export function RegisteredClientSection({
 
                 <FilterSelect
                   id="registrations-rsvp-filter"
-                  label="RSVP"
+                  label="Reconfirm"
                   value={rsvpFilter}
                   onChange={(value) => setRsvpFilter(value as RsvpFilter)}
                 >
@@ -1043,6 +1113,19 @@ export function RegisteredClientSection({
                   <option value="pending">Pending ({statusCounts.rsvpPending})</option>
                   <option value="reconfirmed">Reconfirmed ({statusCounts.rsvpReconfirmed})</option>
                   <option value="declined">Not Able to Attend ({statusCounts.rsvpDeclined})</option>
+                </FilterSelect>
+
+                <FilterSelect
+                  id="secondary-filter"
+                  label="Reconfirm 2"
+                  value={secondaryFilter}
+                  onChange={(value) => setSecondaryFilter(value as SecondaryFilter)}
+                >
+                  <option value="all">All</option>
+                  <option value="reconfirmed">Confirmed ({statusCounts.sec2Confirmed})</option>
+                  <option value="declined">Not Attending ({statusCounts.sec2Declined})</option>
+                  <option value="pending">Awaiting response ({statusCounts.sec2Pending})</option>
+                  <option value="notsent">Not sent yet</option>
                 </FilterSelect>
 
                 <FilterSelect
@@ -1104,15 +1187,7 @@ export function RegisteredClientSection({
                             <span>
                               {r.firstName} {r.surname}
                             </span>
-                            {getAttendanceRsvpStatus(r) !== "pending" ? (
-                              <span
-                                className={`rounded-full px-2 py-0.5 text-xs font-medium ${attendanceRsvpBadgeClass(
-                                  getAttendanceRsvpStatus(r)
-                                )}`}
-                              >
-                                {attendanceRsvpLabel(getAttendanceRsvpStatus(r))}
-                              </span>
-                            ) : null}
+                            <ConfirmationHistoryChips registration={r} emptyLabel="" />
                           </div>
                         </td>
                         <td className="px-3 py-3 text-zinc-700 sm:px-4">{r.email}</td>
@@ -1179,6 +1254,16 @@ export function RegisteredClientSection({
                                 ) : null}
                               </div>
                               <RegistrationDetailGrid row={r} />
+
+                              <div className="mt-6 border-t border-zinc-200 pt-4">
+                                <h4 className="mb-1 text-sm font-semibold text-zinc-700">
+                                  Confirmation history
+                                </h4>
+                                <p className="mb-3 text-xs text-zinc-500">
+                                  Every confirmation round this attendee has been asked, oldest first.
+                                </p>
+                                <ConfirmationHistoryTimeline registration={r} />
+                              </div>
 
                               <div className="mt-6 border-t border-zinc-200 pt-4">
                                 <h4 className="mb-1 text-sm font-semibold text-zinc-700">

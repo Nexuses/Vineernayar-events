@@ -11,6 +11,13 @@ import {
   type WhatsAppSequenceStatus,
 } from "../whatsapp-sequence";
 import type { AttendeeCategory } from "../attendee-category";
+import {
+  FIRST_ROUND,
+  type ConfirmationRound,
+  type ConfirmationRoundStatus,
+} from "../confirmation-rounds";
+
+export type { ConfirmationRound, ConfirmationRoundStatus };
 
 export type { AttendeeCategory };
 
@@ -90,6 +97,17 @@ export interface RegistrationDoc {
   waitlistWhatsAppError?: string;
   /** Set when this registration receives an admin email blast */
   lastEmailBlastAt?: Date;
+  /**
+   * When the round-1 re-confirmation email was last sent to this attendee.
+   * Rounds 2 and above are tracked in confirmationRounds.
+   */
+  confirmationEmailSentAt?: Date;
+  /**
+   * Confirmation rounds beyond the first (Reconfirm 2 onwards). Round 1
+   * remains in attendanceRsvpStatus / attendanceRsvpAt / confirmationEmailSentAt
+   * for backward compatibility; read through lib/confirmation-rounds helpers.
+   */
+  confirmationRounds?: ConfirmationRound[];
   createdAt: Date;
 }
 
@@ -225,6 +243,137 @@ export type EditableRegistrationFields = Partial<
     | "venue"
   >
 >;
+
+/**
+ * Copy an event's current details onto every registration for that event.
+ *
+ * Registrations denormalize the event name/date/time/venue at creation time, so
+ * rescheduling an event would otherwise leave existing registrations (and their
+ * passes and email scheduling) pinned to the old date. Called whenever an event
+ * update changes one of these fields.
+ *
+ * Returns the number of registrations updated.
+ */
+export async function syncEventDetailsToRegistrations(
+  eventId: string,
+  details: {
+    eventName?: string;
+    eventStartDate?: Date;
+    eventEndDate?: Date;
+    eventTime?: string;
+    venue?: string;
+  }
+): Promise<number> {
+  const col = await getRegistrationsCollection();
+
+  const set: Record<string, unknown> = {};
+  const unset: Record<string, ""> = {};
+  if (details.eventName !== undefined) set.eventName = details.eventName;
+  if (details.eventStartDate !== undefined) set.eventStartDate = details.eventStartDate;
+  if (details.eventEndDate !== undefined) set.eventEndDate = details.eventEndDate;
+  if (details.venue !== undefined) set.venue = details.venue;
+  if (details.eventTime !== undefined) {
+    if (details.eventTime) set.eventTime = details.eventTime;
+    else unset.eventTime = "";
+  }
+
+  const ops: Record<string, unknown> = {};
+  if (Object.keys(set).length > 0) ops.$set = set;
+  if (Object.keys(unset).length > 0) ops.$unset = unset;
+  if (Object.keys(ops).length === 0) return 0;
+
+  const result = await col.updateMany({ eventId }, ops);
+  return result.modifiedCount;
+}
+
+/**
+ * Record that the confirmation email for a round was sent.
+ * Round 1 keeps using the legacy field; later rounds go in confirmationRounds.
+ */
+export async function markConfirmationEmailSent(
+  id: ObjectId,
+  round: number
+): Promise<void> {
+  const col = await getRegistrationsCollection();
+  const now = new Date();
+
+  if (round === FIRST_ROUND) {
+    await col.updateOne({ _id: id }, { $set: { confirmationEmailSentAt: now } });
+    return;
+  }
+
+  // Update the round in place when present, otherwise append it.
+  const updated = await col.updateOne(
+    { _id: id, "confirmationRounds.round": round },
+    { $set: { "confirmationRounds.$.emailSentAt": now } }
+  );
+  if (updated.matchedCount === 0) {
+    await col.updateOne(
+      { _id: id },
+      { $push: { confirmationRounds: { round, status: "pending", emailSentAt: now } } }
+    );
+  }
+}
+
+/** Record an attendee's answer for a round. */
+export async function setConfirmationRoundStatus(
+  id: string,
+  round: number,
+  status: ConfirmationRoundStatus
+): Promise<boolean> {
+  const col = await getRegistrationsCollection();
+  if (!ObjectId.isValid(id)) return false;
+  const _id = new ObjectId(id);
+  const now = new Date();
+
+  if (round === FIRST_ROUND) {
+    const r = await col.updateOne(
+      { _id },
+      { $set: { attendanceRsvpStatus: status, attendanceRsvpAt: now } }
+    );
+    return r.matchedCount > 0;
+  }
+
+  const updated = await col.updateOne(
+    { _id, "confirmationRounds.round": round },
+    { $set: { "confirmationRounds.$.status": status, "confirmationRounds.$.respondedAt": now } }
+  );
+  if (updated.matchedCount > 0) return true;
+
+  const pushed = await col.updateOne(
+    { _id },
+    { $push: { confirmationRounds: { round, status, respondedAt: now } } }
+  );
+  return pushed.matchedCount > 0;
+}
+
+/** The date-driven emails: the two reminders and the post-event thank you. */
+const DATE_BASED_SEQUENCE_KEYS: EmailSequenceKey[] = ["seq2", "seq3", "seq4"];
+
+/**
+ * Re-arm the date-driven emails for an event after it has been rescheduled.
+ *
+ * The reminders and thank-you are scheduled relative to the event date, so once
+ * the date moves, any that already went out for the old date are reset to
+ * pending and will fire again at the correct time relative to the new date.
+ * Nothing is sent here — this only re-arms the schedule.
+ *
+ * The registration confirmation (seq1) is deliberately untouched: it confirms a
+ * registration rather than announcing a date.
+ *
+ * Returns the number of registrations re-armed.
+ */
+export async function reArmDateBasedSequencesForEvent(eventId: string): Promise<number> {
+  const col = await getRegistrationsCollection();
+  const set: Record<string, unknown> = {};
+  for (const key of DATE_BASED_SEQUENCE_KEYS) {
+    // Reset both channels so their reported status matches what will be sent.
+    set[`emailSequence.${key}`] = { status: "pending" };
+    set[`whatsappSequence.${key}`] = { status: "pending" };
+  }
+  const result = await col.updateMany({ eventId }, { $set: set });
+  return result.modifiedCount;
+}
 
 /**
  * Update the editable contact/profile fields of a registration.

@@ -9,6 +9,10 @@ import {
   type RegistrationWindowStatus,
 } from "../registration-window";
 import type { EventAgendaItem } from "../event-agenda";
+import {
+  syncEventDetailsToRegistrations,
+  reArmDateBasedSequencesForEvent,
+} from "./Registration";
 
 /** Which automated emails are turned on for an event (seq1..seq4). */
 export type EventEmailsEnabled = {
@@ -382,10 +386,63 @@ export async function updateEvent(
   const updateOps: Record<string, unknown> = {};
   if (Object.keys(update).length > 0) updateOps.$set = update;
   if (Object.keys(unset).length > 0) updateOps.$unset = unset;
+
+  // Capture the dates before the write so a genuine reschedule can be detected.
+  const previous = await col.findOne({ _id: new ObjectId(id) });
+
   const result = await col.findOneAndUpdate(
     { _id: new ObjectId(id) },
     updateOps,
     { returnDocument: "after" }
   );
-  return result ?? null;
+  if (!result) return null;
+
+  // Registrations denormalize the event name/date/time/venue. Keep them in sync
+  // so an existing attendee's pass, emails and email scheduling follow the
+  // event when it is renamed, moved or rescheduled.
+  const touchesDenormalized =
+    data.eventName !== undefined ||
+    data.eventStartDate !== undefined ||
+    data.eventEndDate !== undefined ||
+    data.eventTime !== undefined ||
+    data.venue !== undefined;
+
+  if (touchesDenormalized) {
+    try {
+      await syncEventDetailsToRegistrations(result.eventId, {
+        ...(data.eventName !== undefined && { eventName: result.eventName }),
+        ...(data.eventStartDate !== undefined && { eventStartDate: result.eventStartDate }),
+        ...(data.eventEndDate !== undefined && { eventEndDate: result.eventEndDate }),
+        ...(data.eventTime !== undefined && { eventTime: result.eventTime ?? "" }),
+        ...(data.venue !== undefined && { venue: result.venue }),
+      });
+    } catch (err) {
+      // The event itself is saved; a sync failure must not fail the update.
+      console.error("Failed to sync event details to registrations:", err);
+    }
+  }
+
+  // A genuine reschedule re-arms the date-driven emails so the reminders and
+  // thank-you fire relative to the new date. Nothing is sent here.
+  if (previous && eventDatesChanged(previous, result)) {
+    try {
+      await reArmDateBasedSequencesForEvent(result.eventId);
+    } catch (err) {
+      console.error("Failed to re-arm date-based emails after reschedule:", err);
+    }
+  }
+
+  return result;
+}
+
+/** True when the event's start or end instant actually moved. */
+export function eventDatesChanged(
+  before: Pick<EventDoc, "eventStartDate" | "eventEndDate">,
+  after: Pick<EventDoc, "eventStartDate" | "eventEndDate">
+): boolean {
+  const ms = (v: Date | string | undefined) => (v ? new Date(v).getTime() : NaN);
+  return (
+    ms(before.eventStartDate) !== ms(after.eventStartDate) ||
+    ms(before.eventEndDate) !== ms(after.eventEndDate)
+  );
 }

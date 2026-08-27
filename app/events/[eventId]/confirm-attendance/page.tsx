@@ -17,10 +17,10 @@ export default async function ConfirmAttendancePage({
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ code?: string; intent?: string }>;
+  searchParams: Promise<{ code?: string; intent?: string; round?: string }>;
 }) {
   const { eventId: param } = await params;
-  const { code = "", intent: intentRaw } = await searchParams;
+  const { code = "", intent: intentRaw, round: roundRaw } = await searchParams;
   const intent = parseIntent(intentRaw);
 
   const event = await getPublishedEventByParam(param);
@@ -31,6 +31,7 @@ export default async function ConfirmAttendancePage({
     const qs = new URLSearchParams();
     if (code) qs.set("code", code);
     if (intentRaw) qs.set("intent", intentRaw);
+    if (roundRaw) qs.set("round", roundRaw);
     const query = qs.toString();
     redirect(query ? `${canonicalPath}?${query}` : canonicalPath);
   }
@@ -50,7 +51,12 @@ export default async function ConfirmAttendancePage({
 
   return (
     <div className="mx-auto max-w-lg px-4 py-10 sm:py-14">
-      <ConfirmAttendanceForm eventId={slug} code={code.trim()} intent={intent} />
+      <ConfirmAttendanceForm
+        eventId={slug}
+        code={code.trim()}
+        intent={intent}
+        round={Number(roundRaw) || 1}
+      />
     </div>
   );
 }

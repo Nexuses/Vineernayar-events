@@ -61,6 +61,9 @@ export default function EditEventPage() {
   const [showPassQr, setShowPassQr] = useState(true);
   const [attachPassToConfirmation, setAttachPassToConfirmation] = useState(true);
   const [emailsEnabled, setEmailsEnabled] = useState<EmailsEnabled>(DEFAULT_EMAILS_ENABLED);
+  // Original date, so the reschedule-notice option only appears on a real change.
+  const [originalEventDate, setOriginalEventDate] = useState("");
+  const [notifyReschedule, setNotifyReschedule] = useState(false);
   const [hideDateTime, setHideDateTime] = useState(false);
   const [seatLimit, setSeatLimit] = useState("");
   const [eventBannerUrl, setEventBannerUrl] = useState("");
@@ -86,6 +89,7 @@ export default function EditEventPage() {
         setDescription(data.description ?? "");
         setAgenda(Array.isArray(data.agenda) ? data.agenda : []);
         setEventDate(toEventDateInput(data.eventStartDate));
+        setOriginalEventDate(toEventDateInput(data.eventStartDate));
         setEventTime(
           data.eventTime?.trim() ||
             getEventTimeDisplay({
@@ -149,6 +153,7 @@ export default function EditEventPage() {
         formData.set("showPassQr", showPassQr ? "true" : "false");
         formData.set("attachPassToConfirmation", attachPassToConfirmation ? "true" : "false");
         formData.set("emailsEnabled", JSON.stringify(emailsEnabled));
+        formData.set("notifyReschedule", notifyReschedule ? "true" : "false");
         formData.set("hideDateTime", hideDateTime ? "true" : "false");
         formData.set("seatLimit", seatLimit.trim());
         formData.set("bannerFile", bannerFile);
@@ -175,6 +180,7 @@ export default function EditEventPage() {
             showPassQr,
             attachPassToConfirmation,
             emailsEnabled,
+            notifyReschedule,
             hideDateTime,
             seatLimit: seatLimitValue,
           }),
@@ -186,8 +192,22 @@ export default function EditEventPage() {
         setError(data.error || "Failed to update event");
         return;
       }
-      setSuccess("Event updated.");
+      if (data.rescheduled) {
+        const notice = data.rescheduleNotice;
+        setSuccess(
+          "Event updated. Registered attendees were moved to the new date and their reminders re-armed for it." +
+            (notice
+              ? ` Notified ${notice.sent} attendee${notice.sent === 1 ? "" : "s"}${
+                  notice.failed ? `, ${notice.failed} failed` : ""
+                }.`
+              : " No notification was sent.")
+        );
+      } else {
+        setSuccess("Event updated.");
+      }
       setEvent(data);
+      setOriginalEventDate(toEventDateInput(data.eventStartDate));
+      setNotifyReschedule(false);
       setSlug(data.slug ?? "");
       setEventBannerUrl(data.eventBanner ?? "");
       setDescription(data.description ?? "");
@@ -459,6 +479,28 @@ export default function EditEventPage() {
           <div className="sm:col-span-2">
             <EventEmailToggles value={emailsEnabled} onChange={setEmailsEnabled} />
           </div>
+
+          {eventDate && originalEventDate && eventDate !== originalEventDate ? (
+            <div className="sm:col-span-2 rounded-md border border-amber-200 bg-amber-50 p-3">
+              <p className="text-sm font-medium text-amber-900">
+                You are changing the event date.
+              </p>
+              <p className="mt-1 text-xs text-amber-800">
+                Everyone already registered will be moved to the new date automatically, and their
+                reminders and thank-you email will be re-scheduled for it. No email is sent unless
+                you tick the box below.
+              </p>
+              <label className="mt-2 flex items-start gap-2 text-sm text-amber-900">
+                <input
+                  type="checkbox"
+                  checked={notifyReschedule}
+                  onChange={(e) => setNotifyReschedule(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-700 focus:ring-amber-500"
+                />
+                <span>Email registered attendees to tell them about the new date</span>
+              </label>
+            </div>
+          ) : null}
           <div className="flex items-end gap-3">
             <button type="submit" disabled={loading}
               className="rounded-md bg-zinc-900 px-6 py-2.5 font-medium text-white hover:bg-zinc-800 disabled:opacity-50">

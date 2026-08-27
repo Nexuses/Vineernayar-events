@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { JOIN_CITIES } from "@/lib/join-cities";
+import { buildJoinCities } from "@/lib/join-cities";
 
 type JoinMovementModalProps = {
   open: boolean;
@@ -12,6 +12,25 @@ export function JoinMovementModal({ open, onClose }: JoinMovementModalProps) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+  // Cities come from the published events on the platform, not a hardcoded
+  // list. `null` means "not loaded yet".
+  const [cities, setCities] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    fetch("/api/events")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => {
+        if (active) setCities(Array.isArray(data) ? buildJoinCities(data) : []);
+      })
+      .catch(() => {
+        if (active) setCities([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [open]);
 
   const reset = useCallback(() => {
     setLoading(false);
@@ -178,9 +197,13 @@ export function JoinMovementModal({ open, onClose }: JoinMovementModalProps) {
                   className="w-full appearance-none rounded-xl border-0 bg-zinc-100 px-4 py-3.5 text-[15px] text-zinc-900 outline-none ring-1 ring-transparent focus:ring-brand-500"
                 >
                   <option value="" disabled>
-                    Choose a city
+                    {cities === null
+                      ? "Loading cities…"
+                      : cities.length === 0
+                        ? "No cities available yet"
+                        : "Choose a city"}
                   </option>
-                  {JOIN_CITIES.map((city) => (
+                  {(cities ?? []).map((city) => (
                     <option key={city} value={city}>
                       {city}
                     </option>

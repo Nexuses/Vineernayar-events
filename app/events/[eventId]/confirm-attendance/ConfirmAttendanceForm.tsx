@@ -5,6 +5,9 @@ import type { AttendanceRsvpIntent } from "@/lib/attendance-rsvp";
 
 type LoadedState = {
   eventName: string;
+  eventDate: string;
+  eventTime: string;
+  venue: string;
   firstName: string;
   email: string;
   attendanceRsvpStatus: "pending" | "reconfirmed" | "declined";
@@ -14,10 +17,12 @@ export function ConfirmAttendanceForm({
   eventId,
   code,
   intent,
+  round = 1,
 }: {
   eventId: string;
   code: string;
   intent: AttendanceRsvpIntent;
+  round?: number;
 }) {
   const [loaded, setLoaded] = useState<LoadedState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,7 +36,7 @@ export function ConfirmAttendanceForm({
       setLoading(true);
       setError("");
       try {
-        const params = new URLSearchParams({ code, intent });
+        const params = new URLSearchParams({ code, intent, round: String(round) });
         const res = await fetch(`/api/events/${eventId}/confirm-attendance?${params.toString()}`);
         const data = await res.json();
         if (!res.ok) {
@@ -41,6 +46,9 @@ export function ConfirmAttendanceForm({
         if (!cancelled) {
           setLoaded({
             eventName: data.eventName,
+            eventDate: data.eventDate ?? "",
+            eventTime: data.eventTime ?? "",
+            venue: data.venue ?? "",
             firstName: data.firstName,
             email: data.email,
             attendanceRsvpStatus: data.attendanceRsvpStatus ?? "pending",
@@ -62,7 +70,7 @@ export function ConfirmAttendanceForm({
     return () => {
       cancelled = true;
     };
-  }, [eventId, code, intent]);
+  }, [eventId, code, intent, round]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -77,6 +85,7 @@ export function ConfirmAttendanceForm({
           code,
           email: loaded.email,
           intent,
+          round,
         }),
       });
       const data = await res.json();
@@ -94,7 +103,7 @@ export function ConfirmAttendanceForm({
 
   const attending = intent === "attending";
   const title = attending ? "Confirm your attendance" : "Update your attendance";
-  const buttonLabel = attending ? "Yes, I am attending" : "I can no longer attend";
+  const buttonLabel = attending ? "Yes, I'll be attending" : "No, I won't attend";
   const successTitle = attending
     ? "Thank you for confirming"
     : "Your response has been recorded";
@@ -134,9 +143,28 @@ export function ConfirmAttendanceForm({
         </p>
       </div>
 
-      <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-700">
-        <p className="font-medium text-zinc-900">{loaded.eventName}</p>
-        <p className="mt-1">Hi {loaded.firstName},</p>
+      <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-4">
+        <p className="text-base font-semibold text-zinc-900">{loaded.eventName}</p>
+        <dl className="mt-3 space-y-1.5 text-sm">
+          {loaded.eventDate ? (
+            <div className="flex gap-2">
+              <dt className="w-14 shrink-0 text-zinc-500">Date</dt>
+              <dd className="font-medium text-zinc-900">{loaded.eventDate}</dd>
+            </div>
+          ) : null}
+          {loaded.eventTime ? (
+            <div className="flex gap-2">
+              <dt className="w-14 shrink-0 text-zinc-500">Time</dt>
+              <dd className="font-medium text-zinc-900">{loaded.eventTime}</dd>
+            </div>
+          ) : null}
+          {loaded.venue ? (
+            <div className="flex gap-2">
+              <dt className="w-14 shrink-0 text-zinc-500">Venue</dt>
+              <dd className="font-medium text-zinc-900">{loaded.venue}</dd>
+            </div>
+          ) : null}
+        </dl>
       </div>
 
       {error ? (
