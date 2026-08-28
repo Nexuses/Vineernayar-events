@@ -28,7 +28,13 @@ type Attendee = {
 
 type UploadIssue = { row: number; name: string; error: string };
 
-type NewContact = { row: number; name: string; email: string };
+type NewContact = {
+  row: number;
+  name: string;
+  email: string;
+  /** Other events this email is already registered for, if any. */
+  otherEvents?: string[];
+};
 
 type PreviewResult = {
   total: number;
@@ -101,6 +107,8 @@ export function ReconfirmSection({
 }) {
   const roundLabel = getRoundLabel(round);
   const [selectedEventId, setSelectedEventId] = useState("");
+  const selectedEventLabel =
+    events.find((e) => e.eventId === selectedEventId)?.dropdownLabel ?? "this event";
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -369,23 +377,32 @@ export function ReconfirmSection({
             <div className="border-b border-zinc-200 px-5 py-4">
               <h3 id="new-contacts-title" className="text-base font-semibold text-zinc-900">
                 {preview.willRegister === 1
-                  ? "1 contact is showing up for the first time"
-                  : `${preview.willRegister} contacts are showing up for the first time`}
+                  ? "1 contact is not registered for this event"
+                  : `${preview.willRegister} contacts are not registered for this event`}
               </h3>
               <p className="mt-1 text-sm text-zinc-600">
-                {preview.willRegister === 1 ? "This contact is" : "These contacts are"} not
-                registered for this event yet. Are you sure you want to send{" "}
-                {preview.willRegister === 1 ? "them" : "them"} a confirmation email and
-                auto-register {preview.willRegister === 1 ? "them" : "them"}?
+                Matching is per event, so someone already registered for another
+                city still counts as new here. Send{" "}
+                {preview.willRegister === 1 ? "this contact" : "these contacts"} a
+                confirmation email and auto-register{" "}
+                {preview.willRegister === 1 ? "them" : "them"} for{" "}
+                <span className="font-medium text-zinc-800">{selectedEventLabel}</span>?
               </p>
             </div>
 
             <div className="max-h-56 overflow-y-auto px-5 py-3">
               <ul className="divide-y divide-zinc-100 text-sm">
                 {preview.newContacts.map((c) => (
-                  <li key={`${c.row}-${c.email}`} className="flex justify-between gap-3 py-1.5">
-                    <span className="font-medium text-zinc-900">{c.name}</span>
-                    <span className="truncate text-zinc-500">{c.email}</span>
+                  <li key={`${c.row}-${c.email}`} className="py-1.5">
+                    <div className="flex justify-between gap-3">
+                      <span className="font-medium text-zinc-900">{c.name}</span>
+                      <span className="truncate text-zinc-500">{c.email}</span>
+                    </div>
+                    {c.otherEvents && c.otherEvents.length > 0 ? (
+                      <p className="mt-0.5 text-xs text-amber-700">
+                        Already registered for {c.otherEvents.join(", ")} — but not this event.
+                      </p>
+                    ) : null}
                   </li>
                 ))}
               </ul>
