@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getEventByEventId } from "@/lib/models/Event";
 import {
   createRegistration,
+  findOtherEventRegistrationsByEmail,
   findRegistrationByEventAndEmail,
   markConfirmationEmailSent,
   type RegistrationDoc,
@@ -156,6 +157,11 @@ export async function POST(request: Request) {
     const newContacts = valid.filter((r) => !r.existing);
 
     if (dryRun) {
+      const shownNew = newContacts.slice(0, 100);
+      const otherEvents = await findOtherEventRegistrationsByEmail(
+        shownNew.map((r) => r.email),
+        eventId
+      );
       return NextResponse.json({
         ok: true,
         dryRun: true,
@@ -164,10 +170,13 @@ export async function POST(request: Request) {
         alreadyRegistered: valid.length - newContacts.length,
         failed: issues.length,
         // Enough to show the admin exactly who is new before anything is sent.
-        newContacts: newContacts.slice(0, 100).map((r) => ({
+        newContacts: shownNew.map((r) => ({
           row: r.rowNumber,
           name: r.name,
           email: r.email,
+          // "New" means new to THIS event. Someone already registered for
+          // another city reads as familiar, so name those events explicitly.
+          otherEvents: otherEvents.get(r.email) ?? [],
         })),
         truncatedNewContacts: Math.max(0, newContacts.length - 100),
         issues: issues.slice(0, 50),

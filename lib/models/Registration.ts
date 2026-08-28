@@ -198,6 +198,40 @@ export async function findRegistrationByEventAndEmail(
   return col.findOne({ eventId, email: email.trim().toLowerCase() });
 }
 
+/**
+ * Where else these emails are registered, keyed by email.
+ *
+ * The upload matches per event, so a contact who is registered for Delhi is
+ * genuinely new to Bengaluru. Admins read "new" as "not in the system at all",
+ * so the upload preview uses this to say which other events they are already in.
+ */
+export async function findOtherEventRegistrationsByEmail(
+  emails: string[],
+  excludeEventId: string
+): Promise<Map<string, string[]>> {
+  const byEmail = new Map<string, string[]>();
+  if (emails.length === 0) return byEmail;
+
+  const col = await getRegistrationsCollection();
+  const normalized = emails.map((e) => e.trim().toLowerCase());
+  const docs = await col
+    .find({ email: { $in: normalized }, eventId: { $ne: excludeEventId } })
+    .project<{ email: string; eventName?: string; eventId: string }>({
+      email: 1,
+      eventName: 1,
+      eventId: 1,
+    })
+    .toArray();
+
+  for (const d of docs) {
+    const label = d.eventName?.trim() || d.eventId;
+    const list = byEmail.get(d.email) ?? [];
+    if (!list.includes(label)) list.push(label);
+    byEmail.set(d.email, list);
+  }
+  return byEmail;
+}
+
 export async function findActiveRegistrationByEventAndMobile(
   eventId: string,
   mobileNumber: string
