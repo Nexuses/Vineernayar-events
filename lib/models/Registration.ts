@@ -13,6 +13,8 @@ import {
 import type { AttendeeCategory } from "../attendee-category";
 import {
   FIRST_ROUND,
+  legacyActivityForRound,
+  type ConfirmationActivity,
   type ConfirmationRound,
   type ConfirmationRoundStatus,
 } from "../confirmation-rounds";
@@ -108,6 +110,11 @@ export interface RegistrationDoc {
    * for backward compatibility; read through lib/confirmation-rounds helpers.
    */
   confirmationRounds?: ConfirmationRound[];
+  /**
+   * Append-only record of every confirmation email sent and every response
+   * button clicked. The summary fields above keep only the latest of each.
+   */
+  confirmationActivity?: ConfirmationActivity[];
   createdAt: Date;
 }
 
@@ -320,63 +327,117 @@ export async function syncEventDetailsToRegistrations(
   return result.modifiedCount;
 }
 
+/** Which event an activity entry belongs to, captured at the moment it happens. */
+export type ActivityEventRef = { eventId: string; eventLabel: string };
+
+/**
+ * Before the first logged entry for a round, copy that round's existing summary
+ * values into the log. Otherwise the update that follows would overwrite the
+ * only record of the earlier send or answer. Guarded so it runs at most once
+ * per round, even if two writes race.
+ */
+async function seedLegacyActivity(id: ObjectId, round: number): Promise<void> {
+  const col = await getRegistrationsCollection();
+  const reg = await col.findOne({ _id: id });
+  if (!reg) return;
+  if ((reg.confirmationActivity ?? []).some((a) => a.round === round)) return;
+
+  const legacy = legacyActivityForRound(reg, round);
+  if (legacy.length === 0) return;
+  await col.updateOne(
+    { _id: id, "confirmationActivity.round": { $ne: round } },
+    { $push: { confirmationActivity: { $each: legacy } } }
+  );
+}
+
 /**
  * Record that the confirmation email for a round was sent.
  * Round 1 keeps using the legacy field; later rounds go in confirmationRounds.
+ * Every send is also appended to the activity log.
  */
 export async function markConfirmationEmailSent(
   id: ObjectId,
-  round: number
+  round: number,
+  event: ActivityEventRef
 ): Promise<void> {
   const col = await getRegistrationsCollection();
   const now = new Date();
+  await seedLegacyActivity(id, round);
+
+  const activity: ConfirmationActivity = { type: "sent", round, at: now, ...event };
 
   if (round === FIRST_ROUND) {
-    await col.updateOne({ _id: id }, { $set: { confirmationEmailSentAt: now } });
+    await col.updateOne(
+      { _id: id },
+      { $set: { confirmationEmailSentAt: now }, $push: { confirmationActivity: activity } }
+    );
     return;
   }
 
   // Update the round in place when present, otherwise append it.
   const updated = await col.updateOne(
     { _id: id, "confirmationRounds.round": round },
-    { $set: { "confirmationRounds.$.emailSentAt": now } }
+    {
+      $set: { "confirmationRounds.$.emailSentAt": now },
+      $push: { confirmationActivity: activity },
+    }
   );
   if (updated.matchedCount === 0) {
     await col.updateOne(
       { _id: id },
-      { $push: { confirmationRounds: { round, status: "pending", emailSentAt: now } } }
+      {
+        $push: {
+          confirmationRounds: { round, status: "pending", emailSentAt: now },
+          confirmationActivity: activity,
+        },
+      }
     );
   }
 }
 
-/** Record an attendee's answer for a round. */
+/** Record an attendee's answer for a round, and log the click. */
 export async function setConfirmationRoundStatus(
   id: string,
   round: number,
-  status: ConfirmationRoundStatus
+  status: ConfirmationRoundStatus,
+  event: ActivityEventRef
 ): Promise<boolean> {
   const col = await getRegistrationsCollection();
   if (!ObjectId.isValid(id)) return false;
   const _id = new ObjectId(id);
   const now = new Date();
+  await seedLegacyActivity(_id, round);
+
+  const activity: ConfirmationActivity = { type: "response", round, at: now, status, ...event };
 
   if (round === FIRST_ROUND) {
     const r = await col.updateOne(
       { _id },
-      { $set: { attendanceRsvpStatus: status, attendanceRsvpAt: now } }
+      {
+        $set: { attendanceRsvpStatus: status, attendanceRsvpAt: now },
+        $push: { confirmationActivity: activity },
+      }
     );
     return r.matchedCount > 0;
   }
 
   const updated = await col.updateOne(
     { _id, "confirmationRounds.round": round },
-    { $set: { "confirmationRounds.$.status": status, "confirmationRounds.$.respondedAt": now } }
+    {
+      $set: { "confirmationRounds.$.status": status, "confirmationRounds.$.respondedAt": now },
+      $push: { confirmationActivity: activity },
+    }
   );
   if (updated.matchedCount > 0) return true;
 
   const pushed = await col.updateOne(
     { _id },
-    { $push: { confirmationRounds: { round, status, respondedAt: now } } }
+    {
+      $push: {
+        confirmationRounds: { round, status, respondedAt: now },
+        confirmationActivity: activity,
+      },
+    }
   );
   return pushed.matchedCount > 0;
 }

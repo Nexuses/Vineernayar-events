@@ -20,7 +20,15 @@ import {
   unauthorizedResponse,
 } from "@/lib/admin-access";
 import { parseCsvObjects } from "@/lib/csv-parse";
-import { FIRST_ROUND, isConfirmationRound } from "@/lib/confirmation-rounds";
+import {
+  FIRST_ROUND,
+  buildConfirmationActivity,
+  getRound,
+  getRoundLabel,
+  isConfirmationRound,
+  type ConfirmationRoundStatus,
+} from "@/lib/confirmation-rounds";
+import { formatEventDropdownLabel } from "@/lib/event-option-label";
 
 /** Guard against oversized uploads. */
 const MAX_ROWS = 2000;
@@ -37,6 +45,33 @@ type ParsedRow = {
   mobile: string;
   existing: RegistrationDoc | null;
 };
+
+type RoundSummary = {
+  round: number;
+  roundLabel: string;
+  sentAt: string[];
+  status: ConfirmationRoundStatus;
+  respondedAt: string | null;
+};
+
+/** Every round this registration has been sent, with its sends and answer. */
+function summarizeRounds(reg: RegistrationDoc): RoundSummary[] {
+  const activity = buildConfirmationActivity(reg);
+  const rounds = [...new Set(activity.filter((e) => e.round > 0).map((e) => e.round))].sort(
+    (a, b) => a - b
+  );
+  return rounds.map((round) => {
+    const r = getRound(reg, round);
+    const responses = activity.filter((e) => e.kind === "response" && e.round === round);
+    return {
+      round,
+      roundLabel: getRoundLabel(round),
+      sentAt: activity.filter((e) => e.kind === "sent" && e.round === round).map((e) => e.at),
+      status: r.status,
+      respondedAt: responses[responses.length - 1]?.at ?? null,
+    };
+  });
+}
 
 /**
  * Read the file and work out, per row, whether the contact is already
@@ -112,6 +147,8 @@ export async function POST(request: Request) {
     const csvText = typeof body?.csv === "string" ? body.csv : "";
     // A dry run reports what would happen without registering or emailing.
     const dryRun = body?.dryRun === true;
+    // Leave out contacts who have already been sent this round's email.
+    const skipAlreadySent = body?.skipAlreadySent === true;
     const roundRaw = Number(body?.round ?? FIRST_ROUND);
     const round = isConfirmationRound(roundRaw) ? roundRaw : FIRST_ROUND;
 
@@ -155,11 +192,16 @@ export async function POST(request: Request) {
 
     const { valid, issues } = await classifyRows(eventId, rows);
     const newContacts = valid.filter((r) => !r.existing);
+    const wasSentThisRound = (r: ParsedRow) =>
+      Boolean(r.existing && getRound(r.existing, round).emailSentAt);
+    const alreadySent = valid.filter(wasSentThisRound);
+    const eventRef = { eventId: event.eventId, eventLabel: formatEventDropdownLabel(event) };
 
     if (dryRun) {
       const shownNew = newContacts.slice(0, 100);
+      const shownSent = alreadySent.slice(0, 100);
       const otherEvents = await findOtherEventRegistrationsByEmail(
-        shownNew.map((r) => r.email),
+        [...shownNew, ...shownSent].map((r) => r.email),
         eventId
       );
       return NextResponse.json({
@@ -179,6 +221,18 @@ export async function POST(request: Request) {
           otherEvents: otherEvents.get(r.email) ?? [],
         })),
         truncatedNewContacts: Math.max(0, newContacts.length - 100),
+        sendable: valid.length,
+        // Already emailed for this round: re-uploading sends the email again.
+        alreadySent: alreadySent.length,
+        roundLabel: getRoundLabel(round),
+        alreadySentContacts: shownSent.map((r) => ({
+          row: r.rowNumber,
+          name: r.name,
+          email: r.email,
+          rounds: summarizeRounds(r.existing as RegistrationDoc),
+          otherEvents: otherEvents.get(r.email) ?? [],
+        })),
+        truncatedAlreadySent: Math.max(0, alreadySent.length - 100),
         issues: issues.slice(0, 50),
         truncatedIssues: Math.max(0, issues.length - 50),
       });
@@ -189,8 +243,13 @@ export async function POST(request: Request) {
     let alreadyRegistered = 0;
     let emailed = 0;
     let emailFailed = 0;
+    let skipped = 0;
 
     for (const row of valid) {
+      if (skipAlreadySent && wasSentThisRound(row)) {
+        skipped += 1;
+        continue;
+      }
       let reg: RegistrationDoc | null = row.existing;
 
       if (reg) {
@@ -229,7 +288,7 @@ export async function POST(request: Request) {
         await sendConfirmationEmail(event, reg, round);
         emailed += 1;
         if (reg._id) {
-          await markConfirmationEmailSent(reg._id, round);
+          await markConfirmationEmailSent(reg._id, round, eventRef);
         }
       } catch (err) {
         console.error(`Confirmation email failed for ${row.email}:`, err);
@@ -249,6 +308,7 @@ export async function POST(request: Request) {
       alreadyRegistered,
       emailed,
       emailFailed,
+      skipped,
       failed: runIssues.length,
       issues: runIssues.slice(0, 50),
       truncatedIssues: Math.max(0, runIssues.length - 50),
