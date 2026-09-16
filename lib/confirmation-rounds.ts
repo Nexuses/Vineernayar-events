@@ -15,6 +15,8 @@
  * helpers here rather than touching either directly.
  */
 
+import { formatEventDropdownLabel } from "@/lib/event-option-label";
+
 export type ConfirmationRoundStatus = "pending" | "reconfirmed" | "declined";
 
 export type ConfirmationRound = {
@@ -27,9 +29,34 @@ export type ConfirmationRound = {
 };
 
 /** Shape this module needs from a registration; keeps it client-safe. */
+/**
+ * One moment in the confirmation flow: an email going out, or an attendee
+ * clicking a response button. The log is append-only — a resend or a changed
+ * answer adds an entry rather than overwriting the earlier one.
+ */
+export type ConfirmationActivity = {
+  type: "sent" | "response";
+  round: number;
+  at: Date | string;
+  eventId: string;
+  /** The event as it read at the time, e.g. "The Human Advantage (Mumbai)". */
+  eventLabel: string;
+  /** Response entries only: the button that was clicked. */
+  status?: ConfirmationRoundStatus;
+  /**
+   * false when rebuilt from the summary fields kept before this log existed.
+   * The timestamp is genuine, but earlier sends of that round may be missing.
+   */
+  recorded?: boolean;
+};
+
 export type RoundBearingRegistration = {
   /** When the person registered — the "Confirm" entry of the timeline. */
   createdAt?: Date | string | null;
+  eventId?: string | null;
+  eventName?: string | null;
+  venue?: string | null;
+  confirmationActivity?: ConfirmationActivity[] | null;
   attendanceRsvpStatus?: ConfirmationRoundStatus | null;
   attendanceRsvpAt?: Date | string | null;
   confirmationEmailSentAt?: Date | string | null;
@@ -216,5 +243,229 @@ export function formatConfirmationTimeline(
         : e.statusLabel;
       return `${e.roundLabel}: ${answer} (${asked})`;
     })
+    .join(" | ");
+}
+
+/** Exact wording of the buttons in the confirmation email. */
+export const RESPONSE_BUTTON_LABELS: Record<Exclude<ConfirmationRoundStatus, "pending">, string> = {
+  reconfirmed: "Yes, I'll be attending",
+  declined: "No, I won't attend",
+};
+
+/**
+ * True when this answer is already on record for this round.
+ *
+ * Must compare against the round being answered: comparing against round 1
+ * silently dropped every Reconfirm 2 "Yes" from people who had already said
+ * yes to Reconfirm.
+ */
+export function isRepeatAnswer(
+  reg: RoundBearingRegistration,
+  round: number,
+  status: ConfirmationRoundStatus
+): boolean {
+  return getRound(reg, round).status === status;
+}
+
+/** The registration's event, labelled the way the admin dropdowns show it. */
+export function registrationEventLabel(reg: RoundBearingRegistration): string {
+  const name = reg.eventName?.trim();
+  if (!name) return reg.eventId ?? "";
+  return formatEventDropdownLabel({ eventName: name, venue: reg.venue ?? undefined });
+}
+
+/**
+ * Activity for one round rebuilt from the summary fields, for data recorded
+ * before the log existed. Those fields keep only the latest send, so an answer
+ * can appear to predate its email — the log is what fixes that going forward.
+ */
+export function legacyActivityForRound(
+  reg: RoundBearingRegistration,
+  round: number
+): ConfirmationActivity[] {
+  const r = getRound(reg, round);
+  const base = {
+    round,
+    eventId: reg.eventId ?? "",
+    eventLabel: registrationEventLabel(reg),
+    recorded: false,
+  };
+  const out: ConfirmationActivity[] = [];
+  if (r.emailSentAt) out.push({ ...base, type: "sent", at: r.emailSentAt });
+  if (r.respondedAt && r.status !== "pending") {
+    out.push({ ...base, type: "response", at: r.respondedAt, status: r.status });
+  }
+  return out;
+}
+
+export type ConfirmationActivityEntry = {
+  kind: "registered" | "sent" | "response";
+  at: string;
+  /** 0 for the registration entry. */
+  round: number;
+  /** "Confirm", "Reconfirm", "Reconfirm 2", … */
+  roundLabel: string;
+  eventLabel: string | null;
+  status?: ConfirmationRoundStatus;
+  /** Sent entries: 1 for the first send of this round, 2 for a resend, … */
+  sendNumber?: number;
+  /**
+   * False when pre-log data proves an earlier send happened but not how many,
+   * so the number is a minimum and should not be shown as an exact ordinal.
+   */
+  sendNumberExact?: boolean;
+  /** Response entries: when the email that was answered went out, if known. */
+  answeredEmailSentAt?: string | null;
+  /** Response entries: which send of the round was answered (1, 2, …). */
+  answeredSendNumber?: number | null;
+  answeredSendNumberExact?: boolean;
+  recorded: boolean;
+};
+
+function roundsOnRecord(reg: RoundBearingRegistration): number[] {
+  const rounds = new Set<number>();
+  if (reg.confirmationEmailSentAt || reg.attendanceRsvpAt) rounds.add(FIRST_ROUND);
+  for (const r of reg.confirmationRounds ?? []) {
+    if (r.emailSentAt || r.respondedAt) rounds.add(r.round);
+  }
+  for (const a of reg.confirmationActivity ?? []) rounds.add(a.round);
+  return [...rounds].sort((a, b) => a - b);
+}
+
+/**
+ * Every send and every click, oldest first, opening with the registration.
+ *
+ * Each click is tied to the email it came from: the latest send of the same
+ * round at or before the click. A click with no earlier send on record can
+ * only happen on pre-log data, where a later upload overwrote the send time.
+ */
+export function buildConfirmationActivity(
+  reg: RoundBearingRegistration
+): ConfirmationActivityEntry[] {
+  const log = reg.confirmationActivity ?? [];
+  const loggedRounds = new Set(log.map((a) => a.round));
+  const all: ConfirmationActivity[] = [...log];
+  for (const round of roundsOnRecord(reg)) {
+    if (!loggedRounds.has(round)) all.push(...legacyActivityForRound(reg, round));
+  }
+
+  all.sort((a, b) => {
+    const diff = new Date(a.at).getTime() - new Date(b.at).getTime();
+    if (diff !== 0) return diff;
+    return a.type === b.type ? 0 : a.type === "sent" ? -1 : 1;
+  });
+
+  const sends = new Map<number, number>();
+  const lastSend = new Map<number, { at: string; n: number; exact: boolean }>();
+  // Rounds where a click arrived with no send on record: an earlier send
+  // existed but its time was overwritten, so counts from here are minimums.
+  const unknownEarlierSend = new Set<number>();
+  const entries: ConfirmationActivityEntry[] = [];
+
+  const registeredAt = toIso(reg.createdAt);
+  if (registeredAt) {
+    entries.push({
+      kind: "registered",
+      at: registeredAt,
+      round: 0,
+      roundLabel: REGISTRATION_LABEL,
+      eventLabel: registrationEventLabel(reg) || null,
+      recorded: true,
+    });
+  }
+
+  for (const a of all) {
+    const at = toIso(a.at) as string;
+    const common = {
+      at,
+      round: a.round,
+      roundLabel: getRoundLabel(a.round),
+      eventLabel: a.eventLabel || null,
+      recorded: a.recorded !== false,
+    };
+    if (a.type === "sent") {
+      let n = (sends.get(a.round) ?? 0) + 1;
+      const exact = !unknownEarlierSend.has(a.round);
+      // A send following a click with no send on record cannot be the first.
+      if (!exact && n === 1) n = 2;
+      sends.set(a.round, n);
+      lastSend.set(a.round, { at, n, exact });
+      entries.push({ ...common, kind: "sent", sendNumber: n, sendNumberExact: exact });
+    } else {
+      const answered = lastSend.get(a.round) ?? null;
+      if (!answered) unknownEarlierSend.add(a.round);
+      entries.push({
+        ...common,
+        kind: "response",
+        status: a.status,
+        answeredEmailSentAt: answered?.at ?? null,
+        answeredSendNumber: answered?.n ?? null,
+        answeredSendNumberExact: answered?.exact ?? false,
+      });
+    }
+  }
+
+  return entries;
+}
+
+/** Send times of one round, oldest first. */
+export function getRoundSendTimes(reg: RoundBearingRegistration, round: number): string[] {
+  return buildConfirmationActivity(reg)
+    .filter((e) => e.kind === "sent" && e.round === round)
+    .map((e) => e.at);
+}
+
+/** The latest click on one round, tied to the email it came from. */
+export function getRoundLatestResponse(
+  reg: RoundBearingRegistration,
+  round: number
+): ConfirmationActivityEntry | null {
+  const responses = buildConfirmationActivity(reg).filter(
+    (e) => e.kind === "response" && e.round === round
+  );
+  return responses[responses.length - 1] ?? null;
+}
+
+function ordinal(n: number): string {
+  const tail = n % 100 >= 11 && n % 100 <= 13 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th");
+  return `${n}${tail}`;
+}
+
+/** Plain-English sentence for one activity entry — shared by the UI and CSV. */
+export function describeConfirmationActivity(
+  e: ConfirmationActivityEntry,
+  formatWhen: (value: string | null) => string
+): string {
+  const forEvent = e.eventLabel ? ` for ${e.eventLabel}` : "";
+  if (e.kind === "registered") return `Registered${forEvent}`;
+
+  if (e.kind === "sent") {
+    // Pre-log data can prove a resend happened but not how many sends there were.
+    const again =
+      (e.sendNumber ?? 1) > 1
+        ? e.sendNumberExact
+          ? ` again (${ordinal(e.sendNumber ?? 2)} send)`
+          : " again"
+        : "";
+    return `${e.roundLabel} email sent${again}${forEvent}`;
+  }
+
+  const button =
+    e.status && e.status !== "pending" ? `"${RESPONSE_BUTTON_LABELS[e.status]}"` : "a response";
+  const which = e.answeredEmailSentAt
+    ? ` — on the ${e.roundLabel} email sent ${formatWhen(e.answeredEmailSentAt)}`
+    : e.recorded
+      ? ""
+      : ` — on an earlier ${e.roundLabel} email whose send time was later overwritten`;
+  return `Clicked ${button} in the ${e.roundLabel} email${forEvent}${which}`;
+}
+
+/** The whole activity history as one line, for a CSV cell. */
+export function formatConfirmationActivity(
+  reg: RoundBearingRegistration,
+  formatWhen: (value: string | null) => string
+): string {
+  return buildConfirmationActivity(reg)
+    .map((e) => `${formatWhen(e.at)}: ${describeConfirmationActivity(e, formatWhen)}`)
     .join(" | ");
 }

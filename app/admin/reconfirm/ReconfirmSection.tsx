@@ -1,15 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { attendanceRsvpBadgeClass } from "@/lib/attendance-rsvp";
 import {
   FIRST_ROUND,
+  RESPONSE_BUTTON_LABELS,
   getRound,
   getRoundLabel,
+  getRoundLatestResponse,
+  getRoundSendTimes,
   confirmationStatusLabel,
+  type ConfirmationActivity,
   type ConfirmationRound,
+  type ConfirmationRoundStatus,
 } from "@/lib/confirmation-rounds";
-import { ConfirmationHistoryChips } from "@/app/admin/ConfirmationHistory";
+import {
+  ConfirmationHistoryChips,
+  ConfirmationHistoryTimeline,
+} from "@/app/admin/ConfirmationHistory";
 
 type EventItem = { eventId: string; eventName: string; dropdownLabel: string };
 
@@ -24,6 +32,10 @@ type Attendee = {
   attendanceRsvpStatus?: "pending" | "reconfirmed" | "declined";
   attendanceRsvpAt?: string | null;
   confirmationRounds?: ConfirmationRound[] | null;
+  confirmationActivity?: ConfirmationActivity[] | null;
+  eventId?: string | null;
+  eventName?: string | null;
+  venue?: string | null;
 };
 
 type UploadIssue = { row: number; name: string; error: string };
@@ -36,6 +48,22 @@ type NewContact = {
   otherEvents?: string[];
 };
 
+type RoundSummary = {
+  round: number;
+  roundLabel: string;
+  sentAt: string[];
+  status: ConfirmationRoundStatus;
+  respondedAt: string | null;
+};
+
+type AlreadySentContact = {
+  row: number;
+  name: string;
+  email: string;
+  rounds: RoundSummary[];
+  otherEvents: string[];
+};
+
 type PreviewResult = {
   total: number;
   willRegister: number;
@@ -43,6 +71,11 @@ type PreviewResult = {
   failed: number;
   newContacts: NewContact[];
   truncatedNewContacts: number;
+  sendable: number;
+  alreadySent: number;
+  roundLabel: string;
+  alreadySentContacts: AlreadySentContact[];
+  truncatedAlreadySent: number;
 };
 
 type UploadResult = {
@@ -51,6 +84,7 @@ type UploadResult = {
   alreadyRegistered: number;
   emailed: number;
   emailFailed: number;
+  skipped?: number;
   failed: number;
   issues: UploadIssue[];
   truncatedIssues: number;
@@ -96,6 +130,27 @@ function formatWhen(iso?: string | null): string {
   });
 }
 
+/** The latest click for a round, tied to the email it came from. */
+function ResponseCell({ response }: { response: ReturnType<typeof getRoundLatestResponse> }) {
+  if (!response) return null;
+  const status = response.status as ConfirmationRoundStatus | undefined;
+  return (
+    <div className="min-w-[13rem]">
+      <div className="whitespace-nowrap text-zinc-800">{formatWhen(response.at)}</div>
+      <div className="text-xs text-zinc-500">
+        Clicked &ldquo;{status && status !== "pending" ? RESPONSE_BUTTON_LABELS[status] : "a response"}&rdquo;
+      </div>
+      {response.answeredEmailSentAt ? (
+        <div className="text-xs text-zinc-500">
+          on the email sent {formatWhen(response.answeredEmailSentAt)}
+        </div>
+      ) : !response.recorded ? (
+        <div className="text-xs text-amber-700">on an earlier email · send time overwritten</div>
+      ) : null}
+    </div>
+  );
+}
+
 export function ReconfirmSection({
   events,
   readOnly,
@@ -118,6 +173,7 @@ export function ReconfirmSection({
   const [result, setResult] = useState<UploadResult | null>(null);
   const [attendees, setAttendees] = useState<Attendee[] | null>(null);
   const [search, setSearch] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -170,9 +226,9 @@ export function ReconfirmSection({
         return;
       }
       setPendingCsv(csv);
-      if (data.willRegister > 0) {
-        // Contacts appearing for the first time need an explicit go-ahead
-        // before they are auto-registered.
+      if (data.willRegister > 0 || data.alreadySent > 0) {
+        // New contacts, and contacts who would get this round's email a second
+        // time, both need an explicit go-ahead before anything is sent.
         setPreview(data);
       } else {
         await runUpload(csv);
@@ -185,7 +241,7 @@ export function ReconfirmSection({
   }
 
   /** Step 2 — actually register the new contacts and send the emails. */
-  async function runUpload(csv: string) {
+  async function runUpload(csv: string, skipAlreadySent = false) {
     setPreview(null);
     setError("");
     setUploading(true);
@@ -193,7 +249,7 @@ export function ReconfirmSection({
       const res = await fetch("/api/admin/reconfirm/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: selectedEventId, csv, round }),
+        body: JSON.stringify({ eventId: selectedEventId, csv, round, skipAlreadySent }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -300,6 +356,7 @@ export function ReconfirmSection({
                   {result.registered} newly registered · {result.alreadyRegistered} already
                   registered · {result.emailed} email{result.emailed === 1 ? "" : "s"} sent
                   {result.emailFailed ? ` · ${result.emailFailed} failed to send` : ""}
+                  {result.skipped ? ` · ${result.skipped} skipped (already sent)` : ""}
                 </p>
               </div>
 
@@ -373,59 +430,121 @@ export function ReconfirmSection({
           aria-modal="true"
           aria-labelledby="new-contacts-title"
         >
-          <div className="w-full max-w-lg overflow-hidden rounded-xl bg-white shadow-xl">
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-white shadow-xl">
             <div className="border-b border-zinc-200 px-5 py-4">
               <h3 id="new-contacts-title" className="text-base font-semibold text-zinc-900">
-                {preview.willRegister === 1
-                  ? "1 contact is not registered for this event"
-                  : `${preview.willRegister} contacts are not registered for this event`}
+                Check before sending
               </h3>
               <p className="mt-1 text-sm text-zinc-600">
-                Matching is per event, so someone already registered for another
-                city still counts as new here. Send{" "}
-                {preview.willRegister === 1 ? "this contact" : "these contacts"} a
-                confirmation email and auto-register{" "}
-                {preview.willRegister === 1 ? "them" : "them"} for{" "}
-                <span className="font-medium text-zinc-800">{selectedEventLabel}</span>?
+                Sending the <span className="font-medium text-zinc-800">{preview.roundLabel}</span> email
+                for <span className="font-medium text-zinc-800">{selectedEventLabel}</span>.
               </p>
             </div>
 
-            <div className="max-h-56 overflow-y-auto px-5 py-3">
-              <ul className="divide-y divide-zinc-100 text-sm">
-                {preview.newContacts.map((c) => (
-                  <li key={`${c.row}-${c.email}`} className="py-1.5">
-                    <div className="flex justify-between gap-3">
-                      <span className="font-medium text-zinc-900">{c.name}</span>
-                      <span className="truncate text-zinc-500">{c.email}</span>
-                    </div>
-                    {c.otherEvents && c.otherEvents.length > 0 ? (
-                      <p className="mt-0.5 text-xs text-amber-700">
-                        Already registered for {c.otherEvents.join(", ")} — but not this event.
-                      </p>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-              {preview.truncatedNewContacts > 0 ? (
-                <p className="pt-2 text-xs text-zinc-500">
-                  …and {preview.truncatedNewContacts} more.
-                </p>
+            <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+              {preview.alreadySent > 0 ? (
+                <section>
+                  <h4 className="text-sm font-semibold text-amber-800">
+                    {preview.alreadySent === 1
+                      ? `1 contact was already sent this ${preview.roundLabel} email`
+                      : `${preview.alreadySent} contacts were already sent this ${preview.roundLabel} email`}
+                  </h4>
+                  <p className="mt-0.5 text-xs text-zinc-600">
+                    Sending again gives them a second copy. Their earlier sends and answers stay in
+                    their history.
+                  </p>
+                  <ul className="mt-2 divide-y divide-zinc-100 rounded-md border border-amber-200 bg-amber-50/40 text-sm">
+                    {preview.alreadySentContacts.map((c) => (
+                      <li key={`sent-${c.row}-${c.email}`} className="px-3 py-2">
+                        <div className="flex justify-between gap-3">
+                          <span className="font-medium text-zinc-900">{c.name}</span>
+                          <span className="truncate text-zinc-500">{c.email}</span>
+                        </div>
+                        {c.rounds.map((r) => (
+                          <p key={r.round} className="mt-0.5 text-xs text-zinc-700">
+                            <span className="font-medium">{r.roundLabel}:</span>{" "}
+                            {r.sentAt.length > 0
+                              ? `sent ${formatWhen(r.sentAt[r.sentAt.length - 1])}${
+                                  r.sentAt.length > 1 ? ` (${r.sentAt.length} sends)` : ""
+                                }`
+                              : "not sent"}
+                            {" · "}
+                            {r.status === "pending"
+                              ? "no response yet"
+                              : `answered ${
+                                  r.status === "reconfirmed" ? "Yes" : "No"
+                                }${r.respondedAt ? ` on ${formatWhen(r.respondedAt)}` : ""}`}
+                          </p>
+                        ))}
+                        {c.otherEvents.length > 0 ? (
+                          <p className="mt-0.5 text-xs text-amber-700">
+                            Also registered for {c.otherEvents.join(", ")}.
+                          </p>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                  {preview.truncatedAlreadySent > 0 ? (
+                    <p className="pt-1 text-xs text-zinc-500">…and {preview.truncatedAlreadySent} more.</p>
+                  ) : null}
+                </section>
+              ) : null}
+
+              {preview.willRegister > 0 ? (
+                <section>
+                  <h4 className="text-sm font-semibold text-zinc-900">
+                    {preview.willRegister === 1
+                      ? "1 contact is not registered for this event"
+                      : `${preview.willRegister} contacts are not registered for this event`}
+                  </h4>
+                  <p className="mt-0.5 text-xs text-zinc-600">
+                    They will be auto-registered. Matching is per event, so someone registered for
+                    another city still counts as new here.
+                  </p>
+                  <ul className="mt-2 divide-y divide-zinc-100 rounded-md border border-zinc-200 text-sm">
+                    {preview.newContacts.map((c) => (
+                      <li key={`new-${c.row}-${c.email}`} className="px-3 py-2">
+                        <div className="flex justify-between gap-3">
+                          <span className="font-medium text-zinc-900">{c.name}</span>
+                          <span className="truncate text-zinc-500">{c.email}</span>
+                        </div>
+                        {c.otherEvents && c.otherEvents.length > 0 ? (
+                          <p className="mt-0.5 text-xs text-amber-700">
+                            Already registered for {c.otherEvents.join(", ")} — but not this event.
+                          </p>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                  {preview.truncatedNewContacts > 0 ? (
+                    <p className="pt-1 text-xs text-zinc-500">…and {preview.truncatedNewContacts} more.</p>
+                  ) : null}
+                </section>
               ) : null}
             </div>
 
             <div className="border-t border-zinc-200 bg-zinc-50 px-5 py-3">
               <p className="text-xs text-zinc-600">
-                {preview.alreadyRegistered} already registered will also be emailed
-                {preview.failed > 0 ? ` · ${preview.failed} row(s) will be skipped` : ""}.
+                {preview.sendable} contact{preview.sendable === 1 ? "" : "s"} in the file
+                {preview.failed > 0 ? ` · ${preview.failed} row(s) have errors and will be skipped` : ""}.
               </p>
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => runUpload(pendingCsv)}
                   className="rounded-md bg-brand-500 px-4 py-2 text-sm font-semibold text-zinc-900 hover:opacity-90"
                 >
-                  Yes, register and send
+                  {preview.alreadySent > 0 ? "Send to everyone" : "Yes, register and send"}
                 </button>
+                {preview.alreadySent > 0 && preview.sendable - preview.alreadySent > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => runUpload(pendingCsv, true)}
+                    className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-100"
+                  >
+                    Skip the {preview.alreadySent} already sent
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => {
@@ -476,41 +595,81 @@ export function ReconfirmSection({
                   <tr>
                     <th className="px-4 py-2.5 font-semibold">Name</th>
                     <th className="px-4 py-2.5 font-semibold">Email</th>
-                    <th className="px-4 py-2.5 font-semibold">Confirmation email sent</th>
+                    <th className="px-4 py-2.5 font-semibold">{roundLabel} email sent</th>
                     <th className="px-4 py-2.5 font-semibold">Status</th>
-                    <th className="px-4 py-2.5 font-semibold">Confirmed on</th>
+                    <th className="px-4 py-2.5 font-semibold">Response</th>
                     <th className="px-4 py-2.5 font-semibold">History</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
                   {visible.map((a) => {
-                    const r = getRound(a, round);
-                    const status = r.status;
+                    const status = getRound(a, round).status;
+                    const sends = getRoundSendTimes(a, round);
+                    const response = getRoundLatestResponse(a, round);
+                    const open = expandedId === a._id;
                     return (
-                      <tr key={a._id}>
-                        <td className="px-4 py-2.5 font-medium text-zinc-900">
-                          {`${a.firstName} ${a.surname}`.trim()}
-                        </td>
-                        <td className="px-4 py-2.5 text-zinc-700">{a.email}</td>
-                        <td className="px-4 py-2.5 whitespace-nowrap text-zinc-600">
-                          {formatWhen(r.emailSentAt as string | null)}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <span
-                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${attendanceRsvpBadgeClass(
-                              status
-                            )}`}
-                          >
-                            {confirmationStatusLabel(status)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 whitespace-nowrap text-zinc-600">
-                          {formatWhen(r.respondedAt as string | null)}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <ConfirmationHistoryChips registration={a} />
-                        </td>
-                      </tr>
+                      <Fragment key={a._id}>
+                        <tr
+                          onClick={() => setExpandedId(open ? null : a._id)}
+                          className="cursor-pointer align-top hover:bg-zinc-50"
+                        >
+                          <td className="px-4 py-2.5 font-medium text-zinc-900">
+                            <span className="inline-flex items-center gap-1.5">
+                              <span
+                                aria-hidden
+                                className={`inline-block text-zinc-400 transition-transform ${open ? "rotate-90" : ""}`}
+                              >
+                                ›
+                              </span>
+                              {`${a.firstName} ${a.surname}`.trim()}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-zinc-700">{a.email}</td>
+                          <td className="px-4 py-2.5 whitespace-nowrap text-zinc-600">
+                            {sends.length === 0 ? (
+                              "—"
+                            ) : (
+                              <>
+                                <div>{formatWhen(sends[0])}</div>
+                                {sends.slice(1).map((at) => (
+                                  <div key={at} className="text-xs text-zinc-500">
+                                    resent {formatWhen(at)}
+                                  </div>
+                                ))}
+                              </>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <span
+                              className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${attendanceRsvpBadgeClass(
+                                status
+                              )}`}
+                            >
+                              {confirmationStatusLabel(status)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-zinc-600">
+                            {response ? (
+                              <ResponseCell response={response} />
+                            ) : (
+                              <span className="text-zinc-400">No click yet</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <ConfirmationHistoryChips registration={a} />
+                          </td>
+                        </tr>
+                        {open ? (
+                          <tr className="bg-zinc-50">
+                            <td colSpan={6} className="px-6 py-4">
+                              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                                Activity timeline
+                              </p>
+                              <ConfirmationHistoryTimeline registration={a} />
+                            </td>
+                          </tr>
+                        ) : null}
+                      </Fragment>
                     );
                   })}
                 </tbody>

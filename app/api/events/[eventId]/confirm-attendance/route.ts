@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { formatEventDate, getEventTimeDisplay } from "@/lib/date-utils";
-import { FIRST_ROUND, getRound, isConfirmationRound } from "@/lib/confirmation-rounds";
+import {
+  FIRST_ROUND,
+  getRound,
+  isConfirmationRound,
+  isRepeatAnswer,
+} from "@/lib/confirmation-rounds";
+import { formatEventDropdownLabel } from "@/lib/event-option-label";
 import type { AttendanceRsvpIntent } from "@/lib/attendance-rsvp";
 import { getPublishedEventByParam } from "@/lib/models/Event";
 import {
@@ -103,7 +109,7 @@ export async function POST(
       return NextResponse.json({ error: resolved.error }, { status: resolved.status });
     }
 
-    const { reg } = resolved;
+    const { event, reg } = resolved;
     if (reg.email.trim().toLowerCase() !== email) {
       return NextResponse.json({ error: "Email does not match this registration" }, { status: 400 });
     }
@@ -111,7 +117,10 @@ export async function POST(
     const roundRaw = Number(body.round ?? FIRST_ROUND);
     const round = isConfirmationRound(roundRaw) ? roundRaw : FIRST_ROUND;
     const nextStatus = intentToStatus(intent);
-    if (reg.attendanceRsvpStatus === nextStatus) {
+    // Compare against the round being answered. Checking round 1 here used to
+    // discard a Reconfirm 2 "Yes" from anyone who had already said yes to
+    // Reconfirm, while telling them it had been saved.
+    if (isRepeatAnswer(reg, round, nextStatus)) {
       return NextResponse.json({
         success: true,
         attendanceRsvpStatus: nextStatus,
@@ -124,7 +133,10 @@ export async function POST(
       return NextResponse.json({ error: "Registration not found" }, { status: 404 });
     }
 
-    const ok = await setConfirmationRoundStatus(id, round, nextStatus);
+    const ok = await setConfirmationRoundStatus(id, round, nextStatus, {
+      eventId: event.eventId,
+      eventLabel: formatEventDropdownLabel(event),
+    });
     if (!ok) {
       return NextResponse.json({ error: "Unable to save your response" }, { status: 500 });
     }

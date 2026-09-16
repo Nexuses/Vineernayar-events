@@ -28,7 +28,8 @@ import {
   getRound,
   getEffectiveConfirmation,
   buildConfirmationTimeline,
-  formatConfirmationTimeline,
+  formatConfirmationActivity,
+  type ConfirmationActivity,
   confirmationStatusLabel,
   type ConfirmationRound,
 } from "@/lib/confirmation-rounds";
@@ -206,6 +207,7 @@ type RegistrationItem = {
   attendanceRsvpAt?: string | null;
   confirmationEmailSentAt?: string | null;
   confirmationRounds?: ConfirmationRound[] | null;
+  confirmationActivity?: ConfirmationActivity[] | null;
   createdAt: string;
   participationTimestamp?: string;
   waitlistEmailStatus?: string | null;
@@ -505,7 +507,7 @@ function registrationCsvColumns(): CsvColumn[] {
     // The whole history in one cell, so a single row tells the full story.
     {
       header: "Confirmation History",
-      value: (r) => formatConfirmationTimeline(r, (v) => dateCsv(v)),
+      value: (r) => formatConfirmationActivity(r, (v) => dateCsv(v)),
       hasData: (r) => buildConfirmationTimeline(r).length > 0,
     },
     { header: "Registered On", value: (r) => dateCsv(r.createdAt) },
