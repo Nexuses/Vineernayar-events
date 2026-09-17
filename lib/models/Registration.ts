@@ -358,13 +358,20 @@ async function seedLegacyActivity(id: ObjectId, round: number): Promise<void> {
 export async function markConfirmationEmailSent(
   id: ObjectId,
   round: number,
-  event: ActivityEventRef
+  event: ActivityEventRef,
+  sendId?: string
 ): Promise<void> {
   const col = await getRegistrationsCollection();
   const now = new Date();
   await seedLegacyActivity(id, round);
 
-  const activity: ConfirmationActivity = { type: "sent", round, at: now, ...event };
+  const activity: ConfirmationActivity = {
+    type: "sent",
+    round,
+    at: now,
+    ...event,
+    ...(sendId ? { sendId } : {}),
+  };
 
   if (round === FIRST_ROUND) {
     await col.updateOne(
@@ -400,7 +407,8 @@ export async function setConfirmationRoundStatus(
   id: string,
   round: number,
   status: ConfirmationRoundStatus,
-  event: ActivityEventRef
+  event: ActivityEventRef,
+  sendId?: string
 ): Promise<boolean> {
   const col = await getRegistrationsCollection();
   if (!ObjectId.isValid(id)) return false;
@@ -408,7 +416,14 @@ export async function setConfirmationRoundStatus(
   const now = new Date();
   await seedLegacyActivity(_id, round);
 
-  const activity: ConfirmationActivity = { type: "response", round, at: now, status, ...event };
+  const activity: ConfirmationActivity = {
+    type: "response",
+    round,
+    at: now,
+    status,
+    ...event,
+    ...(sendId ? { sendId } : {}),
+  };
 
   if (round === FIRST_ROUND) {
     const r = await col.updateOne(

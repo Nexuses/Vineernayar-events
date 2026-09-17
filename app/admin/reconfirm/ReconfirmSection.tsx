@@ -10,6 +10,7 @@ import {
   getRoundLatestResponse,
   getRoundSendTimes,
   confirmationStatusLabel,
+  formatTimeList,
   type ConfirmationActivity,
   type ConfirmationRound,
   type ConfirmationRoundStatus,
@@ -143,6 +144,12 @@ function ResponseCell({ response }: { response: ReturnType<typeof getRoundLatest
       {response.answeredEmailSentAt ? (
         <div className="text-xs text-zinc-500">
           on the email sent {formatWhen(response.answeredEmailSentAt)}
+        </div>
+      ) : response.attribution === "ambiguous" && response.candidateEmailSentAt?.length ? (
+        <div className="text-xs text-zinc-500">
+          on the email sent{" "}
+          {formatTimeList(response.candidateEmailSentAt.map((at) => formatWhen(at)))}
+          <span className="text-zinc-400"> · can&rsquo;t tell which</span>
         </div>
       ) : !response.recorded ? (
         <div className="text-xs text-amber-700">on an earlier email · send time overwritten</div>

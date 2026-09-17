@@ -44,6 +44,12 @@ export type ConfirmationActivity = {
   /** Response entries only: the button that was clicked. */
   status?: ConfirmationRoundStatus;
   /**
+   * Identifies one specific email. A sent entry stores the ID placed in that
+   * email's links; a response stores the ID from the link that was clicked.
+   * Absent on emails sent before per-email IDs existed.
+   */
+  sendId?: string;
+  /**
    * false when rebuilt from the summary fields kept before this log existed.
    * The timestamp is genuine, but earlier sends of that round may be missing.
    */
@@ -246,6 +252,13 @@ export function formatConfirmationTimeline(
     .join(" | ");
 }
 
+/** Shape of a per-email send ID as it appears in a link. */
+const SEND_ID_RE = /^[A-Za-z0-9_-]{8,32}$/;
+
+export function isSendId(value: unknown): value is string {
+  return typeof value === "string" && SEND_ID_RE.test(value);
+}
+
 /** Exact wording of the buttons in the confirmation email. */
 export const RESPONSE_BUTTON_LABELS: Record<Exclude<ConfirmationRoundStatus, "pending">, string> = {
   reconfirmed: "Yes, I'll be attending",
@@ -319,6 +332,16 @@ export type ConfirmationActivityEntry = {
   /** Response entries: which send of the round was answered (1, 2, …). */
   answeredSendNumber?: number | null;
   answeredSendNumberExact?: boolean;
+  /**
+   * Response entries: how the answered email was identified.
+   * - "exact": the clicked link carried that email's send ID
+   * - "only-email": only one email of this round had been sent by then
+   * - "ambiguous": several had, and the link did not say which
+   * - "unknown": no send on record before the click (pre-log data)
+   */
+  attribution?: "exact" | "only-email" | "ambiguous" | "unknown";
+  /** Ambiguous responses: send times of every email it could have come from. */
+  candidateEmailSentAt?: string[];
   recorded: boolean;
 };
 
@@ -357,6 +380,8 @@ export function buildConfirmationActivity(
 
   const sends = new Map<number, number>();
   const lastSend = new Map<number, { at: string; n: number; exact: boolean }>();
+  const sendsSoFar = new Map<number, { at: string; n: number; exact: boolean }[]>();
+  const bySendId = new Map<string, { round: number; at: string; n: number; exact: boolean }>();
   // Rounds where a click arrived with no send on record: an earlier send
   // existed but its time was overwritten, so counts from here are minimums.
   const unknownEarlierSend = new Set<number>();
@@ -389,11 +414,33 @@ export function buildConfirmationActivity(
       // A send following a click with no send on record cannot be the first.
       if (!exact && n === 1) n = 2;
       sends.set(a.round, n);
-      lastSend.set(a.round, { at, n, exact });
+      const send = { at, n, exact };
+      lastSend.set(a.round, send);
+      sendsSoFar.set(a.round, [...(sendsSoFar.get(a.round) ?? []), send]);
+      if (a.sendId) bySendId.set(a.sendId, { round: a.round, ...send });
       entries.push({ ...common, kind: "sent", sendNumber: n, sendNumberExact: exact });
     } else {
-      const answered = lastSend.get(a.round) ?? null;
-      if (!answered) unknownEarlierSend.add(a.round);
+      // Identical links make "the latest email before the click" a guess, and
+      // a wrong one whenever an older email is clicked after a resend. Only
+      // name an email when the link identified it, or it was the only one.
+      const earlier = sendsSoFar.get(a.round) ?? [];
+      const byId = a.sendId ? bySendId.get(a.sendId) : undefined;
+      let answered: { at: string; n: number; exact: boolean } | null = null;
+      let attribution: ConfirmationActivityEntry["attribution"];
+      let candidates: string[] | undefined;
+      if (byId && byId.round === a.round) {
+        answered = byId;
+        attribution = "exact";
+      } else if (earlier.length === 1) {
+        answered = earlier[0];
+        attribution = "only-email";
+      } else if (earlier.length > 1) {
+        attribution = "ambiguous";
+        candidates = earlier.map((e) => e.at);
+      } else {
+        attribution = "unknown";
+        unknownEarlierSend.add(a.round);
+      }
       entries.push({
         ...common,
         kind: "response",
@@ -401,6 +448,8 @@ export function buildConfirmationActivity(
         answeredEmailSentAt: answered?.at ?? null,
         answeredSendNumber: answered?.n ?? null,
         answeredSendNumberExact: answered?.exact ?? false,
+        attribution,
+        candidateEmailSentAt: candidates,
       });
     }
   }
@@ -424,6 +473,12 @@ export function getRoundLatestResponse(
     (e) => e.kind === "response" && e.round === round
   );
   return responses[responses.length - 1] ?? null;
+}
+
+/** "a", "a or b", "a, b or c" */
+export function formatTimeList(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  return `${items.slice(0, -1).join(", ")} or ${items[items.length - 1]}`;
 }
 
 function ordinal(n: number): string {
@@ -454,9 +509,13 @@ export function describeConfirmationActivity(
     e.status && e.status !== "pending" ? `"${RESPONSE_BUTTON_LABELS[e.status]}"` : "a response";
   const which = e.answeredEmailSentAt
     ? ` — on the ${e.roundLabel} email sent ${formatWhen(e.answeredEmailSentAt)}`
-    : e.recorded
-      ? ""
-      : ` — on an earlier ${e.roundLabel} email whose send time was later overwritten`;
+    : e.attribution === "ambiguous" && e.candidateEmailSentAt?.length
+      ? ` — on one of the ${e.roundLabel} emails sent ${formatTimeList(
+          e.candidateEmailSentAt.map((at) => formatWhen(at))
+        )} (these emails do not say which was clicked)`
+      : e.recorded
+        ? ""
+        : ` — on an earlier ${e.roundLabel} email whose send time was later overwritten`;
   return `Clicked ${button} in the ${e.roundLabel} email${forEvent}${which}`;
 }
 

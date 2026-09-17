@@ -18,11 +18,14 @@ export function ConfirmAttendanceForm({
   code,
   intent,
   round = 1,
+  sendId,
 }: {
   eventId: string;
   code: string;
   intent: AttendanceRsvpIntent;
   round?: number;
+  /** Which email this link came from. */
+  sendId?: string;
 }) {
   const [loaded, setLoaded] = useState<LoadedState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -86,6 +89,7 @@ export function ConfirmAttendanceForm({
           email: loaded.email,
           intent,
           round,
+          sendId,
         }),
       });
       const data = await res.json();
