@@ -5,6 +5,7 @@ import {
   getRound,
   isConfirmationRound,
   isRepeatAnswer,
+  isSendId,
 } from "@/lib/confirmation-rounds";
 import { formatEventDropdownLabel } from "@/lib/event-option-label";
 import type { AttendanceRsvpIntent } from "@/lib/attendance-rsvp";
@@ -133,10 +134,14 @@ export async function POST(
       return NextResponse.json({ error: "Registration not found" }, { status: 404 });
     }
 
-    const ok = await setConfirmationRoundStatus(id, round, nextStatus, {
-      eventId: event.eventId,
-      eventLabel: formatEventDropdownLabel(event),
-    });
+    const ok = await setConfirmationRoundStatus(
+      id,
+      round,
+      nextStatus,
+      { eventId: event.eventId, eventLabel: formatEventDropdownLabel(event) },
+      // Ignore anything that is not a well-formed send ID.
+      isSendId(body.sendId) ? body.sendId : undefined
+    );
     if (!ok) {
       return NextResponse.json({ error: "Unable to save your response" }, { status: 500 });
     }

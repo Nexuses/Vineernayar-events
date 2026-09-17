@@ -5,6 +5,7 @@ import {
   buildConfirmationActivity,
   buildConfirmationTimeline,
   confirmationChipLabel,
+  formatTimeList,
   type ConfirmationActivityEntry,
   type ConfirmationTimelineEntry,
   type RoundBearingRegistration,
@@ -188,7 +189,15 @@ export function ConfirmationHistoryTimeline({
                   </>
                 ) : null}
               </p>
-              {!entry.answeredEmailSentAt && !entry.recorded ? (
+              {entry.attribution === "ambiguous" && entry.candidateEmailSentAt?.length ? (
+                <p className="mt-1 rounded bg-zinc-100 px-2 py-1 text-xs text-zinc-700">
+                  Came from one of the {entry.roundLabel} emails sent{" "}
+                  {formatTimeList(entry.candidateEmailSentAt.map((at) => formatWhen(at)))}. These
+                  emails were sent before each email carried its own ID, so the click cannot say
+                  which one was opened.
+                </p>
+              ) : null}
+              {entry.attribution === "unknown" && !entry.recorded ? (
                 <p className="mt-1 rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">
                   This click came from an earlier {entry.roundLabel} email. That send&rsquo;s time was
                   overwritten when the contact was uploaded again, before send history was kept.

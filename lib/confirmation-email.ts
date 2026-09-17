@@ -1,5 +1,7 @@
 import "server-only";
 
+import { randomBytes } from "crypto";
+
 import { sendBlastEmail } from "@/lib/email-blast";
 import { isMailConfigured } from "@/lib/mail";
 import { getEventPublicPath } from "@/lib/event-path";
@@ -17,29 +19,40 @@ function buildRsvpUrl(
   event: EventDoc,
   uniqueCode: string,
   intent: "attending" | "declined",
-  round: number
+  round: number,
+  sendId?: string
 ): string {
   const base = toAbsolutePublicUrl(getEventPublicPath(event));
   const params = new URLSearchParams({ code: uniqueCode, intent });
   // Round 1 links stay clean, so existing links keep working unchanged.
   if (round !== FIRST_ROUND) params.set("round", String(round));
+  // Identifies this particular email, so a click after a resend is credited
+  // to the email that was actually clicked.
+  if (sendId) params.set("s", sendId);
   return `${base}/confirm-attendance?${params.toString()}`;
+}
+
+/** A fresh ID for one confirmation email; it goes in that email's links. */
+export function newConfirmationSendId(): string {
+  return randomBytes(9).toString("base64url");
 }
 
 export function buildConfirmAttendingUrl(
   event: EventDoc,
   uniqueCode: string,
-  round: number = FIRST_ROUND
+  round: number = FIRST_ROUND,
+  sendId?: string
 ): string {
-  return buildRsvpUrl(event, uniqueCode, "attending", round);
+  return buildRsvpUrl(event, uniqueCode, "attending", round, sendId);
 }
 
 export function buildConfirmDeclinedUrl(
   event: EventDoc,
   uniqueCode: string,
-  round: number = FIRST_ROUND
+  round: number = FIRST_ROUND,
+  sendId?: string
 ): string {
-  return buildRsvpUrl(event, uniqueCode, "declined", round);
+  return buildRsvpUrl(event, uniqueCode, "declined", round, sendId);
 }
 
 /** Template key for a round: round 1 uses "reconfirm", later rounds "reconfirm_N". */
@@ -61,13 +74,14 @@ export function buildConfirmationHtml(
   event: EventDoc,
   reg: Pick<RegistrationDoc, "firstName" | "surname" | "uniqueCode">,
   bodyHtml?: string | null,
-  round: number = FIRST_ROUND
+  round: number = FIRST_ROUND,
+  sendId?: string
 ): string {
   const vars = buildReconfirmVars(event, reg);
   return buildReconfirmHtml(
     vars,
-    buildConfirmAttendingUrl(event, reg.uniqueCode, round),
-    buildConfirmDeclinedUrl(event, reg.uniqueCode, round),
+    buildConfirmAttendingUrl(event, reg.uniqueCode, round, sendId),
+    buildConfirmDeclinedUrl(event, reg.uniqueCode, round, sendId),
     bodyHtml
   );
 }
@@ -76,7 +90,8 @@ export function buildConfirmationHtml(
 export async function sendConfirmationEmail(
   event: EventDoc,
   reg: RegistrationDoc,
-  round: number = FIRST_ROUND
+  round: number = FIRST_ROUND,
+  sendId?: string
 ): Promise<void> {
   if (!isMailConfigured()) {
     throw new Error("Email is not configured");
@@ -93,6 +108,6 @@ export async function sendConfirmationEmail(
     to: reg.email,
     toName: `${reg.firstName} ${reg.surname}`.trim(),
     subject,
-    html: buildConfirmationHtml(event, reg, override?.html, round),
+    html: buildConfirmationHtml(event, reg, override?.html, round, sendId),
   });
 }

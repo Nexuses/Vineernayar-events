@@ -7,7 +7,7 @@ import {
   markConfirmationEmailSent,
   type RegistrationDoc,
 } from "@/lib/models/Registration";
-import { sendConfirmationEmail } from "@/lib/confirmation-email";
+import { newConfirmationSendId, sendConfirmationEmail } from "@/lib/confirmation-email";
 import { normalizePhoneForOtp } from "@/lib/otp-store";
 import {
   REGISTRATION_FIELD_LIMITS,
@@ -285,10 +285,11 @@ export async function POST(request: Request) {
 
       // Every contact in the file is sent the confirmation email.
       try {
-        await sendConfirmationEmail(event, reg, round);
+        const sendId = newConfirmationSendId();
+        await sendConfirmationEmail(event, reg, round, sendId);
         emailed += 1;
         if (reg._id) {
-          await markConfirmationEmailSent(reg._id, round, eventRef);
+          await markConfirmationEmailSent(reg._id, round, eventRef, sendId);
         }
       } catch (err) {
         console.error(`Confirmation email failed for ${row.email}:`, err);

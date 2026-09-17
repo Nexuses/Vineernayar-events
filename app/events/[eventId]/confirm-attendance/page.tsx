@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getPublishedEventByParam } from "@/lib/models/Event";
 import { getCanonicalEventPathIfNeeded, getEventPublicSlug } from "@/lib/event-path";
 import type { AttendanceRsvpIntent } from "@/lib/attendance-rsvp";
+import { isSendId } from "@/lib/confirmation-rounds";
 import { ConfirmAttendanceForm } from "./ConfirmAttendanceForm";
 
 export const dynamic = "force-dynamic";
@@ -17,10 +18,10 @@ export default async function ConfirmAttendancePage({
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ code?: string; intent?: string; round?: string }>;
+  searchParams: Promise<{ code?: string; intent?: string; round?: string; s?: string }>;
 }) {
   const { eventId: param } = await params;
-  const { code = "", intent: intentRaw, round: roundRaw } = await searchParams;
+  const { code = "", intent: intentRaw, round: roundRaw, s: sendIdRaw } = await searchParams;
   const intent = parseIntent(intentRaw);
 
   const event = await getPublishedEventByParam(param);
@@ -32,6 +33,8 @@ export default async function ConfirmAttendancePage({
     if (code) qs.set("code", code);
     if (intentRaw) qs.set("intent", intentRaw);
     if (roundRaw) qs.set("round", roundRaw);
+    // Keep the email's send ID through the redirect, or the click loses it.
+    if (sendIdRaw) qs.set("s", sendIdRaw);
     const query = qs.toString();
     redirect(query ? `${canonicalPath}?${query}` : canonicalPath);
   }
@@ -56,6 +59,7 @@ export default async function ConfirmAttendancePage({
         code={code.trim()}
         intent={intent}
         round={Number(roundRaw) || 1}
+        sendId={isSendId(sendIdRaw) ? sendIdRaw : undefined}
       />
     </div>
   );
